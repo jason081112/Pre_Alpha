@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# 密钥与本地数据（绝不入库）
+.env
+*.key
+*.token
+everos.toml
+*.sqlite
+*.db
+*.db-wal
+*.db-shm
+
+# 聊天记录原始数据（隐私红线）
+raw_chats/
+tests/fixtures/raw/
+*.wechat.db
+*_export.json
+
+# 系统
+.DS_Store
+Thumbs.db
