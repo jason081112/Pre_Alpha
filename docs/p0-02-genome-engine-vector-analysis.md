@@ -2,6 +2,8 @@
 
 > 阶段：P0 调研验证 · 任务：读 `engine/genome/genome_engine.py`：25D→24D→8D 输入向量构成，哪些维度可被外部种子影响
 
+> ⚠️ **环境假设已修订（2026-10-19）**：文中"可在 Termux 直接跑"属当时的开发环境假设；部署形态已改为**引擎云端运行、Web/PWA 优先**（见 [`adr/0001-deployment-cloud-web-first.md`](adr/0001-deployment-cloud-web-first.md)）。**代码层结论不受影响。**
+
 ## 一、向量构成：25D → 24D → 8D
 
 `engine/genome/genome_engine.py` 第 84–85 行：

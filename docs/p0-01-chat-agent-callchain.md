@@ -2,6 +2,8 @@
 
 > 阶段：P0 调研验证 · 任务：通读 `agent/chat_agent.py`，画出一轮对话的完整调用链，确定 SOUL.md / SHELL.md 与 prompt 的关系（决定 P3 桥接层 `profile2soul.py` 怎么写）
 
+> ⚠️ **环境假设已修订（2026-10-19）**：文中"可在 Termux 直接跑"属当时的开发环境假设；部署形态已改为**引擎云端运行、Web/PWA 优先**（见 [`adr/0001-deployment-cloud-web-first.md`](adr/0001-deployment-cloud-web-first.md)）。**代码层结论不受影响。**
+
 ## 一、一轮对话完整调用链
 
 入口：`main.py` → `WebSocket /ws/chat` 或 `REST /api/chat` → `get_or_create_session()`（首次创建 `ChatAgent`，含 `pre_warm()`） → `ChatAgent.chat()` → `ChatAgent._chat_inner()`：

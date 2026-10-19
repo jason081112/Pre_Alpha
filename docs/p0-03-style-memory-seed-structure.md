@@ -2,6 +2,8 @@
 
 > 阶段：P0 调研验证 · 任务：读 `style_memory.py` + `persona/store.py` + `seeds.bin`：风格种子数据结构与写入 API
 
+> ⚠️ **环境假设已修订（2026-10-19）**：文中"可在 Termux 直接跑"属当时的开发环境假设；部署形态已改为**引擎云端运行、Web/PWA 优先**（见 [`adr/0001-deployment-cloud-web-first.md`](adr/0001-deployment-cloud-web-first.md)）。**代码层结论不受影响。**
+
 ## 一、ContinuousStyleMemory（`engine/genome/style_memory.py`）
 
 ### 核心设计

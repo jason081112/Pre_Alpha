@@ -3,6 +3,8 @@
 > 阶段：P0 调研验证 · 任务 P0-8：LLM provider 选型与连通性实测（gemini 免费档 / openrouter 免费模型 / ollama 本地）  
 > 阶段：P0 调研验证 · 任务 P0-9：许可证核对（OpenHer Apache-2.0 + Distilly MIT → 本仓库 Apache-2.0 + THIRD_PARTY_NOTICES）
 
+> ⚠️ **本文结论已于 2026-10-19 修订**：LLM provider 从「单一 OpenRouter」改为**多 provider + BYOK 双轨**。正文保留原记录，修订内容见文末「结论修订」。
+
 ---
 
 ## P0-8 · LLM provider 选型与连通性实测

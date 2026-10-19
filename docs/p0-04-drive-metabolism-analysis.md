@@ -2,6 +2,8 @@
 
 > 阶段：P0 调研验证 · 任务：读 `drive_metabolism.py`：5 维驱力代谢函数，`phase_threshold` / `temp_coeff` 语义
 
+> ⚠️ **环境假设已修订（2026-10-19）**：文中"可在 Termux 直接跑"属当时的开发环境假设；部署形态已改为**引擎云端运行、Web/PWA 优先**（见 [`adr/0001-deployment-cloud-web-first.md`](adr/0001-deployment-cloud-web-first.md)）。**代码层结论不受影响。**
+
 ## 一、DriveMetabolism 核心设计
 
 `engine/genome/drive_metabolism.py` —— 时间感知的驱力代谢引擎 v3，基于两个纯物理时间方程：
