@@ -100,3 +100,22 @@ OPENAI_BASE_URL=https://openrouter.ai/api/v1
 P1（后端跑通）和 P2（前端跑通）需要 OpenAI-compatible LLM Key 才能真正跑通对话。如果你有免费 Key（如 OpenRouter），可以直接进入 P1；否则 P3 桥接层设计可以先不依赖实际 LLM 调用，纯基于代码规格进行。
 
 建议下一步：**直接开始 P3 桥接层 `profile2soul.py` 数据模型 + 映射启发式 v1**，这是项目的核心创新点，不依赖 LLM Key 即可开工。
+
+---
+
+## 结论修订（2026-10-19）
+
+**产品化定位：LLM provider 从"选一个"改为"多 provider + BYOK 双轨"。**
+
+原结论是"P1 主推 OpenRouter 单一 provider"。产品面向 C 端用户后，推理成本与隐私需要分层，故修订为：
+
+| 原结论 | 修订后 |
+|---|---|
+| 选 OpenRouter 一个 provider | **支持多 provider**（统一走 OpenAI 兼容接口），平台可切换 |
+| 平台统一用免费模型跑通 | **双轨计费**：① 平台 Key（免费额度 / 付费订阅）；② **BYOK**（用户自带 Key，加密存储，免订阅）|
+
+**连通性实测结论仍然有效**（github 慢、openrouter 通 ~2.6s、gemini 不可用、ollama 未装），作为 P1 选 provider 的基线。
+
+**接入形态**：平台 Key 与 BYOK 都通过 OpenHer 的 OpenAI 兼容 provider 接入；产品侧需要一个 **Key 管理层**（加密存储用户 Key、按用户选择路由）。
+
+**成本 / 隐私说明**：平台 Key 模式推理成本由平台承担 → 靠订阅或额度覆盖；BYOK 把成本转移给用户。二者并存。
