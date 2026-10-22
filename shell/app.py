@@ -31,6 +31,8 @@ if str(VENDOR) not in sys.path:
 import main as upstream  # noqa: E402  （必须在 chdir 之后）
 
 from shell.api import build_router  # noqa: E402
+from shell.crypto import SecretBox  # noqa: E402
+from shell.custom import CustomProviderStore  # noqa: E402
 from shell.providers import Registry, Route, RouteError  # noqa: E402
 from shell.routing import (  # noqa: E402
     RoutingLLMClient,
@@ -40,14 +42,16 @@ from shell.routing import (  # noqa: E402
 )
 from shell.store import RoutingStore  # noqa: E402
 
-DB_PATH = Path(os.getenv("ALPHA_ROUTING_DB", str(ROOT / ".data" / "routing.db")))
+DATA_DIR = Path(os.getenv("ALPHA_DATA_DIR", str(ROOT / ".data")))
+DB_PATH = Path(os.getenv("ALPHA_ROUTING_DB", str(DATA_DIR / "routing.db")))
 
 registry = Registry.load()
 store = RoutingStore(DB_PATH)
-routing_client = RoutingLLMClient(registry=registry)
+custom_store = CustomProviderStore(DB_PATH, SecretBox.from_env(DATA_DIR))
+routing_client = RoutingLLMClient(registry=registry, custom_store=custom_store)
 
 app = upstream.app
-app.include_router(build_router(registry, store))
+app.include_router(build_router(registry, store, custom_store))
 
 
 def _dev_route() -> Route | None:
@@ -94,7 +98,7 @@ class AlphaMiddleware:
             await self._route_not_configured(scope, receive, send, user)
             return
 
-        with routing_context(route, fallback):
+        with routing_context(route, fallback, user=user):
             if path == "/api/chat":
                 await self._with_observability(scope, receive, send)
             else:
@@ -180,6 +184,7 @@ async def _install_routing_client() -> None:
 @app.on_event("shutdown")
 async def _close_store() -> None:
     store.close()
+    custom_store.close()
 
 
 if __name__ == "__main__":

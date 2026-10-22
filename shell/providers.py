@@ -53,9 +53,15 @@ class ProviderSpec:
     api_key_env: str
     models: tuple[str, ...]
     caps: tuple[str, ...]
+    api_key: str = ""
+    has_key: bool | None = None
 
     def available(self) -> bool:
         """当前进程是否具备调用条件（只看 Key 是否存在）。"""
+        if self.api_key:
+            return True
+        if self.has_key is not None:
+            return self.has_key
         if not self.api_key_env:
             return True
         return bool(os.getenv(self.api_key_env, "").strip())

@@ -110,22 +110,72 @@ alpha route show
 
 响应头同时带 `X-Alpha-Route`。
 
+## 用户自定义 provider
+
+除了平台清单，用户可以用任意 OpenAI 兼容端点：
+
+```bash
+curl -X POST http://localhost:8000/api/me/providers \
+  -H 'Content-Type: application/json' \
+  -H 'X-Alpha-User: local' \
+  -d '{
+    "label": "我的中转",
+    "base_url": "https://relay.example.com/v1",
+    "api_key": "sk-xxx",
+    "models": ["gpt-x"]
+  }'
+```
+
+返回 `id`（形如 `custom-a1b2c3d4`），之后就能像平台模型一样写入路由：
+
+```bash
+curl -X PUT http://localhost:8000/api/me/routing \
+  -H 'Content-Type: application/json' \
+  -d '{"provider":"custom-a1b2c3d4","model":"gpt-x","fallback":[]}'
+```
+
+### 存储与加密
+
+表 `user_provider`，Key 用 AES-GCM 加密后落库：
+
+- 主密钥来自 `ALPHA_MASTER_KEY`（64 位 hex / base64 32B / 任意口令派生）
+- 未设置时自动生成 `.data/master.key`（0600）
+- 列表接口只返回 `has_key`，永远不回显 Key
+
+### 安全规则
+
+- 只接受 http/https；非本机地址必须 https
+- 拒绝 URL 内嵌账号密码
+- 拒绝字面量内网 IP；创建时做 DNS 解析，域名指向内网直接拒绝
+- 本机地址（localhost / 127.0.0.1 / ::1）放行，方便本地 Ollama
+- 内网调试可设 `ALPHA_ALLOW_PRIVATE_PROVIDERS=1`
+
+### 连通性检查
+
+创建时默认请求 `{base_url}/models`：
+
+- 401/403 → 拒绝保存
+- 其他状态码 → 允许保存（部分服务不实现 /models）
+- 可传 `"probe": false` 跳过
+
 ## 测试
 
 零依赖，可直接在 Termux 跑：
 
 ```bash
-python3 tests/test_routing.py   # 11 项
+python3 tests/test_routing.py          # 11 项
+python3 tests/test_custom_provider.py  # 6 项
 python3 tests/test_smoke.py
 ```
 
 覆盖：路由解析、注册表校验、SQLite 读写、错误分类、超时降级、
-401 不降级、全失败、首 token 前降级、吐字后不降级、并发隔离。
+401 不降级、全失败、首 token 前降级、吐字后不降级、并发隔离、
+自定义 provider 加密存取、用户隔离、URL/SSRF 校验。
 
 ## 已知限制
 
 - 认证尚未接入（#66），当前用 `X-Alpha-User` 头
-- 模型清单是静态的，后续可加 `/models` 自动刷新
+- 平台模型清单是静态的，后续可加 `/models` 自动刷新
 - 配额与计费未接（#67）
-- BYOK Key 尚未加密存储（#71），当前仅平台 Key
 - 上游 startup 需要至少一个可用的默认 Key
+- 自定义 provider 目前只支持 OpenAI 兼容协议

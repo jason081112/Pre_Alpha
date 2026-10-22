@@ -25,6 +25,8 @@ def test_packages_import() -> None:
         "cli",
         "cli.main",
         "shell",
+        "shell.crypto",
+        "shell.custom",
         "shell.providers",
         "shell.routing",
         "shell.store",

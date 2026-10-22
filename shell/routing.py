@@ -19,6 +19,7 @@ from typing import Any, AsyncIterator, Callable, Iterator, Sequence
 from .providers import ProviderSpec, Registry, Route, RouteError
 
 # ── 请求级状态 ────────────────────────────────────────────────
+current_user: ContextVar[str] = ContextVar("alpha_current_user", default="local")
 current_route: ContextVar[Route | None] = ContextVar("alpha_current_route", default=None)
 fallback_routes: ContextVar[tuple[Route, ...]] = ContextVar("alpha_fallback_routes", default=())
 attempts: ContextVar[tuple[dict, ...]] = ContextVar("alpha_attempts", default=())
@@ -41,8 +42,13 @@ class AllProvidersFailed(RuntimeError):
 
 
 @contextmanager
-def routing_context(route: Route | None, fallback: Sequence[Route] = ()) -> Iterator[None]:
+def routing_context(
+    route: Route | None,
+    fallback: Sequence[Route] = (),
+    user: str = "local",
+) -> Iterator[None]:
     """为一个请求设置路由上下文，退出时恢复。"""
+    token_user = current_user.set(user)
     token_route = current_route.set(route)
     token_fallback = fallback_routes.set(tuple(fallback))
     token_attempts = attempts.set(())
@@ -50,6 +56,7 @@ def routing_context(route: Route | None, fallback: Sequence[Route] = ()) -> Iter
     try:
         yield
     finally:
+        current_user.reset(token_user)
         current_route.reset(token_route)
         fallback_routes.reset(token_fallback)
         attempts.reset(token_attempts)
@@ -114,6 +121,7 @@ def default_client_factory(spec: ProviderSpec, route: Route, temperature: float,
     return LLMClient(
         provider=spec.upstream,
         model=route.model,
+        api_key=spec.api_key or None,
         base_url=spec.base_url or None,
         temperature=temperature,
         max_tokens=max_tokens,
@@ -153,8 +161,10 @@ class RoutingLLMClient:
         temperature: float = 0.92,
         max_tokens: int = 1024,
         max_cached_clients: int = 32,
+        custom_store: Any = None,
     ):
         self.registry = registry
+        self.custom_store = custom_store
         self._factory = client_factory or default_client_factory
         self.timeout = timeout
         self.first_token_timeout = first_token_timeout
@@ -187,9 +197,28 @@ class RoutingLLMClient:
                 chain.append(route)
         return tuple(chain)
 
+    def _spec(self, route: Route) -> ProviderSpec:
+        """平台 provider 查注册表；custom-* 查当前用户的自定义 provider。"""
+        if self.custom_store is not None and route.provider.startswith("custom-"):
+            provider = self.custom_store.get(
+                route.provider, current_user.get(), decrypt=True
+            )
+            if provider is None:
+                raise RouteError(f"自定义 provider 不存在: {route.provider}")
+            return provider.to_spec()
+        return self.registry.get(route.provider)
+
     def _client(self, route: Route) -> Any:
-        spec = self.registry.get(route.provider)
-        key = (route.provider, route.model, spec.base_url)
+        spec = self._spec(route)
+        import hashlib
+
+        key = (
+            current_user.get(),
+            route.provider,
+            route.model,
+            spec.base_url,
+            hashlib.sha256(spec.api_key.encode()).hexdigest()[:12],
+        )
         client = self._clients.get(key)
         if client is None:
             client = self._factory(spec, route, self.temperature, self.max_tokens)
