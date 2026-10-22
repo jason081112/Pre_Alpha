@@ -24,6 +24,11 @@ from .providers import ProviderSpec
 
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
+
+def _aad(user_id: str, provider_id: str) -> str:
+    """把密文绑定到具体用户与 provider，防止行间搬运。"""
+    return f"{user_id}:{provider_id}"
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS user_provider (
     id           TEXT PRIMARY KEY,
@@ -149,7 +154,13 @@ class CustomProviderStore:
             caps=tuple(json.loads(row["caps_json"] or "[]")),
             api_key_enc=row["api_key_enc"],
             created_at=row["created_at"],
-            api_key=self._cipher.decrypt(row["api_key_enc"]) if decrypt else "",
+            api_key=(
+                self._cipher.decrypt(
+                    row["api_key_enc"], _aad(row["user_id"], row["id"])
+                )
+                if decrypt
+                else ""
+            ),
         )
 
     def add(
@@ -181,7 +192,9 @@ class CustomProviderStore:
                     user_id,
                     label.strip(),
                     url,
-                    self._cipher.encrypt(api_key.strip()),
+                    self._cipher.encrypt(
+                        api_key.strip(), _aad(user_id, provider_id)
+                    ),
                     json.dumps(models_clean, ensure_ascii=False),
                     json.dumps(list(caps), ensure_ascii=False),
                     now,

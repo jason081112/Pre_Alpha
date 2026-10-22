@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -21,14 +22,17 @@ from shell.store import RoutingStore  # noqa: E402
 
 
 class FakeCipher:
-    """不依赖 cryptography 的测试替身。"""
+    """不依赖 cryptography 的测试替身（带 AAD 绑定）。"""
 
-    def encrypt(self, value: str) -> str:
-        return "enc:" + value[::-1]
+    def encrypt(self, value: str, aad: str = "") -> str:
+        return "enc:" + aad + "|" + value[::-1]
 
-    def decrypt(self, token: str) -> str:
+    def decrypt(self, token: str, aad: str = "") -> str:
         assert token.startswith("enc:")
-        return token[4:][::-1]
+        stored_aad, _, payload = token[4:].partition("|")
+        if stored_aad != aad:
+            raise ValueError("AAD 不匹配")
+        return payload[::-1]
 
 
 class RecorderClient:
@@ -159,6 +163,40 @@ def test_routing_store_can_reference_custom_id() -> None:
     assert record is not None and record.route.provider == provider.id
     routing.close()
     custom.close()
+
+
+def test_ciphertext_cannot_be_swapped_between_rows() -> None:
+    store = CustomProviderStore(":memory:", FakeCipher())
+    first = store.add("u1", "a", "https://a.example.com/v1", "sk-a", ["m"])
+    second = store.add("u1", "b", "https://b.example.com/v1", "sk-b", ["m"])
+
+    with store._lock:
+        store._conn.execute(
+            "UPDATE user_provider SET api_key_enc = ? WHERE id = ?",
+            (second.api_key_enc, first.id),
+        )
+        store._conn.commit()
+
+    try:
+        store.get(first.id, "u1", decrypt=True)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("密文搬运应被 AAD 拒绝")
+    store.close()
+
+
+def test_master_key_passphrase_is_stable() -> None:
+    from shell.crypto import load_master_key
+
+    data_dir = Path(tempfile.mkdtemp())
+    os.environ["ALPHA_MASTER_KEY"] = "correct horse battery staple"
+    try:
+        first = load_master_key(data_dir)
+        second = load_master_key(data_dir)
+    finally:
+        os.environ.pop("ALPHA_MASTER_KEY", None)
+    assert first == second and len(first) == 32
 
 
 if __name__ == "__main__":
