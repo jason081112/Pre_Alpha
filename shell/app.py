@@ -1,0 +1,192 @@
+"""Alpha 外壳入口：import 上游 app，挂路由中间件与配置 API。
+
+启动方式（在仓库根目录）：
+    python -m shell.app
+或：
+    uvicorn shell.app:app --host 0.0.0.0 --port 8000
+
+前提：vendor/OpenHer 已安装依赖，且 .env 至少有一个可用 provider 的 Key
+（上游 startup 会先创建一次默认客户端，随后被 RoutingLLMClient 替换）。
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+VENDOR = ROOT / "vendor" / "OpenHer"
+
+if not VENDOR.is_dir():
+    raise RuntimeError(f"找不到上游代码: {VENDOR}")
+
+# 上游用 load_dotenv() 相对 cwd 找 .env，因此先切到 vendor 目录
+os.chdir(VENDOR)
+if str(VENDOR) not in sys.path:
+    sys.path.insert(0, str(VENDOR))
+
+import main as upstream  # noqa: E402  （必须在 chdir 之后）
+
+from shell.api import build_router  # noqa: E402
+from shell.providers import Registry, Route, RouteError  # noqa: E402
+from shell.routing import (  # noqa: E402
+    RoutingLLMClient,
+    attempts as routing_attempts,
+    route_used,
+    routing_context,
+)
+from shell.store import RoutingStore  # noqa: E402
+
+DB_PATH = Path(os.getenv("ALPHA_ROUTING_DB", str(ROOT / ".data" / "routing.db")))
+
+registry = Registry.load()
+store = RoutingStore(DB_PATH)
+routing_client = RoutingLLMClient(registry=registry)
+
+app = upstream.app
+app.include_router(build_router(registry, store))
+
+
+def _dev_route() -> Route | None:
+    raw = os.getenv("ALPHA_DEV_ROUTE", "").strip()
+    if not raw:
+        return None
+    try:
+        return Route.parse(raw)
+    except RouteError as exc:
+        print(f"⚠️  ALPHA_DEV_ROUTE 无效: {exc}")
+        return None
+
+
+DEV_ROUTE = _dev_route()
+
+
+def _user_of(scope: dict) -> str:
+    for key, value in scope.get("headers") or []:
+        if key.lower() == b"x-alpha-user":
+            user = value.decode("latin-1").strip()
+            if user:
+                return user
+    return "local"
+
+
+class AlphaMiddleware:
+    """按请求解析路由，注入 contextvar；为 /api/chat 补充可观测字段。"""
+
+    def __init__(self, asgi_app):
+        self.app = asgi_app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        path = scope.get("path", "")
+        user = _user_of(scope)
+        record = store.get(user)
+        route = record.route if record else DEV_ROUTE
+        fallback = record.fallback if record else ()
+
+        if path == "/api/chat" and route is None:
+            await self._route_not_configured(scope, receive, send, user)
+            return
+
+        with routing_context(route, fallback):
+            if path == "/api/chat":
+                await self._with_observability(scope, receive, send)
+            else:
+                await self.app(scope, receive, send)
+
+    @staticmethod
+    async def _route_not_configured(scope, receive, send, user: str) -> None:
+        from starlette.responses import JSONResponse
+
+        response = JSONResponse(
+            status_code=409,
+            content={
+                "error": "route_not_configured",
+                "action": "open_model_picker",
+                "detail": f"用户 {user!r} 尚未选择模型",
+            },
+        )
+        await response(scope, receive, send)
+
+    async def _with_observability(self, scope, receive, send) -> None:
+        """缓冲 /api/chat 的 JSON 响应，追加 route_used / fallback_attempts / latency_ms。"""
+        started = time.monotonic()
+        start_message: dict | None = None
+        chunks: list[bytes] = []
+
+        async def send_wrapper(message: dict) -> None:
+            nonlocal start_message
+
+            if message["type"] == "http.response.start":
+                start_message = message
+                return
+
+            if message["type"] == "http.response.body":
+                chunks.append(message.get("body", b""))
+                if message.get("more_body", False):
+                    return
+
+                assert start_message is not None
+                body = b"".join(chunks)
+                headers = [
+                    (k, v)
+                    for k, v in start_message.get("headers", [])
+                    if k.lower() != b"content-length"
+                ]
+
+                if start_message["status"] == 200:
+                    try:
+                        payload = json.loads(body)
+                    except (ValueError, UnicodeDecodeError):
+                        payload = None
+                    if isinstance(payload, dict):
+                        used = route_used.get()
+                        if used is not None:
+                            payload["route_used"] = used.as_str()
+                            headers.append((b"x-alpha-route", used.as_str().encode()))
+                        payload["fallback_attempts"] = list(routing_attempts.get())
+                        payload["latency_ms"] = int((time.monotonic() - started) * 1000)
+                        body = json.dumps(payload, ensure_ascii=False).encode()
+
+                headers.append((b"content-length", str(len(body)).encode()))
+                await send({**start_message, "headers": headers})
+                await send({"type": "http.response.body", "body": body})
+                return
+
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
+
+
+app.add_middleware(AlphaMiddleware)
+
+
+@app.on_event("startup")
+async def _install_routing_client() -> None:
+    """上游 startup 创建完全局 llm_client 之后执行，替换为路由门面。"""
+    upstream.llm_client = routing_client
+    print(
+        f"✓ Alpha 路由已接管: {len(list(registry.specs()))} 个 provider, "
+        f"dev_route={DEV_ROUTE or '未设置'}"
+    )
+
+
+@app.on_event("shutdown")
+async def _close_store() -> None:
+    store.close()
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        app,
+        host=os.getenv("ALPHA_HOST", "0.0.0.0"),
+        port=int(os.getenv("ALPHA_PORT", "8000")),
+    )

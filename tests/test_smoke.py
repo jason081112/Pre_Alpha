@@ -19,7 +19,16 @@ if str(ROOT) not in sys.path:
 
 
 def test_packages_import() -> None:
-    for mod in ("bridge", "bridge.profile2soul", "cli", "cli.main"):
+    for mod in (
+        "bridge",
+        "bridge.profile2soul",
+        "cli",
+        "cli.main",
+        "shell",
+        "shell.providers",
+        "shell.routing",
+        "shell.store",
+    ):
         importlib.import_module(mod)
 
 
