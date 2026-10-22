@@ -21,6 +21,7 @@ from .providers import ProviderSpec, Registry, Route, RouteError
 # ── 请求级状态 ────────────────────────────────────────────────
 current_user: ContextVar[str] = ContextVar("alpha_current_user", default="local")
 current_route: ContextVar[Route | None] = ContextVar("alpha_current_route", default=None)
+last_usage: ContextVar[dict | None] = ContextVar("alpha_last_usage", default=None)
 fallback_routes: ContextVar[tuple[Route, ...]] = ContextVar("alpha_fallback_routes", default=())
 attempts: ContextVar[tuple[dict, ...]] = ContextVar("alpha_attempts", default=())
 route_used: ContextVar[Route | None] = ContextVar("alpha_route_used", default=None)
@@ -53,6 +54,7 @@ def routing_context(
     token_fallback = fallback_routes.set(tuple(fallback))
     token_attempts = attempts.set(())
     token_used = route_used.set(None)
+    token_usage = last_usage.set(None)
     try:
         yield
     finally:
@@ -61,6 +63,7 @@ def routing_context(
         fallback_routes.reset(token_fallback)
         attempts.reset(token_attempts)
         route_used.reset(token_used)
+        last_usage.reset(token_usage)
 
 
 def clear_attempts() -> None:
@@ -281,6 +284,9 @@ class RoutingLLMClient:
             records.append(self._record(route, started, True))
             self._store(records)
             route_used.set(route)
+            usage = getattr(result, "usage", None)
+            if isinstance(usage, dict):
+                last_usage.set(usage)
             return result
 
         raise AllProvidersFailed([r.as_dict() for r in records])  # pragma: no cover

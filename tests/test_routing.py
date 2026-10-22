@@ -23,6 +23,7 @@ from shell.routing import (  # noqa: E402
     RouteNotConfigured,
     RoutingLLMClient,
     attempts,
+    last_usage,
     route_used,
     routing_context,
     should_fallback,
@@ -252,6 +253,30 @@ def test_concurrent_routes_do_not_leak() -> None:
         return await asyncio.gather(worker(Route("a", "m")), worker(Route("b", "m")))
 
     assert asyncio.run(run()) == ["ok:a", "ok:b"]
+
+
+class UsageClient:
+    async def chat(self, *args, **kwargs):
+        return type(
+            "Result",
+            (),
+            {"usage": {"prompt_tokens": 11, "completion_tokens": 7, "total_tokens": 18}},
+        )()
+
+
+def test_usage_is_captured_per_request() -> None:
+    registry = Registry({"a": ProviderSpec("a", "openai", "", "", ("m",), ("zh",))})
+    client = RoutingLLMClient(
+        registry=registry, client_factory=lambda s, r, t, m: UsageClient()
+    )
+
+    async def run():
+        with routing_context(Route("a", "m")):
+            await client.chat([])
+            return last_usage.get()
+
+    usage = asyncio.run(run())
+    assert usage is not None and usage["total_tokens"] == 18
 
 
 if __name__ == "__main__":

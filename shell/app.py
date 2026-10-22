@@ -37,6 +37,7 @@ from shell.providers import Registry, Route, RouteError  # noqa: E402
 from shell.routing import (  # noqa: E402
     RoutingLLMClient,
     attempts as routing_attempts,
+    last_usage,
     route_used,
     routing_context,
 )
@@ -156,6 +157,9 @@ class AlphaMiddleware:
                             headers.append((b"x-alpha-route", used.as_str().encode()))
                         payload["fallback_attempts"] = list(routing_attempts.get())
                         payload["latency_ms"] = int((time.monotonic() - started) * 1000)
+                        usage = last_usage.get()
+                        if usage:
+                            payload["usage"] = usage
                         body = json.dumps(payload, ensure_ascii=False).encode()
 
                 headers.append((b"content-length", str(len(body)).encode()))
