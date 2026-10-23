@@ -34,6 +34,15 @@ class ProviderCreate(BaseModel):
     probe: bool = True
 
 
+class ProviderUpdate(BaseModel):
+    label: str | None = None
+    base_url: str | None = None
+    api_key: str | None = None
+    models: list[str] | None = None
+    caps: list[str] | None = None
+    probe: bool = True
+
+
 async def probe_provider(base_url: str, api_key: str, timeout: float = 5.0) -> tuple[bool, str]:
     """最小连通性检查；/models 不通不阻塞保存，鉴权失败才拒绝。"""
     try:
@@ -117,10 +126,17 @@ def build_router(
     ) -> dict:
         user = user_of(x_alpha_user)
         available = merged_registry(user)
+        custom = custom_map(user)
         try:
             primary = available.resolve(payload.provider, payload.model)
         except RouteError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+        primary_custom = custom.get(payload.provider)
+        if primary_custom is not None and not primary_custom.has_key:
+            raise HTTPException(
+                status_code=409,
+                detail=f"provider {payload.provider} 的 Key 不可用，请先重新配置",
+            )
 
         if len(payload.fallback) > MAX_FALLBACK:
             raise HTTPException(
@@ -134,6 +150,12 @@ def build_router(
                 route = available.resolve(item.provider, item.model)
             except RouteError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
+            fallback_custom = custom.get(item.provider)
+            if fallback_custom is not None and not fallback_custom.has_key:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"provider {item.provider} 的 Key 不可用，请先重新配置",
+                )
             if route == primary:
                 raise HTTPException(status_code=422, detail=f"回退链不能包含当前模型: {route.as_str()}")
             if route in fallback:
@@ -192,6 +214,113 @@ def build_router(
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return provider.to_public()
+
+    @router.patch("/api/me/providers/{provider_id}")
+    async def update_provider(
+        provider_id: str,
+        payload: ProviderUpdate,
+        x_alpha_user: str | None = Header(default=None),
+    ) -> dict:
+        if custom_store is None:
+            raise HTTPException(status_code=501, detail="自定义 provider 未启用")
+        user = user_of(x_alpha_user)
+        existing = custom_store.get(provider_id, user, decrypt=True)
+        if existing is None:
+            raise HTTPException(status_code=404, detail="provider 不存在")
+
+        provided = {
+            "label": payload.label,
+            "base_url": payload.base_url,
+            "api_key": payload.api_key,
+            "models": payload.models,
+            "caps": payload.caps,
+        }
+        changes = {key: value for key, value in provided.items() if value is not None}
+        if not changes:
+            raise HTTPException(status_code=422, detail="没有可更新的字段")
+        if "api_key" in changes and not str(changes["api_key"]).strip():
+            raise HTTPException(
+                status_code=422, detail="api_key 不能为空；撤销请调用 revoke"
+            )
+
+        allow_private = _allow_private()
+        target_url = str(changes.get("base_url") or existing.base_url)
+        if "base_url" in changes:
+            try:
+                assert_public_host(target_url, allow_private=allow_private)
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        # 不让正在使用的模型被悄悄从清单里删掉
+        if "models" in changes and changes["models"]:
+            record = store.get(user)
+            active = [record.route, *record.fallback] if record else []
+            blocked = [
+                route
+                for route in active
+                if route.provider == provider_id
+                and route.model not in changes["models"]
+            ]
+            if blocked:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"模型仍在使用中，请先切换: {blocked[0].as_str()}",
+                )
+
+        if payload.probe and ("api_key" in changes or "base_url" in changes):
+            probe_key = str(changes.get("api_key") or existing.api_key)
+            if not probe_key:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Key 已撤销，请提供新 Key 或设置 probe=false",
+                )
+            ok, message = await probe(target_url, probe_key)
+            if not ok:
+                raise HTTPException(status_code=422, detail=message)
+
+        try:
+            provider = custom_store.update(
+                provider_id,
+                user,
+                label=changes.get("label"),
+                base_url=changes.get("base_url"),
+                api_key=changes.get("api_key"),
+                models=changes.get("models"),
+                caps=changes.get("caps"),
+                allow_private=allow_private,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if provider is None:
+            raise HTTPException(status_code=404, detail="provider 不存在")
+        return provider.to_public()
+
+    @router.post("/api/me/providers/{provider_id}/revoke")
+    def revoke_provider(
+        provider_id: str,
+        x_alpha_user: str | None = Header(default=None),
+    ) -> dict:
+        if custom_store is None:
+            raise HTTPException(status_code=501, detail="自定义 provider 未启用")
+        provider = custom_store.revoke(provider_id, user_of(x_alpha_user))
+        if provider is None:
+            raise HTTPException(status_code=404, detail="provider 不存在")
+        return provider.to_public()
+
+    @router.get("/api/me/providers/{provider_id}/audit")
+    def provider_audit(
+        provider_id: str,
+        x_alpha_user: str | None = Header(default=None),
+    ) -> dict:
+        if custom_store is None:
+            raise HTTPException(status_code=501, detail="自定义 provider 未启用")
+        user = user_of(x_alpha_user)
+        if custom_store.get(provider_id, user) is None:
+            raise HTTPException(status_code=404, detail="provider 不存在")
+        return {
+            "provider_id": provider_id,
+            "events": custom_store.list_audit(provider_id, user),
+        }
 
     @router.delete("/api/me/providers/{provider_id}")
     def delete_provider(

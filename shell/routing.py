@@ -208,6 +208,14 @@ class RoutingLLMClient:
             )
             if provider is None:
                 raise RouteError(f"自定义 provider 不存在: {route.provider}")
+            if provider.revoked:
+                raise RouteError(
+                    f"自定义 provider {route.provider} 的 Key 已撤销，请重新配置"
+                )
+            if not provider.has_key:
+                raise RouteError(
+                    f"自定义 provider {route.provider} 缺少 Key，请重新配置"
+                )
             return provider.to_spec()
         return self.registry.get(route.provider)
 

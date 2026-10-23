@@ -32,11 +32,15 @@ if str(VENDOR) not in sys.path:
 
 import main as upstream  # noqa: E402  （必须在 chdir 之后）
 
+from fastapi.responses import JSONResponse  # noqa: E402
+
 from shell.api import build_router  # noqa: E402
 from shell.crypto import SecretBox  # noqa: E402
 from shell.custom import CustomProviderStore  # noqa: E402
 from shell.providers import Registry, Route, RouteError  # noqa: E402
 from shell.routing import (  # noqa: E402
+    AllProvidersFailed,
+    RouteNotConfigured,
     RoutingLLMClient,
     attempts as routing_attempts,
     last_usage,
@@ -55,6 +59,43 @@ routing_client = RoutingLLMClient(registry=registry, custom_store=custom_store)
 
 app = upstream.app
 app.include_router(build_router(registry, store, custom_store))
+
+
+@app.exception_handler(RouteError)
+async def _route_error_handler(request, exc: RouteError) -> JSONResponse:
+    return JSONResponse(
+        status_code=409,
+        content={
+            "error": "provider_unavailable",
+            "action": "reconfigure_provider",
+            "detail": str(exc),
+        },
+    )
+
+
+@app.exception_handler(AllProvidersFailed)
+async def _all_failed_handler(request, exc: AllProvidersFailed) -> JSONResponse:
+    return JSONResponse(
+        status_code=502,
+        content={
+            "error": "all_providers_failed",
+            "action": "open_model_picker",
+            "detail": str(exc),
+            "attempts": exc.attempt_list,
+        },
+    )
+
+
+@app.exception_handler(RouteNotConfigured)
+async def _not_configured_handler(request, exc: RouteNotConfigured) -> JSONResponse:
+    return JSONResponse(
+        status_code=409,
+        content={
+            "error": "route_not_configured",
+            "action": "open_model_picker",
+            "detail": str(exc),
+        },
+    )
 
 
 def _dev_route() -> Route | None:

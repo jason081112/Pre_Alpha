@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sqlite3
 import sys
 import tempfile
 from pathlib import Path
@@ -76,13 +77,20 @@ def test_store_roundtrip_and_masking() -> None:
     )
     assert provider.id.startswith("custom-")
     assert provider.has_key
+    assert provider.revoked is False
+    assert provider.key_version == 1
+    assert provider.key_last4 == "cret"
 
     plain = store.get(provider.id, "u1", decrypt=False)
     assert plain is not None and plain.api_key == ""
-    assert "sk-secret" not in str(plain.to_public())
+    public = plain.to_public()
+    assert public["key_last4"] == "cret"
+    assert public["key_version"] == 1
+    assert "sk-secret" not in str(public)
 
     secret = store.get(provider.id, "u1", decrypt=True)
     assert secret is not None and secret.api_key == "sk-secret"
+    assert "sk-secret" not in repr(secret)
 
     assert store.get(provider.id, "u2") is None
     assert store.delete(provider.id, "u2") is False
@@ -183,6 +191,206 @@ def test_ciphertext_cannot_be_swapped_between_rows() -> None:
         pass
     else:
         raise AssertionError("密文搬运应被 AAD 拒绝")
+    store.close()
+
+
+def test_rotate_key_increments_version_and_audit() -> None:
+    store = CustomProviderStore(":memory:", FakeCipher())
+    provider = store.add(
+        "u1", "relay", "https://relay.example.com/v1", "sk-first-1111", ["gpt-x"]
+    )
+    old_cipher = provider.api_key_enc
+
+    rotated = store.update(provider.id, "u1", api_key="sk-second-2222")
+    assert rotated is not None
+    assert rotated.key_version == 2
+    assert rotated.key_last4 == "2222"
+    assert rotated.api_key_enc != old_cipher
+    assert rotated.has_key and not rotated.revoked
+
+    secret = store.get(provider.id, "u1", decrypt=True)
+    assert secret is not None and secret.api_key == "sk-second-2222"
+
+    events = store.list_audit(provider.id, "u1")
+    assert [event["event"] for event in events] == ["created", "rotated"]
+    assert all("sk-" not in str(event) for event in events)
+    store.close()
+
+
+def test_metadata_update_keeps_key_and_version() -> None:
+    store = CustomProviderStore(":memory:", FakeCipher())
+    provider = store.add(
+        "u1", "relay", "https://relay.example.com/v1", "sk-first-1111", ["gpt-x"]
+    )
+    updated = store.update(provider.id, "u1", label="新名字", caps=["en"])
+    assert updated is not None
+    assert updated.label == "新名字"
+    assert updated.caps == ("en",)
+    assert updated.key_version == 1
+    assert updated.key_last4 == "1111"
+    assert store.get(provider.id, "u1", decrypt=True).api_key == "sk-first-1111"
+
+    events = store.list_audit(provider.id, "u1")
+    assert [event["event"] for event in events] == ["created", "updated"]
+    store.close()
+
+
+def test_update_rejects_empty_key_without_touching_state() -> None:
+    store = CustomProviderStore(":memory:", FakeCipher())
+    provider = store.add(
+        "u1", "relay", "https://relay.example.com/v1", "sk-first-1111", ["gpt-x"]
+    )
+    try:
+        store.update(provider.id, "u1", api_key="   ")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("空 Key 应被拒绝")
+
+    current = store.get(provider.id, "u1", decrypt=True)
+    assert current is not None
+    assert current.key_version == 1
+    assert current.api_key == "sk-first-1111"
+    store.close()
+
+
+def test_revoke_clears_key_and_is_idempotent() -> None:
+    store = CustomProviderStore(":memory:", FakeCipher())
+    provider = store.add(
+        "u1", "relay", "https://relay.example.com/v1", "sk-first-1111", ["gpt-x"]
+    )
+    revoked = store.revoke(provider.id, "u1")
+    assert revoked is not None
+    assert revoked.revoked is True
+    assert revoked.has_key is False
+    assert revoked.key_version == 2
+    assert revoked.key_last4 == ""
+
+    row = store._conn.execute(
+        "SELECT api_key_enc, revoked_at FROM user_provider WHERE id = ?",
+        (provider.id,),
+    ).fetchone()
+    assert row["api_key_enc"] == ""
+    assert row["revoked_at"] is not None
+    assert store.get(provider.id, "u1", decrypt=True).api_key == ""
+
+    again = store.revoke(provider.id, "u1")
+    assert again is not None and again.key_version == 2
+    assert [event["event"] for event in store.list_audit(provider.id, "u1")] == [
+        "created",
+        "revoked",
+    ]
+    store.close()
+
+
+def test_revoked_provider_fails_route_with_actionable_error() -> None:
+    store = CustomProviderStore(":memory:", FakeCipher())
+    provider = store.add(
+        "u1", "relay", "https://relay.example.com/v1", "sk-first-1111", ["gpt-x"]
+    )
+    store.revoke(provider.id, "u1")
+
+    seen: list = []
+    registry = Registry(
+        {"openai": ProviderSpec("openai", "openai", "", "OPENAI_API_KEY", ("gpt-4o",), ("zh",))}
+    )
+    client = RoutingLLMClient(
+        registry=registry,
+        custom_store=store,
+        client_factory=lambda spec, route, t, m: RecorderClient(spec, route, seen),
+    )
+
+    async def run():
+        with routing_context(Route(provider.id, "gpt-x"), user="u1"):
+            try:
+                await client.chat([])
+            except RouteError as exc:
+                return str(exc)
+            return ""
+
+    message = asyncio.run(run())
+    assert "撤销" in message and "重新配置" in message
+    assert seen == []
+    store.close()
+
+
+def test_revoked_provider_can_be_reactivated_by_rotation() -> None:
+    store = CustomProviderStore(":memory:", FakeCipher())
+    provider = store.add(
+        "u1", "relay", "https://relay.example.com/v1", "sk-first-1111", ["gpt-x"]
+    )
+    store.revoke(provider.id, "u1")
+    renewed = store.update(provider.id, "u1", api_key="sk-third-3333")
+    assert renewed is not None
+    assert renewed.revoked is False
+    assert renewed.has_key is True
+    assert renewed.key_version == 3
+    assert renewed.key_last4 == "3333"
+    assert [event["event"] for event in store.list_audit(provider.id, "u1")] == [
+        "created",
+        "revoked",
+        "rotated",
+    ]
+    store.close()
+
+
+def test_delete_keeps_audit_without_secret() -> None:
+    store = CustomProviderStore(":memory:", FakeCipher())
+    provider = store.add(
+        "u1", "relay", "https://relay.example.com/v1", "sk-first-1111", ["gpt-x"]
+    )
+    assert store.delete(provider.id, "u1") is True
+    events = store.list_audit(provider.id, "u1")
+    assert [event["event"] for event in events] == ["created", "deleted"]
+    assert "sk-first-1111" not in str(events)
+    store.close()
+
+
+def test_migrates_old_provider_schema() -> None:
+    cipher = FakeCipher()
+    path = Path(tempfile.mkdtemp()) / "old.db"
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        """
+        CREATE TABLE user_provider (
+            id           TEXT PRIMARY KEY,
+            user_id      TEXT NOT NULL,
+            label        TEXT NOT NULL,
+            base_url     TEXT NOT NULL,
+            api_key_enc  TEXT NOT NULL,
+            models_json  TEXT NOT NULL DEFAULT '[]',
+            caps_json    TEXT NOT NULL DEFAULT '[]',
+            created_at   REAL NOT NULL
+        );
+        """
+    )
+    conn.execute(
+        "INSERT INTO user_provider "
+        "(id, user_id, label, base_url, api_key_enc, models_json, caps_json, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            "custom-old",
+            "u1",
+            "old",
+            "https://old.example.com/v1",
+            cipher.encrypt("sk-old-1234", "u1:custom-old"),
+            '["gpt-x"]',
+            '["zh"]',
+            100.0,
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    store = CustomProviderStore(path, cipher)
+    provider = store.get("custom-old", "u1", decrypt=True)
+    assert provider is not None
+    assert provider.api_key == "sk-old-1234"
+    assert provider.key_version == 1
+    assert provider.key_last4 == "1234"
+    assert provider.updated_at == provider.created_at
+    assert provider.revoked is False
+    assert store.list_audit("custom-old", "u1") == []
     store.close()
 
 
