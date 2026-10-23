@@ -1,0 +1,154 @@
+[
+  {
+    "check": "app /api/status",
+    "ok": true,
+    "detail": 200
+  },
+  {
+    "check": "create provider",
+    "ok": true,
+    "detail": {
+      "id": "custom-f0d12793",
+      "key_last4": "1111",
+      "key_version": 1,
+      "revoked": false,
+      "has_key": true
+    }
+  },
+  {
+    "check": "create response hides key",
+    "ok": true,
+    "detail": "{\"id\":\"custom-f0d12793\",\"label\":\"byok mock\",\"base_url\":\"http://127.0.0.1:9999/v1\",\"models\":[\"mock-ok\"],\"caps\":[\"zh\"],\"ha"
+  },
+  {
+    "check": "list shows last4 only",
+    "ok": true,
+    "detail": "{\"providers\":[{\"id\":\"custom-f0d12793\",\"label\":\"byok mock\",\"base_url\":\"http://127.0.0.1:9999/v1\",\"models\":[\"mock-ok\"],\"caps\":[\"zh\"],\"has_key\":true,\"available\":tr"
+  },
+  {
+    "check": "ciphertext at rest",
+    "ok": true,
+    "detail": [
+      "v1:vZYGIm-gQ17wOXUBQ...",
+      "1111",
+      1
+    ]
+  },
+  {
+    "check": "route to custom",
+    "ok": true,
+    "detail": 200
+  },
+  {
+    "check": "chat uses rotated key #1",
+    "ok": true,
+    "detail": {
+      "route_used": "custom-f0d12793/mock-ok",
+      "response": "mock reply"
+    }
+  },
+  {
+    "check": "metadata update keeps key version",
+    "ok": true,
+    "detail": {
+      "label": "byok renamed",
+      "key_version": 1,
+      "key_last4": "1111"
+    }
+  },
+  {
+    "check": "rotate key increments version",
+    "ok": true,
+    "detail": {
+      "key_version": 2,
+      "key_last4": "2222",
+      "revoked": false
+    }
+  },
+  {
+    "check": "rotated ciphertext changed",
+    "ok": true,
+    "detail": "v1:HcUKUGP9FnoTRD2SO..."
+  },
+  {
+    "check": "chat uses rotated key #2",
+    "ok": true,
+    "detail": 200
+  },
+  {
+    "check": "revoke clears key",
+    "ok": true,
+    "detail": {
+      "revoked": true,
+      "has_key": false,
+      "key_version": 3,
+      "key_last4": ""
+    }
+  },
+  {
+    "check": "revoked row has no ciphertext",
+    "ok": true,
+    "detail": [
+      "",
+      1792773500.8668556
+    ]
+  },
+  {
+    "check": "revoked chat returns actionable 409",
+    "ok": true,
+    "detail": {
+      "status": 409,
+      "body": {
+        "error": "provider_unavailable",
+        "action": "reconfigure_provider",
+        "detail": "自定义 provider custom-f0d12793 的 Key 已撤销，请重新配置"
+      }
+    }
+  },
+  {
+    "check": "revoked provider cannot be routed",
+    "ok": true,
+    "detail": "{\"detail\":\"provider custom-f0d12793 的 Key 不可用，请先重新配置\"}"
+  },
+  {
+    "check": "reactivate by rotation",
+    "ok": true,
+    "detail": {
+      "revoked": false,
+      "has_key": true,
+      "key_version": 4,
+      "key_last4": "3333"
+    }
+  },
+  {
+    "check": "chat after reactivate",
+    "ok": true,
+    "detail": 200
+  },
+  {
+    "check": "audit records lifecycle",
+    "ok": true,
+    "detail": [
+      "created",
+      "updated",
+      "rotated",
+      "revoked",
+      "rotated"
+    ]
+  },
+  {
+    "check": "delete blocked while routed",
+    "ok": true,
+    "detail": 409
+  },
+  {
+    "check": "delete after switch",
+    "ok": true,
+    "detail": "{\"removed\":true}"
+  },
+  {
+    "check": "app log has no plaintext key",
+    "ok": true,
+    "detail": "/tmp/app.log (5576 bytes)"
+  }
+]

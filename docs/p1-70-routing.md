@@ -140,7 +140,29 @@ curl -X PUT http://localhost:8000/api/me/routing \
 
 - 主密钥来自 `ALPHA_MASTER_KEY`（64 位 hex / base64 32B / 任意口令派生）
 - 未设置时自动生成 `.data/master.key`（0600）
-- 列表接口只返回 `has_key`，永远不回显 Key
+- 列表接口只返回 `key_last4`（末四位）与 `has_key`，永远不回显 Key
+- 轮换 Key 走 `PATCH`，`key_version` 递增；撤销走 `/revoke`，密文清空
+- 生命周期与审计细节见 [`p1-71-byok.md`](p1-71-byok.md)
+
+### 轮换、撤销与审计
+
+```bash
+# 轮换 Key（默认先 probe，失败不覆盖旧 Key）
+curl -X PATCH http://localhost:8000/api/me/providers/custom-a1b2c3d4 \
+  -H 'Content-Type: application/json' \
+  -d '{"api_key":"sk-new-xxx","probe":true}'
+
+# 撤销：清空密文，保留 provider，下一次对话返回 409
+curl -X POST http://localhost:8000/api/me/providers/custom-a1b2c3d4/revoke
+
+# 审计：只有事件与版本，没有 Key
+curl http://localhost:8000/api/me/providers/custom-a1b2c3d4/audit
+```
+
+撤销后 `/api/chat` 返回 `provider_unavailable` + `reconfigure_provider`，
+不会退化成裸 500，也不会静默回退到别的 provider。
+
+完整字段、迁移和验收见 [`p1-71-byok.md`](p1-71-byok.md)。
 
 ### 安全规则
 
@@ -152,7 +174,7 @@ curl -X PUT http://localhost:8000/api/me/routing \
 
 ### 连通性检查
 
-创建时默认请求 `{base_url}/models`：
+创建时默认请求 `{base_url}/models`，轮换 Key 时同样执行：
 
 - 401/403 → 拒绝保存
 - 其他状态码 → 允许保存（部分服务不实现 /models）
