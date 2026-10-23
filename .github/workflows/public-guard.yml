@@ -1,0 +1,21 @@
+name: public-guard
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Secret scan
+        run: python scripts/secret_scan.py
+      - name: Zero-dependency tests
+        run: |
+          python tests/test_routing.py
+          python tests/test_custom_provider.py
+          python tests/test_smoke.py

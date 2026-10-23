@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 jason081112
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Alpha 外壳入口：import 上游 app，挂路由中间件与配置 API。
 
 启动方式（在仓库根目录）：

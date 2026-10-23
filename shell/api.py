@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 jason081112
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """路由与 provider 配置 API。"""
 
 from __future__ import annotations

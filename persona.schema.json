@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jason081112/Pre_Alpha/persona.schema.json",
+  "title": "Alpha Persona v1",
+  "description": "结构化人格。禁止出现原始聊天记录或原文引用。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "persona_id",
+    "display_name",
+    "traits",
+    "speech_style",
+    "memories",
+    "boundaries"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "persona_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "relationship": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "与用户的关系标签，例如 朋友 / 恋人 / 家人"
+    },
+    "traits": {
+      "type": "object",
+      "description": "0..1 的性格维度，键名自由",
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "maxProperties": 32
+    },
+    "speech_style": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tone"],
+      "properties": {
+        "tone": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "habits": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {"type": "string", "maxLength": 120}
+        },
+        "examples": {
+          "type": "array",
+          "description": "改写后的示例句，不是聊天原文",
+          "maxItems": 20,
+          "items": {"type": "string", "maxLength": 200}
+        },
+        "avoid": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {"type": "string", "maxLength": 120}
+        }
+      }
+    },
+    "memories": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["summary", "salience"],
+        "properties": {
+          "summary": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "摘要，不是原文"
+          },
+          "salience": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "tags": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {"type": "string", "maxLength": 32}
+          },
+          "occurred_at": {
+            "type": "string",
+            "description": "ISO 8601 日期或时间"
+          }
+        }
+      }
+    },
+    "boundaries": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {"type": "string", "maxLength": 200}
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": ["chat_log", "manual", "mixed"]
+        },
+        "message_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "period": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "description": "扩展字段；不得存放原文"
+    }
+  }
+}

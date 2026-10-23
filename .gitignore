@@ -35,3 +35,12 @@ Thumbs.db
 
 # 上游代码（fork 后维护，不提交本仓库）
 vendor/
+
+# Open-core 隔离：这些永远不进公开仓库
+.data/
+cloud/
+prompts/pro/
+evals/
+master.key
+master.salt
+*.key

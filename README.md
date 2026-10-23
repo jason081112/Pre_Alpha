@@ -4,6 +4,16 @@
 
 > Distilly-style chat-log distillation (front-end) + OpenHer persona engine (back-end).
 
+## 开源边界
+
+本项目是 **open core**，不是全开源：
+
+- 公开：core、Web/PWA 客户端、CLI、单用户自托管、本地蒸馏框架
+- 私有：托管控制面、精修蒸馏、评测资产、审核、计费
+- 边界细节：[`docs/open-core.md`](docs/open-core.md)
+- 许可：[`LICENSING.md`](LICENSING.md)
+- 人格契约：[`persona.schema.json`](persona.schema.json) / [`docs/refine-api.md`](docs/refine-api.md)
+
 ## 部署形态
 
 - **引擎统一云端运行**，手机上只跑轻量 Web/PWA 客户端（Termux 仅作开发环境）
