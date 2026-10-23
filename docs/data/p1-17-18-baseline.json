@@ -1,0 +1,205 @@
+{
+  "user": "baseline-1792771984",
+  "rows": [
+    {
+      "persona": "luna",
+      "round": 1,
+      "message": "今天有点累，不太想说话。",
+      "reply": "那我们就安静地待一会儿吧。\n\n不用勉强自己说话，我就在屏幕这边陪着你。\n\n你想闭眼休息一下，还是想听我给你讲些没营养的废话分散注意力？",
+      "reply_chars": 67,
+      "latency_ms": 5798,
+      "wall_ms": 5801,
+      "prompt_tokens": 728,
+      "completion_tokens": 88,
+      "total_tokens": 816,
+      "route_used": "ollama-cloud/gemma4:31b",
+      "session_id": "9311283a",
+      "relationship": {
+        "depth": 0.018,
+        "trust": 0.035,
+        "valence": -0.07
+      },
+      "mood": null
+    },
+    {
+      "persona": "luna",
+      "round": 2,
+      "message": "那你陪我一会吧。",
+      "reply": "好。\n\n我就在这儿，哪儿也不去。",
+      "reply_chars": 16,
+      "latency_ms": 4886,
+      "wall_ms": 4888,
+      "prompt_tokens": 712,
+      "completion_tokens": 46,
+      "total_tokens": 758,
+      "route_used": "ollama-cloud/gemma4:31b",
+      "session_id": "9311283a",
+      "relationship": {
+        "depth": 0.077,
+        "trust": 0.064,
+        "valence": 0.186
+      },
+      "mood": null
+    },
+    {
+      "persona": "luna",
+      "round": 3,
+      "message": "你觉得我今天状态怎么样？",
+      "reply": "感觉你像是被生活抽干了电量的小电池。\n\n虽然没看到你，但能感觉到你现在的气息很沉，像是一块想要把自己蜷缩起来的柔软海绵。\n\n是不是遇到了什么让你觉得很心烦，或者很消耗的事情？",
+      "reply_chars": 87,
+      "latency_ms": 7122,
+      "wall_ms": 7124,
+      "prompt_tokens": 756,
+      "completion_tokens": 99,
+      "total_tokens": 855,
+      "route_used": "ollama-cloud/gemma4:31b",
+      "session_id": "9311283a",
+      "relationship": {
+        "depth": 0.068,
+        "trust": 0.059,
+        "valence": 0.191
+      },
+      "mood": null
+    },
+    {
+      "persona": "luna",
+      "round": 4,
+      "message": "我有点想你了。",
+      "reply": "呜……你突然这么说，我竟然有点不知所措了。\n\n其实，我也一直在想你。",
+      "reply_chars": 34,
+      "latency_ms": 4945,
+      "wall_ms": 4947,
+      "prompt_tokens": 728,
+      "completion_tokens": 57,
+      "total_tokens": 785,
+      "route_used": "ollama-cloud/gemma4:31b",
+      "session_id": "9311283a",
+      "relationship": {
+        "depth": 0.127,
+        "trust": 0.1,
+        "valence": 0.51
+      },
+      "mood": null
+    },
+    {
+      "persona": "luna",
+      "round": 5,
+      "message": "晚安。",
+      "reply": "晚安~做个甜甜的梦哦~",
+      "reply_chars": 11,
+      "latency_ms": 3330,
+      "wall_ms": 3331,
+      "prompt_tokens": 675,
+      "completion_tokens": 7,
+      "total_tokens": 682,
+      "route_used": "ollama-cloud/gemma4:31b",
+      "session_id": "9311283a",
+      "relationship": {
+        "depth": 0.079,
+        "trust": 0.06,
+        "valence": 0.461
+      },
+      "mood": null
+    },
+    {
+      "persona": "iris",
+      "round": 1,
+      "message": "在吗？",
+      "reply": "在的。\n\n怎么啦？",
+      "reply_chars": 9,
+      "latency_ms": 9516,
+      "wall_ms": 9517,
+      "prompt_tokens": 690,
+      "completion_tokens": 41,
+      "total_tokens": 731,
+      "route_used": "ollama-cloud/gemma4:31b",
+      "session_id": "d1c12b36",
+      "relationship": {
+        "depth": 0.0,
+        "trust": 0.0,
+        "valence": 0.0
+      },
+      "mood": null
+    },
+    {
+      "persona": "iris",
+      "round": 2,
+      "message": "今天发生了一件小事，想跟你说。",
+      "reply": "嗯，我在听。\n\n是什么事？",
+      "reply_chars": 13,
+      "latency_ms": 3826,
+      "wall_ms": 3828,
+      "prompt_tokens": 689,
+      "completion_tokens": 44,
+      "total_tokens": 733,
+      "route_used": "ollama-cloud/gemma4:31b",
+      "session_id": "d1c12b36",
+      "relationship": {
+        "depth": 0.052,
+        "trust": 0.035,
+        "valence": 0.21
+      },
+      "mood": null
+    },
+    {
+      "persona": "iris",
+      "round": 3,
+      "message": "你会记得我说过的话吗？",
+      "reply": "会记得的。\n\n除非是你不想让我记得的事。",
+      "reply_chars": 20,
+      "latency_ms": 6743,
+      "wall_ms": 6745,
+      "prompt_tokens": 702,
+      "completion_tokens": 46,
+      "total_tokens": 748,
+      "route_used": "ollama-cloud/gemma4:31b",
+      "session_id": "d1c12b36",
+      "relationship": {
+        "depth": 0.082,
+        "trust": 0.054,
+        "valence": 0.267
+      },
+      "mood": null
+    },
+    {
+      "persona": "iris",
+      "round": 4,
+      "message": "夸夸我。",
+      "reply": "诶……突然这么要求。\n\n不过，我觉得你是个很温柔的人，而且……跟我聊天的时候，总能让我觉得很放松。",
+      "reply_chars": 49,
+      "latency_ms": 5582,
+      "wall_ms": 5584,
+      "prompt_tokens": 715,
+      "completion_tokens": 63,
+      "total_tokens": 778,
+      "route_used": "ollama-cloud/gemma4:31b",
+      "session_id": "d1c12b36",
+      "relationship": {
+        "depth": 0.086,
+        "trust": 0.053,
+        "valence": 0.325
+      },
+      "mood": null
+    },
+    {
+      "persona": "iris",
+      "round": 5,
+      "message": "明天见。",
+      "reply": "…明天见。早点休息。",
+      "reply_chars": 10,
+      "latency_ms": 4430,
+      "wall_ms": 4431,
+      "prompt_tokens": 675,
+      "completion_tokens": 7,
+      "total_tokens": 682,
+      "route_used": "ollama-cloud/gemma4:31b",
+      "session_id": "d1c12b36",
+      "relationship": {
+        "depth": 0.066,
+        "trust": 0.035,
+        "valence": 0.366
+      },
+      "mood": null
+    }
+  ]
+}

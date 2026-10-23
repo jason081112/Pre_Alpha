@@ -1,0 +1,169 @@
+[
+  {
+    "check": "app /api/status",
+    "ok": true,
+    "detail": 200
+  },
+  {
+    "check": "personas loaded",
+    "ok": true,
+    "detail": [
+      "ember",
+      "iris",
+      "kai",
+      "kelly",
+      "luna",
+      "mia",
+      "nova",
+      "rex",
+      "sora",
+      "vivian"
+    ]
+  },
+  {
+    "check": "409 route_not_configured",
+    "ok": true,
+    "detail": {
+      "error": "route_not_configured",
+      "action": "open_model_picker",
+      "detail": "用户 'verify-1792771905-empty' 尚未选择模型"
+    }
+  },
+  {
+    "check": "create custom provider",
+    "ok": true,
+    "detail": 200
+  },
+  {
+    "check": "catalog merged",
+    "ok": true,
+    "detail": [
+      "claude",
+      "custom-a9444348",
+      "dashscope",
+      "deepseek",
+      "gemini",
+      "moonshot",
+      "ollama-cloud",
+      "openai"
+    ]
+  },
+  {
+    "check": "key not echoed",
+    "ok": true,
+    "detail": "{\"providers\":[{\"id\":\"custom-a9444348\",\"label\":\"local mock\",\"base_url\":\"http://127.0.0.1:9999/v1\",\"models\":[\"mock-ok\",\"mo"
+  },
+  {
+    "check": "key encrypted at rest",
+    "ok": true,
+    "detail": "v1:qpqn1imOUd7Im49Pk6tab..."
+  },
+  {
+    "check": "PUT routing custom",
+    "ok": true,
+    "detail": "{\"user_id\":\"verify-1792771905\",\"configured\":true,\"route\":{\"provider\":\"custom-a9444348\",\"model\":\"mock-ok\"},\"route_key\":\"c"
+  },
+  {
+    "check": "chat via custom + usage",
+    "ok": true,
+    "detail": {
+      "route_used": "custom-a9444348/mock-ok",
+      "usage": {
+        "prompt_tokens": 10,
+        "completion_tokens": 5,
+        "total_tokens": 15
+      },
+      "latency_ms": 184,
+      "response": "mock reply"
+    }
+  },
+  {
+    "check": "response content",
+    "ok": true,
+    "detail": "mock reply"
+  },
+  {
+    "check": "PUT routing ollama",
+    "ok": true,
+    "detail": "{\"user_id\":\"verify-1792771905\",\"configured\":true,\"route\":{\"provider\":\"ollama-cloud\",\"model\":\"gemma4:31b\"},\"route_key\":\"o"
+  },
+  {
+    "check": "chat via ollama",
+    "ok": true,
+    "detail": {
+      "route_used": "ollama-cloud/gemma4:31b",
+      "latency_ms": 5127,
+      "usage": {
+        "prompt_tokens": 675,
+        "completion_tokens": 7,
+        "total_tokens": 682
+      }
+    }
+  },
+  {
+    "check": "PUT routing 500+fallback",
+    "ok": true,
+    "detail": "{\"user_id\":\"verify-1792771905\",\"configured\":true,\"route\":{\"provider\":\"custom-a9444348\",\"model\":\"mock-500\"},\"route_key\":\""
+  },
+  {
+    "check": "fallback on 500",
+    "ok": true,
+    "detail": {
+      "route_used": "ollama-cloud/gemma4:31b",
+      "attempts": [
+        {
+          "provider": "custom-a9444348",
+          "model": "mock-500",
+          "ok": false,
+          "latency_ms": 1226,
+          "error": "InternalServerError: Error code: 500 - {'error': {'message': 'mock boom', 'type': 'server_error'}}"
+        }
+      ]
+    }
+  },
+  {
+    "check": "fallback on connect error",
+    "ok": true,
+    "detail": {
+      "route_used": "ollama-cloud/gemma4:31b",
+      "attempts": [
+        {
+          "provider": "custom-dccd7feb",
+          "model": "dead-model",
+          "ok": false,
+          "latency_ms": 1288,
+          "error": "APIConnectionError: Connection error."
+        }
+      ]
+    }
+  },
+  {
+    "check": "no retry after first token",
+    "ok": true,
+    "detail": {
+      "chunks": [
+        "mock "
+      ],
+      "error": "APIConnectionError",
+      "attempts": [
+        {
+          "provider": "custom-a9444348",
+          "model": "mock-cut",
+          "ok": false,
+          "latency_ms": 850,
+          "error": "APIConnectionError: Connection error."
+        }
+      ]
+    }
+  },
+  {
+    "check": "delete blocked while in use",
+    "ok": true,
+    "detail": 409
+  },
+  {
+    "check": "delete after switch",
+    "ok": true,
+    "detail": "{\"removed\":true}"
+  }
+]
