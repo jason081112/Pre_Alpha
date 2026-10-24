@@ -14,7 +14,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HITS = {"models": 0, "chat": 0, "stream": 0}
-MODELS = ("mock-ok", "mock-500", "mock-cut", "mock-slow")
+MODELS = ("mock-ok", "mock-persona", "mock-500", "mock-cut", "mock-slow")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -61,6 +61,71 @@ class Handler(BaseHTTPRequestHandler):
 
         model = body.get("model", "mock-ok")
         stream = bool(body.get("stream"))
+
+        if model == "mock-persona":
+            # 同一模型同时服务 Critic 与 Actor：Critic 提示词里含 relationship_delta。
+            system = "\n".join(
+                str(message.get("content", ""))
+                for message in body.get("messages", [])
+                if message.get("role") == "system"
+            )
+            if "relationship_delta" in system:
+                content = json.dumps(
+                    {
+                        "context": {
+                            "user_emotion": 0.3,
+                            "topic_intimacy": 0.5,
+                            "conversation_depth": 0.5,
+                            "user_engagement": 0.7,
+                            "conflict_level": 0.1,
+                            "novelty_level": 0.4,
+                            "user_vulnerability": 0.5,
+                            "time_of_day": 0.5,
+                        },
+                        "frustration_delta": {
+                            "connection": 0.0,
+                            "novelty": 0.0,
+                            "expression": 0.0,
+                            "safety": 0.0,
+                            "play": 0.0,
+                        },
+                        "drive_satisfaction": {
+                            "connection": 0.1,
+                            "novelty": 0.1,
+                            "expression": 0.1,
+                            "safety": 0.1,
+                            "play": 0.1,
+                        },
+                        "relationship_delta": 0.2,
+                        "trust_delta": 0.15,
+                        "emotional_valence": 0.3,
+                    },
+                    ensure_ascii=False,
+                )
+            else:
+                content = "mock reply"
+            HITS["chat"] += 1
+            return self._json(
+                200,
+                {
+                    "id": "mock",
+                    "object": "chat.completion",
+                    "created": 0,
+                    "model": model,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {"role": "assistant", "content": content},
+                            "finish_reason": "stop",
+                        }
+                    ],
+                    "usage": {
+                        "prompt_tokens": 10,
+                        "completion_tokens": 5,
+                        "total_tokens": 15,
+                    },
+                },
+            )
 
         if model == "mock-500":
             HITS["chat"] += 1

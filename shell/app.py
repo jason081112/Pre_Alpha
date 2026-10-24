@@ -34,6 +34,7 @@ import main as upstream  # noqa: E402  （必须在 chdir 之后）
 
 from fastapi.responses import JSONResponse  # noqa: E402
 
+from shell.agent_state import AgentExtraStore  # noqa: E402
 from shell.api import build_router  # noqa: E402
 from shell.crypto import SecretBox  # noqa: E402
 from shell.custom import CustomProviderStore  # noqa: E402
@@ -55,10 +56,47 @@ DB_PATH = Path(os.getenv("ALPHA_ROUTING_DB", str(DATA_DIR / "routing.db")))
 registry = Registry.load()
 store = RoutingStore(DB_PATH)
 custom_store = CustomProviderStore(DB_PATH, SecretBox.from_env(DATA_DIR))
+agent_extra = AgentExtraStore(
+    Path(os.getenv("ALPHA_AGENT_EXTRA_DB", str(DATA_DIR / "agent_extra.db")))
+)
 routing_client = RoutingLLMClient(registry=registry, custom_store=custom_store)
 
 app = upstream.app
 app.include_router(build_router(registry, store, custom_store))
+
+# ── ChatAgent 补充状态：上游没有持久化关系 EMA / turn_count ──
+# 不改 vendor，只在运行时包装两个入口：
+# - get_or_create_session：新建 Agent 时回填补充状态
+# - _persist_agent：每轮落盘后追加保存
+_original_get_or_create_session = upstream.get_or_create_session
+_original_persist_agent = upstream._persist_agent
+
+
+def _alpha_get_or_create_session(
+    session_id, persona_id, user_name=None, client_id=None
+):
+    sid, agent = _original_get_or_create_session(
+        session_id, persona_id, user_name=user_name, client_id=client_id
+    )
+    try:
+        extra = agent_extra.load(agent.user_id, agent.persona.persona_id)
+        if extra:
+            agent_extra.apply(agent, extra)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [agent-extra] 回填失败: {type(exc).__name__}")
+    return sid, agent
+
+
+def _alpha_persist_agent(agent) -> None:
+    _original_persist_agent(agent)
+    try:
+        agent_extra.save(agent)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [agent-extra] 落盘失败: {type(exc).__name__}")
+
+
+upstream.get_or_create_session = _alpha_get_or_create_session
+upstream._persist_agent = _alpha_persist_agent
 
 
 @app.exception_handler(RouteError)
