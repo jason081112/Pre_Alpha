@@ -1,6 +1,6 @@
 # P1-66 认证与会话隔离
 
-- 状态：本地实现、登录页与零依赖测试完成；运行时双用户验收待 Codespace 执行
+- 状态：本地实现、登录页与运行时双用户验收完成（Codespace，19/19）
 - 登录方式：**邮箱 + 密码 + 强制邀请码**
 - 手机号：已预留 `phone` 身份与密码字段，首版不开放；后续形态为手机号 + 密码
 - 代码边界：认证逻辑全部在 `shell/auth/`，不修改 `vendor/OpenHer`
@@ -164,6 +164,10 @@ ALPHA_REQUIRE_INVITE=1 python -m shell.app
 # 客户端
 ALPHA_INVITE_CODE=ALPHA-XXXXX-XXXXX python scripts/dev/verify_auth.py
 ```
+
+2026-10-25 Codespace 实跑结果：**19 PASS，0 FAIL，0 SKIP**，原始结果见
+`docs/data/p1-66-auth.json`。聊天隔离部分为每个测试用户单独配置了
+`127.0.0.1:9999` 的 mock provider。
 
 运行时脚本覆盖：
 

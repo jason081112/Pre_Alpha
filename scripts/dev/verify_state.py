@@ -32,6 +32,8 @@ from pathlib import Path
 import httpx
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 VENDOR = ROOT / "vendor" / "OpenHer"
 BASE = os.getenv("ALPHA_BASE", "http://127.0.0.1:8000")
 DATA_DIR = Path(os.getenv("ALPHA_DATA_DIR", str(ROOT / ".data")))
@@ -111,6 +113,8 @@ def read_openher(users: set[str], sessions: list[dict]) -> dict:
         agent = json.loads(row["agent_data"])
         metabolism = json.loads(row["metabolism_data"])
         output[session["key"]] = {
+            "user_id": row["user_id"],
+            "persona_id": row["persona_id"],
             "state_version": row["state_version"],
             "updated_at": row["updated_at"],
             "agent_bytes": row["agent_bytes"],
@@ -246,32 +250,47 @@ def warm() -> int:
     db = read_openher(users, sessions)
     for session in sessions:
         item = db[session["key"]]
+        # 新 Agent 会先 pre_warm 60 步，再从 60 开始累计真实对话。
         check(
             f"{session['key']} state row exists",
-            item is not None and item["interaction_count"] == ROUNDS,
+            item is not None
+            and item["interaction_count"] is not None
+            and item["interaction_count"] >= ROUNDS,
             item,
         )
 
     a, b, c_luna, c_iris = sessions
     check(
-        "two users same persona stay separate",
-        db["a"]["seed"] != db["b"]["seed"] or db["a"]["drive_state"] != db["b"]["drive_state"],
-        {"a_version": db["a"]["state_version"], "b_version": db["b"]["state_version"]},
+        "two users same persona use distinct state rows",
+        db["a"]["user_id"] == a["user"]
+        and db["b"]["user_id"] == b["user"]
+        and db["a"]["persona_id"] == "luna"
+        and db["b"]["persona_id"] == "luna"
+        and db["a"]["user_id"] != db["b"]["user_id"],
+        {
+            "a": (db["a"]["user_id"], db["a"]["persona_id"]),
+            "b": (db["b"]["user_id"], db["b"]["persona_id"]),
+        },
     )
     check(
         "two personas same user stay separate",
-        db["c_luna"]["seed"] != db["c_iris"]["seed"],
+        db["c_luna"]["user_id"] == c_luna["user"]
+        and db["c_iris"]["user_id"] == c_iris["user"]
+        and db["c_luna"]["persona_id"] == "luna"
+        and db["c_iris"]["persona_id"] == "iris"
+        and db["c_luna"]["seed"] != db["c_iris"]["seed"],
         {"luna_seed": db["c_luna"]["seed"], "iris_seed": db["c_iris"]["seed"]},
     )
 
     extra = read_extra(users, sessions)
     for session in sessions:
         item = extra[session["key"]]
+        relationship = (item or {}).get("relationship") or {}
         check(
             f"{session['key']} extra state persisted",
             item is not None
             and item["turn_count"] == ROUNDS
-            and (item["relationship"] or {}).get("depth", 0) > 0,
+            and relationship.get("relationship_depth", relationship.get("depth", 0)) > 0,
             item,
         )
 
@@ -392,6 +411,7 @@ def resume() -> int:
     after_extra = read_extra(users, sessions)
     for session in sessions:
         old = warm_data["db"][session["key"]]
+        old_extra = warm_data["extra"][session["key"]]
         new = after_db[session["key"]]
         check(
             f"{session['key']} state advanced after resume",
@@ -403,7 +423,7 @@ def resume() -> int:
         check(
             f"{session['key']} extra turn_count advanced",
             after_extra[session["key"]] is not None
-            and after_extra[session["key"]]["turn_count"] == old["turn_count"] + 1,
+            and after_extra[session["key"]]["turn_count"] == old_extra["turn_count"] + 1,
             after_extra[session["key"]],
         )
 

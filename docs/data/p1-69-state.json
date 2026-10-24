@@ -1,0 +1,89 @@
+{
+  "run": "1024-164945-d958",
+  "measured_at": 1792860702.223518,
+  "sizes": {
+    "a": {
+      "agent_bytes": 37385,
+      "metabolism_bytes": 329,
+      "agent_state_bytes": 37714,
+      "extra_bytes": 899,
+      "total_bytes": 38613
+    },
+    "b": {
+      "agent_bytes": 37427,
+      "metabolism_bytes": 328,
+      "agent_state_bytes": 37755,
+      "extra_bytes": 905,
+      "total_bytes": 38660
+    },
+    "c_luna": {
+      "agent_bytes": 37418,
+      "metabolism_bytes": 329,
+      "agent_state_bytes": 37747,
+      "extra_bytes": 903,
+      "total_bytes": 38650
+    },
+    "c_iris": {
+      "agent_bytes": 37241,
+      "metabolism_bytes": 325,
+      "agent_state_bytes": 37566,
+      "extra_bytes": 898,
+      "total_bytes": 38464
+    }
+  },
+  "size_summary": {
+    "min_bytes": 38464,
+    "max_bytes": 38660,
+    "avg_bytes": 38597
+  },
+  "load_ms": {
+    "a": {
+      "state_avg_ms": 0.862,
+      "state_min_ms": 0.82,
+      "state_max_ms": 1.132,
+      "extra_avg_ms": 0.047
+    },
+    "b": {
+      "state_avg_ms": 0.851,
+      "state_min_ms": 0.823,
+      "state_max_ms": 0.9,
+      "extra_avg_ms": 0.048
+    },
+    "c_luna": {
+      "state_avg_ms": 0.861,
+      "state_min_ms": 0.822,
+      "state_max_ms": 0.973,
+      "extra_avg_ms": 0.046
+    },
+    "c_iris": {
+      "state_avg_ms": 0.841,
+      "state_min_ms": 0.814,
+      "state_max_ms": 0.9,
+      "extra_avg_ms": 0.046
+    }
+  },
+  "db_files": {
+    "openher_db": 1150976,
+    "agent_extra_db": 28672
+  },
+  "cas": {
+    "sequential": {
+      "first": true,
+      "second": false,
+      "version": 1
+    },
+    "threads": {
+      "successes": 1,
+      "errors": [
+        "InterfaceError",
+        "OperationalError",
+        "OperationalError",
+        "OperationalError",
+        "OperationalError"
+      ]
+    }
+  },
+  "turn_latency_ms": {
+    "avg": 155.0
+  }
+}

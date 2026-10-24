@@ -1,0 +1,100 @@
+[
+  {
+    "check": "app /api/status",
+    "ok": true,
+    "detail": 200
+  },
+  {
+    "check": "public login page",
+    "ok": true,
+    "detail": 200
+  },
+  {
+    "check": "unauthenticated config is 401",
+    "ok": true,
+    "detail": 401
+  },
+  {
+    "check": "register two users",
+    "ok": true,
+    "detail": "5bc1ff46-fa56-41ce-84cd-64135d0f4a76 / 8d29637a-ffce-4182-84a1-921fffec6cce"
+  },
+  {
+    "check": "access token identifies user A",
+    "ok": true,
+    "detail": 200
+  },
+  {
+    "check": "login returns token pair",
+    "ok": true,
+    "detail": 200
+  },
+  {
+    "check": "refresh rotates refresh token",
+    "ok": true,
+    "detail": 200
+  },
+  {
+    "check": "old refresh token rejected",
+    "ok": true,
+    "detail": 401
+  },
+  {
+    "check": "logout accepts access/refresh",
+    "ok": true,
+    "detail": 200
+  },
+  {
+    "check": "concurrent chat A",
+    "ok": true,
+    "detail": "u9839d37cc06abe0c.7b6aa9b4"
+  },
+  {
+    "check": "concurrent chat B",
+    "ok": true,
+    "detail": "u4a14a9fc9b9bcc3b.612c4fce"
+  },
+  {
+    "check": "session ids differ",
+    "ok": true,
+    "detail": "u9839d37cc06abe0c.7b6aa9b4 / u4a14a9fc9b9bcc3b.612c4fce"
+  },
+  {
+    "check": "B cannot read A session status",
+    "ok": true,
+    "detail": 404
+  },
+  {
+    "check": "history A sees A only",
+    "ok": true,
+    "detail": "messages=2"
+  },
+  {
+    "check": "history B cannot read A client_id",
+    "ok": true,
+    "detail": "messages=0"
+  },
+  {
+    "check": "history B sees B only",
+    "ok": true,
+    "detail": "messages=2"
+  },
+  {
+    "check": "memory rows keyed by auth user",
+    "ok": true,
+    "detail": "openher=10 extra=2"
+  },
+  {
+    "check": "relationship side-state keyed by auth user",
+    "ok": true,
+    "detail": "extra=2"
+  },
+  {
+    "check": "chat log client_id namespaced",
+    "ok": true,
+    "detail": [
+      "u4a14a9fc9b9bcc3b:auth66-1792860137-c24f-b-web",
+      "u9839d37cc06abe0c:auth66-1792860137-c24f-a-web"
+    ]
+  }
+]
