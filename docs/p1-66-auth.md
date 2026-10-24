@@ -1,6 +1,6 @@
 # P1-66 认证与会话隔离
 
-- 状态：本地实现与零依赖测试完成；运行时双用户验收待 Codespace 执行
+- 状态：本地实现、登录页与零依赖测试完成；运行时双用户验收待 Codespace 执行
 - 登录方式：**邮箱 + 密码 + 强制邀请码**
 - 手机号：已预留 `phone` 身份与密码字段，首版不开放；后续形态为手机号 + 密码
 - 代码边界：认证逻辑全部在 `shell/auth/`，不修改 `vendor/OpenHer`
@@ -93,6 +93,18 @@ Authorization: Bearer <access_token>
 ```
 
 同时撤销传入的 access 和 refresh；接口幂等。
+
+### 登录页
+
+```http
+GET /login
+```
+
+- 公开页面，不依赖认证；内联 HTML/CSS/JS，不需要前端构建。
+- 登录成功后页面显示 `OK` 和邮箱；刷新时会先用 `/api/auth/me` 校验，access 过期则自动 refresh。
+- 同页带折叠的邀请码注册表单，方便内测冒烟。
+- Token 暂存 `localStorage`；正式聊天页接入时应改为 HttpOnly cookie + CSRF 防护。
+- 页面不接聊天 UI，也不改 `vendor/OpenHer`。
 
 ## 会话与历史隔离
 

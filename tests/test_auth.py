@@ -17,6 +17,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from shell.auth.middleware import AuthMiddleware  # noqa: E402
+from shell.auth.page import LOGIN_HTML  # noqa: E402
 from shell.auth.scope import (  # noqa: E402
     ScopedChatLog,
     current_auth_scope_enabled,
@@ -412,6 +413,28 @@ def test_local_session_keeps_legacy_shape() -> None:
     assert len(sid) == 8
     assert validate_session_id("legacy123", "local") == "legacy123"
     assert scoped_client_id("local", "client") == "client"
+
+
+def test_login_page_contract() -> None:
+    """登录页不依赖 FastAPI 也可检查关键契约。"""
+    for marker in (
+        'id="login-form"',
+        'id="login-email"',
+        'id="login-password"',
+        'id="register-form"',
+        'id="register-invite"',
+        'id="ok-view"',
+        "/api/auth/login",
+        "/api/auth/register",
+        "/api/auth/refresh",
+        "/api/auth/me",
+        "/api/auth/logout",
+        "alpha_access",
+        "alpha_refresh",
+        "__CSP_NONCE__",
+    ):
+        assert marker in LOGIN_HTML, marker
+    assert "OK" in LOGIN_HTML
 
 
 if __name__ == "__main__":

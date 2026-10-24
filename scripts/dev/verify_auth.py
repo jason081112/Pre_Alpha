@@ -167,6 +167,17 @@ def main(argv: list[str] | None = None) -> int:
         if status.status_code != 200:
             return 1
 
+        login_page = client.get(BASE + "/login")
+        page_ok = (
+            login_page.status_code == 200
+            and 'id="login-form"' in login_page.text
+            and 'id="ok-view"' in login_page.text
+            and "script-src 'nonce-" in login_page.headers.get(
+                "content-security-policy", ""
+            )
+        )
+        record("public login page", page_ok, login_page.status_code)
+
         anon = client.get(BASE + "/api/me/routing")
         record("unauthenticated config is 401", anon.status_code == 401, anon.status_code)
 

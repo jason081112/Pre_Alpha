@@ -38,6 +38,7 @@ from shell.agent_state import AgentExtraStore  # noqa: E402
 from shell.api import build_router  # noqa: E402
 from shell.auth.api import build_auth_router  # noqa: E402
 from shell.auth.middleware import AuthMiddleware  # noqa: E402
+from shell.auth.page import build_page_router  # noqa: E402
 from shell.auth.scope import (  # noqa: E402
     ScopedChatLog,
     current_auth_user,
@@ -82,6 +83,7 @@ routing_client = RoutingLLMClient(registry=registry, custom_store=custom_store)
 app = upstream.app
 app.include_router(build_router(registry, store, custom_store))
 app.include_router(build_auth_router(auth_service))
+app.include_router(build_page_router())
 
 # ── ChatAgent 补充状态：上游没有持久化关系 EMA / turn_count ──
 # 不改 vendor，只在运行时包装两个入口：
