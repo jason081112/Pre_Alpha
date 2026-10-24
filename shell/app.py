@@ -36,6 +36,15 @@ from fastapi.responses import JSONResponse  # noqa: E402
 
 from shell.agent_state import AgentExtraStore  # noqa: E402
 from shell.api import build_router  # noqa: E402
+from shell.auth.api import build_auth_router  # noqa: E402
+from shell.auth.middleware import AuthMiddleware  # noqa: E402
+from shell.auth.scope import (  # noqa: E402
+    ScopedChatLog,
+    current_auth_user,
+    prepare_session_id,
+)
+from shell.auth.service import service_from_env  # noqa: E402
+from shell.auth.store import AuthStore  # noqa: E402
 from shell.crypto import SecretBox  # noqa: E402
 from shell.custom import CustomProviderStore  # noqa: E402
 from shell.providers import Registry, Route, RouteError  # noqa: E402
@@ -52,6 +61,13 @@ from shell.store import RoutingStore  # noqa: E402
 
 DATA_DIR = Path(os.getenv("ALPHA_DATA_DIR", str(ROOT / ".data")))
 DB_PATH = Path(os.getenv("ALPHA_ROUTING_DB", str(DATA_DIR / "routing.db")))
+AUTH_DB_PATH = Path(os.getenv("ALPHA_AUTH_DB", str(DATA_DIR / "auth.db")))
+AUTH_REQUIRED = os.getenv("ALPHA_AUTH_DISABLED", "").strip().lower() not in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 registry = Registry.load()
 store = RoutingStore(DB_PATH)
@@ -59,10 +75,13 @@ custom_store = CustomProviderStore(DB_PATH, SecretBox.from_env(DATA_DIR))
 agent_extra = AgentExtraStore(
     Path(os.getenv("ALPHA_AGENT_EXTRA_DB", str(DATA_DIR / "agent_extra.db")))
 )
+auth_store = AuthStore(AUTH_DB_PATH)
+auth_service = service_from_env(auth_store)
 routing_client = RoutingLLMClient(registry=registry, custom_store=custom_store)
 
 app = upstream.app
 app.include_router(build_router(registry, store, custom_store))
+app.include_router(build_auth_router(auth_service))
 
 # ── ChatAgent 补充状态：上游没有持久化关系 EMA / turn_count ──
 # 不改 vendor，只在运行时包装两个入口：
@@ -75,9 +94,38 @@ _original_persist_agent = upstream._persist_agent
 def _alpha_get_or_create_session(
     session_id, persona_id, user_name=None, client_id=None
 ):
+    """用户隔离后的 session 入口。
+
+    - 忽略客户端传入的 user_name，统一绑定当前认证用户；
+    - session_id 加用户前缀，跨用户复用直接拒绝；
+    - 不让上游按 persona 盲目复用 session（client_id 传 None），
+      再由外壳按用户命名空间恢复聊天历史。
+    """
+    user = current_auth_user.get() or "local"
+    internal_sid = prepare_session_id(session_id, user)
     sid, agent = _original_get_or_create_session(
-        session_id, persona_id, user_name=user_name, client_id=client_id
+        internal_sid,
+        persona_id,
+        user_name=user,
+        client_id=None,
     )
+
+    if client_id and not agent.history and upstream.chat_log_store is not None:
+        try:
+            rows = upstream.chat_log_store.load_messages(
+                client_id=client_id,
+                persona_id=persona_id,
+                limit=agent.max_history,
+            )
+            if rows:
+                agent.history = [
+                    upstream.ChatMessage(role=row["role"], content=row["content"])
+                    for row in rows
+                ]
+                print(f"  ↳ 恢复聊天历史: {len(agent.history)} 条消息")
+        except Exception as exc:  # noqa: BLE001
+            print(f"  [auth] 历史恢复失败: {type(exc).__name__}")
+
     try:
         extra = agent_extra.load(agent.user_id, agent.persona.persona_id)
         if extra:
@@ -254,15 +302,29 @@ class AlphaMiddleware:
 
 
 app.add_middleware(AlphaMiddleware)
+# 后加入的中间件在最外层：先认证，再进入路由/会话层
+app.add_middleware(
+    AuthMiddleware,
+    service=auth_service,
+    required=AUTH_REQUIRED,
+)
 
 
 @app.on_event("startup")
 async def _install_routing_client() -> None:
     """上游 startup 创建完全局 llm_client 之后执行，替换为路由门面。"""
     upstream.llm_client = routing_client
+    if upstream.chat_log_store is not None and not isinstance(
+        upstream.chat_log_store, ScopedChatLog
+    ):
+        upstream.chat_log_store = ScopedChatLog(upstream.chat_log_store)
     print(
         f"✓ Alpha 路由已接管: {len(list(registry.specs()))} 个 provider, "
         f"dev_route={DEV_ROUTE or '未设置'}"
+    )
+    print(
+        f"✓ Alpha 认证: {'required' if AUTH_REQUIRED else 'disabled (dev)'}, "
+        f"invite_required={auth_service.require_invite}"
     )
 
 
@@ -270,6 +332,7 @@ async def _install_routing_client() -> None:
 async def _close_store() -> None:
     store.close()
     custom_store.close()
+    auth_store.close()
 
 
 if __name__ == "__main__":
