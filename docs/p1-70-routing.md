@@ -42,6 +42,7 @@ uvicorn shell.app:app --host 0.0.0.0 --port 8000
 | `ALPHA_ROUTING_DB` | 路由库路径，默认 `.data/routing.db` |
 | `ALPHA_DEV_ROUTE` | 开发态兜底路由，如 `ollama-cloud/gemma4:31b` |
 | `ALPHA_PROVIDERS_FILE` | 自定义注册表路径 |
+| `ALPHA_ALLOW_PRIVATE_PROVIDERS` | `1/true/yes/on` 时允许本机/局域网 provider（调试用） |
 
 ## 开发态设置
 
@@ -164,21 +165,43 @@ curl http://localhost:8000/api/me/providers/custom-a1b2c3d4/audit
 
 完整字段、迁移和验收见 [`p1-71-byok.md`](p1-71-byok.md)。
 
-### 安全规则
+### 出站安全规则（#81）
+
+完整实现与测试见 [`p1-81-outbound.md`](p1-81-outbound.md)。
 
 - 只接受 http/https；非本机地址必须 https
 - 拒绝 URL 内嵌账号密码
-- 拒绝字面量内网 IP；创建时做 DNS 解析，域名指向内网直接拒绝
-- 本机地址（localhost / 127.0.0.1 / ::1）放行，方便本地 Ollama
-- 内网调试可设 `ALPHA_ALLOW_PRIVATE_PROVIDERS=1`
+- **默认拒绝所有非公网地址**：环回、私网、链路本地、保留、组播、未指定地址
+- 本机 Ollama / 局域网调试必须在启动服务时设 `ALPHA_ALLOW_PRIVATE_PROVIDERS=1`
+- 创建、更新、探活、真实请求共用同一套 `plan_outbound()`：
+  - 请求前解析主机名，并把连接目标固定到解析出的 IP；
+  - 后续请求不再依赖 DNS，DNS rebinding 改不了连接目标；
+  - DNS 同时返回公网和私网地址时整体拒绝；
+  - HTTPS 仍用原始主机名做 SNI 和证书校验；
+- 不跟随 3xx 重定向，避免被带到内网；
+- 解析失败、私网拒绝等错误只返回通用原因，不回显内网 IP。
+
+> 这层只解决“出站地址不可信”，不改变“服务端代理会持有明文 Key/请求”的事实；
+> 真正的“平台看不到”需要客户端直连或 TEE。
 
 ### 连通性检查
 
-创建时默认请求 `{base_url}/models`，轮换 Key 时同样执行：
+创建时默认请求 `{base_url}/models`，轮换 Key 时同样执行；探活与真实请求共用
+同一套出站策略：
 
 - 401/403 → 拒绝保存
+- 3xx 重定向 → 拒绝，不跟随
+- 私网/环回/链路本地/保留地址 → 拒绝
 - 其他状态码 → 允许保存（部分服务不实现 /models）
 - 可传 `"probe": false` 跳过
+
+本机 mock 验收时要同时设置：
+
+```bash
+ALPHA_ALLOW_PRIVATE_PROVIDERS=1 python -m shell.app
+```
+
+否则 `http://127.0.0.1:9999/v1` 会被默认策略拒绝。
 
 ### 威胁模型与边界
 

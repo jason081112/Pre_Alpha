@@ -3,7 +3,7 @@
 安全边界
 - 只接受 http(s)；非本机地址强制 https
 - 拒绝 URL 内嵌账号密码
-- 拒绝字面量内网 IP；创建时再做一次 DNS 解析检查（API 层调用）
+- 拒绝字面量内网 IP；创建时做 DNS 检查，运行时固定解析出的 IP
 - Key 用 AES-GCM 加密后落库，读取时才解密
 - 轮换递增 key_version；撤销清空密文但保留 provider 元数据
 - 审计只记事件与版本，不记 Key
@@ -14,7 +14,6 @@ from __future__ import annotations
 import ipaddress
 import json
 import secrets
-import socket
 import sqlite3
 import threading
 import time
@@ -98,21 +97,24 @@ def validate_base_url(value: str, *, allow_private: bool = False) -> str:
     return raw
 
 
-def assert_public_host(base_url: str, *, allow_private: bool = False) -> None:
-    """创建 provider 前做 DNS 解析，防止域名指向内网（SSRF）。"""
-    if allow_private:
-        return
-    host = urlparse(base_url).hostname
-    if not host or host in _LOCAL_HOSTS:
-        return
-    try:
-        infos = socket.getaddrinfo(host, None)
-    except socket.gaierror as exc:
-        raise ValueError(f"域名解析失败: {host}") from exc
-    for info in infos:
-        ip = ipaddress.ip_address(info[4][0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-            raise ValueError(f"域名 {host} 解析到内网地址，已拒绝")
+def assert_public_host(
+    base_url: str,
+    *,
+    allow_private: bool = False,
+    resolver=None,
+):
+    """创建/更新 provider 前执行与运行时相同的出站策略。
+
+    解析失败、私网/环回/链路本地/保留地址都统一报通用错误，不回显内网 IP。
+    `resolver` 仅用于测试注入。
+    """
+    from .outbound import plan_outbound
+
+    return plan_outbound(
+        base_url,
+        allow_private=allow_private,
+        resolver=resolver,
+    )
 
 
 @dataclass(frozen=True)

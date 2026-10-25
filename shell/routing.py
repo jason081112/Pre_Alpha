@@ -119,9 +119,23 @@ def _describe(exc: BaseException) -> str:
 
 # ── 默认客户端工厂（运行时才 import 上游） ────────────────────
 def default_client_factory(spec: ProviderSpec, route: Route, temperature: float, max_tokens: int) -> Any:
+    # 自定义 provider 的 base_url 由用户提供，必须走固定 IP 的出站策略。
+    if spec.id.startswith("custom-"):
+        from .outbound import build_pinned_openai_provider, plan_outbound
+
+        target = plan_outbound(spec.base_url)
+        return build_pinned_openai_provider(
+            model=route.model,
+            api_key=spec.api_key,
+            base_url=spec.base_url,
+            target=target,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+
     from providers.llm.client import LLMClient  # 上游模块，仅运行时可用
 
-    return LLMClient(
+    client = LLMClient(
         provider=spec.upstream,
         model=route.model,
         api_key=spec.api_key or None,
@@ -129,6 +143,12 @@ def default_client_factory(spec: ProviderSpec, route: Route, temperature: float,
         temperature=temperature,
         max_tokens=max_tokens,
     )
+    # 让 shell.routing 成为唯一的重试/回退决策点，避免 SDK 内部重试叠加。
+    impl = getattr(client, "_impl", None)
+    http = getattr(impl, "client", None)
+    if http is not None and hasattr(http, "max_retries"):
+        http.max_retries = 0
+    return client
 
 
 @dataclass

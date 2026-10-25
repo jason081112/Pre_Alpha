@@ -8,6 +8,12 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from .custom import CustomProviderStore, assert_public_host
+from .outbound import (
+    OutboundPolicyError,
+    allow_private_providers,
+    build_async_client,
+    plan_outbound,
+)
 from .providers import Registry, Route, RouteError
 from .store import RoutingStore
 
@@ -44,18 +50,25 @@ class ProviderUpdate(BaseModel):
 
 
 async def probe_provider(base_url: str, api_key: str, timeout: float = 5.0) -> tuple[bool, str]:
-    """最小连通性检查；/models 不通不阻塞保存，鉴权失败才拒绝。"""
-    try:
-        import httpx
+    """最小连通性检查；/models 不通不阻塞保存，鉴权失败才拒绝。
 
-        async with httpx.AsyncClient(timeout=timeout) as client:
+    探活与真实请求共用 `plan_outbound()`：先解析并固定 IP，再发请求；
+    不跟随重定向，避免 3xx 把探活带到内网。
+    """
+    try:
+        target = plan_outbound(base_url, allow_private=allow_private_providers())
+        async with build_async_client(target, timeout=timeout) as client:
             response = await client.get(
                 base_url.rstrip("/") + "/models",
                 headers={"Authorization": f"Bearer {api_key}"},
             )
+    except OutboundPolicyError as exc:
+        return False, str(exc)
     except Exception as exc:  # noqa: BLE001
         return False, f"连接失败: {type(exc).__name__}"
 
+    if response.status_code in (301, 302, 303, 307, 308):
+        return False, "provider 返回重定向，已拒绝"
     if response.status_code in (401, 403):
         return False, f"鉴权失败 (HTTP {response.status_code})"
     return True, f"HTTP {response.status_code}"
@@ -345,6 +358,4 @@ def build_router(
 
 
 def _allow_private() -> bool:
-    import os
-
-    return os.getenv("ALPHA_ALLOW_PRIVATE_PROVIDERS", "").strip() in {"1", "true", "yes"}
+    return allow_private_providers()

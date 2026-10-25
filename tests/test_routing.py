@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -18,11 +19,13 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from shell.providers import ProviderSpec, Registry, Route, RouteError  # noqa: E402
+from shell.outbound import OutboundPolicyError  # noqa: E402
 from shell.routing import (  # noqa: E402
     AllProvidersFailed,
     RouteNotConfigured,
     RoutingLLMClient,
     attempts,
+    default_client_factory,
     last_usage,
     route_used,
     routing_context,
@@ -113,7 +116,33 @@ def test_should_fallback() -> None:
     assert should_fallback(FakeServerError()) is True
     assert should_fallback(FakeAuthError()) is False
     assert should_fallback(RouteError("bad")) is False
+    assert should_fallback(OutboundPolicyError("blocked")) is False
     assert should_fallback(ValueError("missing key")) is False
+
+
+def test_custom_route_rejects_private_base_url() -> None:
+    old = os.environ.get("ALPHA_ALLOW_PRIVATE_PROVIDERS")
+    os.environ.pop("ALPHA_ALLOW_PRIVATE_PROVIDERS", None)
+    spec = ProviderSpec(
+        id="custom-deadbeef",
+        upstream="openai",
+        base_url="http://127.0.0.1:9999/v1",
+        api_key_env="",
+        models=("mock-ok",),
+        caps=("zh",),
+        api_key="test-key",
+    )
+    try:
+        default_client_factory(spec, Route("custom-deadbeef", "mock-ok"), 0.9, 128)
+    except OutboundPolicyError:
+        pass
+    else:
+        raise AssertionError("自定义 provider 必须走固定 IP 出站策略")
+    finally:
+        if old is None:
+            os.environ.pop("ALPHA_ALLOW_PRIVATE_PROVIDERS", None)
+        else:
+            os.environ["ALPHA_ALLOW_PRIVATE_PROVIDERS"] = old
 
 
 def test_store_roundtrip() -> None:
