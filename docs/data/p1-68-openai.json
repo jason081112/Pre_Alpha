@@ -1,0 +1,97 @@
+{
+  "issue": 68,
+  "title": "接入层：OpenAI 兼容端点（/v1/chat/completions，流式 + 非流式）",
+  "date": "2026-10-25",
+  "commit": "b831009",
+  "unit": {
+    "openai_compat": {
+      "command": "python3 tests/test_openai_compat.py",
+      "tests": 7,
+      "passed": 7,
+      "failed": 0
+    },
+    "limits": {
+      "command": "python3 tests/test_limits.py",
+      "tests": 13,
+      "passed": 13,
+      "failed": 0
+    },
+    "routing": {
+      "command": "python3 tests/test_routing.py",
+      "tests": 15,
+      "passed": 15,
+      "failed": 0
+    }
+  },
+  "public_guard": {
+    "workflow": "public-guard",
+    "run_id": 40157488266,
+    "url": "https://github.com/jason081112/Pre_Alpha/actions/runs/40157488266",
+    "status": "PASS"
+  },
+  "limits_regression": {
+    "workflow": "limits-smoke",
+    "run_id": 40157488268,
+    "url": "https://github.com/jason081112/Pre_Alpha/actions/runs/40157488268",
+    "status": "PASS"
+  },
+  "http_smoke": {
+    "command": "python3 scripts/dev/verify_openai_http.py",
+    "workflow": "openai-smoke",
+    "run_id": 40157488228,
+    "url": "https://github.com/jason081112/Pre_Alpha/actions/runs/40157488228",
+    "status": "PASS",
+    "duration_seconds": 16,
+    "python": "3.11.17",
+    "fastapi": "0.162.0",
+    "starlette": "1.10.0",
+    "uvicorn": "0.54.0",
+    "httpx": "0.28.1",
+    "pydantic": "2.14.1",
+    "openai_sdk": "2.54.0",
+    "checks": [
+      "GET /v1/models",
+      "curl 等价非流式对话",
+      "openai-python SDK 非流式",
+      "openai-python SDK 流式（标记跨 chunk）",
+      "原始 SSE 标准流式消费",
+      "model=provider/model 路由",
+      "聊天记录与 agent 落盘",
+      "401 OpenAI 错误结构",
+      "500 OpenAI 错误结构",
+      "400 OpenAI 错误结构",
+      "429 + Retry-After",
+      "平台配额按实际主路由检查"
+    ],
+    "chat_log_turns": 6,
+    "persisted_agents": 6
+  },
+  "results": {
+    "chat_completions_non_stream": "PASS",
+    "chat_completions_stream": "PASS",
+    "openai_python_non_stream": "PASS",
+    "openai_python_stream": "PASS",
+    "raw_sse": "PASS",
+    "models_endpoint": "PASS",
+    "auth_401": "PASS",
+    "rate_limit_429": "PASS",
+    "provider_failure_500": "PASS",
+    "invalid_input_400": "PASS",
+    "explicit_provider_model_route": "PASS",
+    "chat_log_persistence": "PASS",
+    "agent_persistence": "PASS",
+    "platform_quota_route_aware": "PASS"
+  },
+  "notes": [
+    "真实 HTTP transport 在 GitHub Actions 执行；本机 Termux 未安装 fastapi/uvicorn/httpx/openai",
+    "HTTP 冒烟使用真实 FastAPI/uvicorn/AuthMiddleware/LimitsMiddleware//v1 router 与官方 openai-python SDK，聊天引擎使用 fake upstream 以隔离外部 provider",
+    "流式只透出【最终回复】段，跳过 __FEEL_DONE__，丢弃【内心独白】与【表达方式】；标记跨 chunk 已覆盖",
+    "流式结束后由端点自行 _persist_agent 与 chat_log_store.save_turn；非流式同样保存",
+    "每个请求使用服务端随机 session_id，多轮上下文由认证用户 + user/client_id 对应的聊天记录恢复",
+    "model=provider/model 作为本次主路由，账号已保存主路由与回退链作为后续回退",
+    "平台 token 配额按端点解析出的实际主路由检查；custom-*（BYOK）主路由不扣平台额度",
+    "/v1 的 401/429 由 Auth/Limits 中间件直接返回 OpenAI 结构；验证/路由错误 400，上游失败 500",
+    "流式启动后上游才失败时 HTTP 状态已为 200，只能发送 SSE error 事件；建会话阶段失败仍返回 JSON 500",
+    "未实现 Responses API、Embeddings、工具调用，图片/音频 part 仅转占位文本"
+  ]
+}
