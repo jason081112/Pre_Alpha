@@ -4,10 +4,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from .custom import CustomProviderStore, assert_public_host
+from .limits import LimitsService, client_ip
 from .outbound import (
     OutboundPolicyError,
     allow_private_providers,
@@ -79,8 +80,34 @@ def build_router(
     store: RoutingStore,
     custom_store: CustomProviderStore | None = None,
     probe=probe_provider,
+    limits: LimitsService | None = None,
 ) -> APIRouter:
     router = APIRouter()
+
+    async def run_probe(
+        user: str,
+        request: Request,
+        target_url: str,
+        api_key: str,
+    ) -> tuple[bool, str]:
+        """带按用户/小时、并发上限与失败退避的探活。"""
+        if limits is None:
+            return await probe(target_url, api_key)
+
+        ip = client_ip(request.scope, trust_proxy=limits.trust_proxy)
+        with limits.probe_slot(user):
+            limits.check_probe(user, ip, target_url)
+            try:
+                ok, message = await probe(target_url, api_key)
+            except Exception:
+                limits.record_probe_failure(user, target_url)
+                raise
+            if ok or message.startswith("鉴权失败"):
+                # 401/403 说明目标可达，只是 Key 不对，不进入退避。
+                limits.record_probe_success(user, target_url)
+            else:
+                limits.record_probe_failure(user, target_url)
+            return ok, message
 
     def user_of(value: str | None) -> str:
         user = (value or "local").strip()
@@ -201,6 +228,7 @@ def build_router(
     @router.post("/api/me/providers")
     async def create_provider(
         payload: ProviderCreate,
+        request: Request,
         x_alpha_user: str | None = Header(default=None),
     ) -> dict:
         if custom_store is None:
@@ -210,7 +238,9 @@ def build_router(
         try:
             assert_public_host(payload.base_url, allow_private=allow_private)
             if payload.probe:
-                ok, message = await probe(payload.base_url, payload.api_key)
+                ok, message = await run_probe(
+                    user, request, payload.base_url, payload.api_key
+                )
                 if not ok:
                     raise HTTPException(status_code=422, detail=message)
             provider = custom_store.add(
@@ -232,6 +262,7 @@ def build_router(
     async def update_provider(
         provider_id: str,
         payload: ProviderUpdate,
+        request: Request,
         x_alpha_user: str | None = Header(default=None),
     ) -> dict:
         if custom_store is None:
@@ -287,7 +318,9 @@ def build_router(
                     status_code=422,
                     detail="Key 已撤销，请提供新 Key 或设置 probe=false",
                 )
-            ok, message = await probe(target_url, probe_key)
+            ok, message = await run_probe(
+                user, request, target_url, probe_key
+            )
             if not ok:
                 raise HTTPException(status_code=422, detail=message)
 

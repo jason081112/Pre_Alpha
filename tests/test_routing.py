@@ -293,6 +293,12 @@ class UsageClient:
         )()
 
 
+class StreamUsageClient:
+    async def chat_stream(self, *args, **kwargs):
+        yield "hello"
+        yield " world"
+
+
 def test_usage_is_captured_per_request() -> None:
     registry = Registry({"a": ProviderSpec("a", "openai", "", "", ("m",), ("zh",))})
     client = RoutingLLMClient(
@@ -306,6 +312,63 @@ def test_usage_is_captured_per_request() -> None:
 
     usage = asyncio.run(run())
     assert usage is not None and usage["total_tokens"] == 18
+
+
+def test_usage_hook_receives_provider_and_user() -> None:
+    registry = Registry({"a": ProviderSpec("a", "openai", "", "", ("m",), ("zh",))})
+    seen: list[tuple] = []
+    client = RoutingLLMClient(
+        registry=registry,
+        client_factory=lambda s, r, t, m: UsageClient(),
+        usage_hook=lambda user, route, usage, estimated: seen.append(
+            (user, route, usage, estimated)
+        ),
+    )
+
+    async def run():
+        with routing_context(Route("a", "m"), user="alice"):
+            await client.chat(
+                [{"role": "user", "content": "你好"}],
+            )
+
+    asyncio.run(run())
+    assert len(seen) == 1
+    user, route, usage, estimated = seen[0]
+    assert user == "alice"
+    assert route == Route("a", "m")
+    assert usage["total_tokens"] == 18
+    assert estimated is False
+
+
+def test_stream_usage_is_estimated() -> None:
+    registry = Registry({"a": ProviderSpec("a", "openai", "", "", ("m",), ("zh",))})
+    seen: list[tuple] = []
+    client = RoutingLLMClient(
+        registry=registry,
+        client_factory=lambda s, r, t, m: StreamUsageClient(),
+        usage_hook=lambda user, route, usage, estimated: seen.append(
+            (user, route, usage, estimated)
+        ),
+    )
+
+    async def run():
+        with routing_context(Route("a", "m"), user="alice"):
+            return [
+                chunk
+                async for chunk in client.chat_stream(
+                    [{"role": "user", "content": "你好世界"}],
+                )
+            ]
+
+    assert asyncio.run(run()) == ["hello", " world"]
+    assert len(seen) == 1
+    user, route, usage, estimated = seen[0]
+    assert user == "alice"
+    assert route == Route("a", "m")
+    assert estimated is True
+    assert usage["prompt_tokens"] > 0
+    assert usage["completion_tokens"] > 0
+    assert usage["total_tokens"] == usage["prompt_tokens"] + usage["completion_tokens"]
 
 
 if __name__ == "__main__":

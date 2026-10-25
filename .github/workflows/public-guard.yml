@@ -17,5 +17,6 @@ jobs:
       - name: Zero-dependency tests
         run: |
           python tests/test_routing.py
+          python tests/test_limits.py
           python tests/test_custom_provider.py
           python tests/test_smoke.py

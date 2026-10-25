@@ -43,6 +43,8 @@ uvicorn shell.app:app --host 0.0.0.0 --port 8000
 | `ALPHA_DEV_ROUTE` | 开发态兜底路由，如 `ollama-cloud/gemma4:31b` |
 | `ALPHA_PROVIDERS_FILE` | 自定义注册表路径 |
 | `ALPHA_ALLOW_PRIVATE_PROVIDERS` | `1/true/yes/on` 时允许本机/局域网 provider（调试用） |
+| `ALPHA_LIMITS_DB` | 限流/用量审计库，默认 `.data/limits.db`，见 [`p1-67-limits.md`](p1-67-limits.md) |
+| `ALPHA_ADMIN_TOKEN` | 限流配置/审计管理接口令牌 |
 
 ## 开发态设置
 
@@ -234,8 +236,9 @@ XSS 仍然能做的事：在用户提交表单时挂钩 `fetch` / 输入框，�
 零依赖，可直接在 Termux 跑：
 
 ```bash
-python3 tests/test_routing.py          # 11 项
-python3 tests/test_custom_provider.py  # 6 项
+python3 tests/test_routing.py          # 15 项
+python3 tests/test_limits.py           # 12 项（限流/配额）
+python3 tests/test_custom_provider.py  # 16 项
 python3 tests/test_smoke.py
 ```
 
@@ -245,10 +248,11 @@ python3 tests/test_smoke.py
 
 ## 已知限制
 
-- 认证尚未接入（#66），当前 `X-Alpha-User` 可伪造，上线前必须替换
+- 认证已接入（#66）；仅 `ALPHA_AUTH_DISABLED=1` 开发模式允许伪造 `X-Alpha-User`
 - 平台模型清单是静态的，后续可加 `/models` 自动刷新
-- 配额与计费未接（#67）
+- 限流与平台 token 配额已接（#67）；真实计费仍未接
 - 上游 startup 需要至少一个可用的默认 Key
 - 自定义 provider 目前只支持 OpenAI 兼容协议
-- DNS rebinding 未防（校验与请求之间解析可能变化），见「威胁模型与边界」
+- 出站已固定 DNS 解析结果、拒绝私网并禁止重定向（#81）；残余风险见
+  [`p1-81-outbound.md`](p1-81-outbound.md)
 - 主密钥轮换 / 全量重新加密未实现

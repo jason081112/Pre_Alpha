@@ -48,6 +48,12 @@ from shell.auth.service import service_from_env  # noqa: E402
 from shell.auth.store import AuthStore  # noqa: E402
 from shell.crypto import SecretBox  # noqa: E402
 from shell.custom import CustomProviderStore  # noqa: E402
+from shell.limits import (  # noqa: E402
+    LimitsMiddleware,
+    LimitsService,
+    RateLimitExceeded,
+)
+from shell.limits_api import build_limits_admin_router  # noqa: E402
 from shell.providers import Registry, Route, RouteError  # noqa: E402
 from shell.routing import (  # noqa: E402
     AllProvidersFailed,
@@ -63,6 +69,7 @@ from shell.store import RoutingStore  # noqa: E402
 DATA_DIR = Path(os.getenv("ALPHA_DATA_DIR", str(ROOT / ".data")))
 DB_PATH = Path(os.getenv("ALPHA_ROUTING_DB", str(DATA_DIR / "routing.db")))
 AUTH_DB_PATH = Path(os.getenv("ALPHA_AUTH_DB", str(DATA_DIR / "auth.db")))
+LIMITS_DB_PATH = Path(os.getenv("ALPHA_LIMITS_DB", str(DATA_DIR / "limits.db")))
 AUTH_REQUIRED = os.getenv("ALPHA_AUTH_DISABLED", "").strip().lower() not in {
     "1",
     "true",
@@ -78,12 +85,18 @@ agent_extra = AgentExtraStore(
 )
 auth_store = AuthStore(AUTH_DB_PATH)
 auth_service = service_from_env(auth_store)
-routing_client = RoutingLLMClient(registry=registry, custom_store=custom_store)
+limits = LimitsService(LIMITS_DB_PATH)
+routing_client = RoutingLLMClient(
+    registry=registry,
+    custom_store=custom_store,
+    usage_hook=limits.record_usage,
+)
 
 app = upstream.app
-app.include_router(build_router(registry, store, custom_store))
+app.include_router(build_router(registry, store, custom_store, limits=limits))
 app.include_router(build_auth_router(auth_service))
 app.include_router(build_page_router())
+app.include_router(build_limits_admin_router(limits))
 
 # ── ChatAgent 补充状态：上游没有持久化关系 EMA / turn_count ──
 # 不改 vendor，只在运行时包装两个入口：
@@ -186,6 +199,18 @@ async def _not_configured_handler(request, exc: RouteNotConfigured) -> JSONRespo
     )
 
 
+@app.exception_handler(RateLimitExceeded)
+async def _rate_limit_handler(request, exc: RateLimitExceeded) -> JSONResponse:
+    return JSONResponse(
+        status_code=429,
+        content=exc.as_dict(),
+        headers={
+            "Retry-After": str(exc.retry_after),
+            "X-Alpha-Error": exc.code,
+        },
+    )
+
+
 def _dev_route() -> Route | None:
     raw = os.getenv("ALPHA_DEV_ROUTE", "").strip()
     if not raw:
@@ -209,6 +234,13 @@ def _user_of(scope: dict) -> str:
     return "local"
 
 
+def _route_chain(user: str) -> tuple[Route, ...]:
+    record = store.get(user)
+    if record is not None:
+        return (record.route, *record.fallback)
+    return (DEV_ROUTE,) if DEV_ROUTE is not None else ()
+
+
 class AlphaMiddleware:
     """按请求解析路由，注入 contextvar；为 /api/chat 补充可观测字段。"""
 
@@ -216,15 +248,23 @@ class AlphaMiddleware:
         self.app = asgi_app
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] != "http":
-            await self.app(scope, receive, send)
-            return
-
+        kind = scope.get("type")
         path = scope.get("path", "")
         user = _user_of(scope)
         record = store.get(user)
         route = record.route if record else DEV_ROUTE
         fallback = record.fallback if record else ()
+
+        if kind == "websocket":
+            if path == "/ws/chat":
+                with routing_context(route, fallback, user=user):
+                    await self.app(scope, receive, send)
+            else:
+                await self.app(scope, receive, send)
+            return
+        if kind != "http":
+            await self.app(scope, receive, send)
+            return
 
         if path == "/api/chat" and route is None:
             await self._route_not_configured(scope, receive, send, user)
@@ -304,7 +344,12 @@ class AlphaMiddleware:
 
 
 app.add_middleware(AlphaMiddleware)
-# 后加入的中间件在最外层：先认证，再进入路由/会话层
+# 后加入的中间件在最外层：认证 -> 限流 -> 路由/会话层
+app.add_middleware(
+    LimitsMiddleware,
+    limits=limits,
+    route_lookup=_route_chain,
+)
 app.add_middleware(
     AuthMiddleware,
     service=auth_service,
@@ -335,6 +380,7 @@ async def _close_store() -> None:
     store.close()
     custom_store.close()
     auth_store.close()
+    limits.close()
 
 
 if __name__ == "__main__":

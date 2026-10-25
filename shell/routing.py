@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import time
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -185,6 +186,7 @@ class RoutingLLMClient:
         max_tokens: int = 1024,
         max_cached_clients: int = 32,
         custom_store: Any = None,
+        usage_hook: Callable[[str, Route, dict, bool], None] | None = None,
     ):
         self.registry = registry
         self.custom_store = custom_store
@@ -194,6 +196,7 @@ class RoutingLLMClient:
         self.temperature = temperature
         self.max_tokens = max_tokens
         self._max_cached = max_cached_clients
+        self._usage_hook = usage_hook
         self._clients: dict[tuple[str, str, str], Any] = {}
 
     # ── 兼容 LLMClient 的属性 ─────────────────────────────
@@ -272,6 +275,41 @@ class RoutingLLMClient:
         # 对外只暴露失败跳转；成功的这一跳由 route_used 表示
         attempts.set(tuple(r.as_dict() for r in records if not r.ok))
 
+    @staticmethod
+    def _text_of(message: Any) -> str:
+        if isinstance(message, dict):
+            value = message.get("content", "")
+        else:
+            value = getattr(message, "content", message)
+        return value if isinstance(value, str) else str(value or "")
+
+    @classmethod
+    def _estimate_from_lengths(
+        cls, prompt_chars: int, completion_chars: int
+    ) -> dict | None:
+        if prompt_chars <= 0 and completion_chars <= 0:
+            return None
+        prompt = int(math.ceil(prompt_chars / 4)) if prompt_chars > 0 else 0
+        completion = (
+            int(math.ceil(completion_chars / 4)) if completion_chars > 0 else 0
+        )
+        return {
+            "prompt_tokens": prompt,
+            "completion_tokens": completion,
+            "total_tokens": prompt + completion,
+            "estimated": True,
+        }
+
+    def _report_usage(
+        self, route: Route, usage: dict | None, *, estimated: bool
+    ) -> None:
+        if self._usage_hook is None or not isinstance(usage, dict):
+            return
+        try:
+            self._usage_hook(current_user.get(), route, usage, estimated)
+        except Exception as exc:  # noqa: BLE001 - 审计失败不能打断聊天
+            print(f"  [usage] 记录失败: {type(exc).__name__}")
+
     # ── 非流式 ────────────────────────────────────────────
     async def chat(
         self,
@@ -313,8 +351,16 @@ class RoutingLLMClient:
             self._store(records)
             route_used.set(route)
             usage = getattr(result, "usage", None)
+            estimated = False
+            if not isinstance(usage, dict):
+                usage = self._estimate_from_lengths(
+                    sum(len(self._text_of(message)) for message in messages),
+                    len(self._text_of(result)),
+                )
+                estimated = usage is not None
             if isinstance(usage, dict):
                 last_usage.set(usage)
+                self._report_usage(route, usage, estimated=estimated)
             return result
 
         raise AllProvidersFailed([r.as_dict() for r in records])  # pragma: no cover
@@ -328,11 +374,13 @@ class RoutingLLMClient:
     ) -> AsyncIterator[str]:
         chain = self._route_chain()
         records: list[_Attempt] = []
+        prompt_chars = sum(len(self._text_of(message)) for message in messages)
 
         for index, route in enumerate(chain):
             started = time.monotonic()
             emitted = False
             stream = None
+            completion_chars = 0
             try:
                 client = self._client(route)
                 stream = client.chat_stream(
@@ -350,13 +398,22 @@ class RoutingLLMClient:
 
                 if first is not None:
                     emitted = True
+                    completion_chars += len(self._text_of(first))
                     yield first
                     async for chunk in stream:
+                        completion_chars += len(self._text_of(chunk))
                         yield chunk
 
                 records.append(self._record(route, started, True))
                 self._store(records)
                 route_used.set(route)
+                if emitted:
+                    usage = self._estimate_from_lengths(
+                        prompt_chars, completion_chars
+                    )
+                    if usage is not None:
+                        last_usage.set(usage)
+                        self._report_usage(route, usage, estimated=True)
                 return
 
             except Exception as exc:  # noqa: BLE001
@@ -365,6 +422,13 @@ class RoutingLLMClient:
                         await stream.aclose()  # type: ignore[attr-defined]
                     except Exception:  # noqa: BLE001
                         pass
+                if emitted:
+                    usage = self._estimate_from_lengths(
+                        prompt_chars, completion_chars
+                    )
+                    if usage is not None:
+                        last_usage.set(usage)
+                        self._report_usage(route, usage, estimated=True)
                 records.append(self._record(route, started, False, exc))
                 self._store(records)
                 is_last = index == len(chain) - 1
