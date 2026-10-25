@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "fixture_id": "social-zh-001",
+  "synthetic": true,
+  "language": "zh-CN",
+  "platform": "x-like",
+  "author": {
+    "id": "demo_author",
+    "display_name": "演示作者"
+  },
+  "posts": [
+    {
+      "id": "post_demo_001",
+      "created_at": "2026-03-01T09:15:00+08:00",
+      "text": "把复杂的事写清楚，本身就是一种尊重。",
+      "reply_to": null,
+      "media": []
+    },
+    {
+      "id": "post_demo_002",
+      "created_at": "2026-03-03T22:40:00+08:00",
+      "text": "今天学到的一个判断：先看约束，再看方案。",
+      "reply_to": null,
+      "media": []
+    },
+    {
+      "id": "post_demo_003",
+      "created_at": "2026-03-08T18:05:00+08:00",
+      "text": "不喜欢“应该”开头的句子，除非后面跟着理由。",
+      "reply_to": "post_demo_001",
+      "media": []
+    }
+  ],
+  "notes": "Synthetic public-post sample for style extraction. No real account, URL, or person."
+}

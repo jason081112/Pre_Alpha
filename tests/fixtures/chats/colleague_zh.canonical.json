@@ -1,0 +1,165 @@
+{
+  "schema_version": "1.0",
+  "fixture_id": "colleague-zh-001",
+  "synthetic": true,
+  "language": "zh-CN",
+  "source": "synthetic",
+  "participants": [
+    {
+      "id": "user_demo",
+      "display_name": "阿澈",
+      "role": "owner",
+      "aliases": []
+    },
+    {
+      "id": "persona_demo",
+      "display_name": "林舟",
+      "role": "target",
+      "aliases": ["林工"]
+    }
+  ],
+  "conversation": {
+    "id": "conv_demo_colleague_001",
+    "platform": "wechat-like",
+    "title": "林舟",
+    "timezone": "Asia/Shanghai"
+  },
+  "messages": [
+    {
+      "id": "c001",
+      "timestamp": "2026-02-14T21:03:05+08:00",
+      "sender_id": "persona_demo",
+      "type": "text",
+      "text": "这个接口的 429 重试逻辑谁写的？",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "c002",
+      "timestamp": "2026-02-14T21:03:40+08:00",
+      "sender_id": "user_demo",
+      "type": "text",
+      "text": "我。现在是指数退避，最多 3 次。",
+      "reply_to": "c001",
+      "attachments": []
+    },
+    {
+      "id": "c003",
+      "timestamp": "2026-02-14T21:04:10+08:00",
+      "sender_id": "persona_demo",
+      "type": "text",
+      "text": "Retry-After 读了吗？",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "c004",
+      "timestamp": "2026-02-14T21:04:30+08:00",
+      "sender_id": "user_demo",
+      "type": "text",
+      "text": "还没有。",
+      "reply_to": "c003",
+      "attachments": []
+    },
+    {
+      "id": "c005",
+      "timestamp": "2026-02-14T21:04:55+08:00",
+      "sender_id": "persona_demo",
+      "type": "text",
+      "text": "补上。不然上游让你等，你还在打。",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "c006",
+      "timestamp": "2026-02-14T21:05:20+08:00",
+      "sender_id": "user_demo",
+      "type": "text",
+      "text": "好，今天下午补。",
+      "reply_to": "c005",
+      "attachments": []
+    },
+    {
+      "id": "c007",
+      "timestamp": "2026-02-14T21:06:00+08:00",
+      "sender_id": "persona_demo",
+      "type": "text",
+      "text": "测试别只写 happy path，补并发和 429 带 Retry-After。",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "c008",
+      "timestamp": "2026-02-14T21:06:30+08:00",
+      "sender_id": "user_demo",
+      "type": "text",
+      "text": "收到。",
+      "reply_to": "c007",
+      "attachments": []
+    },
+    {
+      "id": "c009",
+      "timestamp": "2026-02-14T21:07:00+08:00",
+      "sender_id": "persona_demo",
+      "type": "text",
+      "text": "文档也更新。别让人猜。",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "c010",
+      "timestamp": "2026-02-14T21:07:30+08:00",
+      "sender_id": "user_demo",
+      "type": "text",
+      "text": "周五前给你。",
+      "reply_to": "c009",
+      "attachments": []
+    },
+    {
+      "id": "c011",
+      "timestamp": "2026-02-14T21:08:00+08:00",
+      "sender_id": "persona_demo",
+      "type": "text",
+      "text": "周五上午，留半天回归。",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "c012",
+      "timestamp": "2026-02-14T21:08:20+08:00",
+      "sender_id": "user_demo",
+      "type": "text",
+      "text": "可以。",
+      "reply_to": "c011",
+      "attachments": []
+    },
+    {
+      "id": "c013",
+      "timestamp": "2026-02-14T21:09:00+08:00",
+      "sender_id": "persona_demo",
+      "type": "text",
+      "text": "还有，日志里别打完整 key。",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "c014",
+      "timestamp": "2026-02-14T21:09:20+08:00",
+      "sender_id": "user_demo",
+      "type": "text",
+      "text": "只打 last4。",
+      "reply_to": "c013",
+      "attachments": []
+    },
+    {
+      "id": "c015",
+      "timestamp": "2026-02-14T21:09:40+08:00",
+      "sender_id": "persona_demo",
+      "type": "text",
+      "text": "行。",
+      "reply_to": null,
+      "attachments": []
+    }
+  ],
+  "notes": "Synthetic fixture for colleague distillation: scope, API standards, code review focus, workflow, evidence-based style. No real person or company."
+}

@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "fixture_id": "photo-ocr-zh-001",
+  "synthetic": true,
+  "language": "zh-CN",
+  "source": "synthetic",
+  "images": [
+    {
+      "id": "img_demo_001",
+      "kind": "chat_screenshot",
+      "width": 1080,
+      "height": 2400,
+      "ocr_blocks": [
+        {
+          "text": "小岚",
+          "bbox": [72, 180, 160, 48],
+          "confidence": 0.99
+        },
+        {
+          "text": "你今天怎么这么晚才回？",
+          "bbox": [72, 250, 620, 48],
+          "confidence": 0.98
+        },
+        {
+          "text": "临时开会，刚结束。",
+          "bbox": [360, 330, 560, 48],
+          "confidence": 0.97
+        },
+        {
+          "text": "嗯。到家说一声。",
+          "bbox": [72, 410, 420, 48],
+          "confidence": 0.98
+        }
+      ]
+    }
+  ],
+  "notes": "Synthetic OCR sidecar for the photo/screenshot input path. No real image or chat data is included."
+}

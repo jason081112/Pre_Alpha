@@ -1,0 +1,14 @@
+# SYNTHETIC FIXTURE - not real chat data
+# Format: QQ message manager text-like export
+# All QQ numbers, names, and messages are fabricated for tests.
+=== 消息记录 ===
+2026-02-14 21:03:05 林舟(demo_1001)
+这个接口的 429 重试逻辑谁写的？
+2026-02-14 21:03:40 阿澈(demo_1002)
+我。现在是指数退避，最多 3 次。
+2026-02-14 21:04:55 林舟(demo_1001)
+补上。不然上游让你等，你还在打。
+2026-02-14 21:07:00 林舟(demo_1001)
+文档也更新。别让人猜。
+2026-02-14 21:08:00 林舟(demo_1001)
+周五上午，留半天回归。

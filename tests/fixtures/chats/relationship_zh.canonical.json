@@ -1,0 +1,199 @@
+{
+  "schema_version": "1.0",
+  "fixture_id": "relationship-zh-001",
+  "synthetic": true,
+  "language": "zh-CN",
+  "source": "synthetic",
+  "participants": [
+    {
+      "id": "user_demo",
+      "display_name": "小舟",
+      "role": "owner",
+      "aliases": ["舟"]
+    },
+    {
+      "id": "persona_demo",
+      "display_name": "小岚",
+      "role": "target",
+      "aliases": ["岚"]
+    }
+  ],
+  "conversation": {
+    "id": "conv_demo_relationship_001",
+    "platform": "wechat-like",
+    "title": "小岚",
+    "timezone": "Asia/Shanghai"
+  },
+  "messages": [
+    {
+      "id": "m001",
+      "timestamp": "2026-01-05T20:12:00+08:00",
+      "sender_id": "persona_demo",
+      "type": "text",
+      "text": "你今天怎么这么晚才回？",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "m002",
+      "timestamp": "2026-01-05T20:13:10+08:00",
+      "sender_id": "user_demo",
+      "type": "text",
+      "text": "临时开会，刚结束。",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "m003",
+      "timestamp": "2026-01-05T20:13:40+08:00",
+      "sender_id": "persona_demo",
+      "type": "text",
+      "text": "嗯。",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "m004",
+      "timestamp": "2026-01-05T20:20:00+08:00",
+      "sender_id": "user_demo",
+      "type": "text",
+      "text": "你吃了吗？",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "m005",
+      "timestamp": "2026-01-05T20:21:00+08:00",
+      "sender_id": "persona_demo",
+      "type": "text",
+      "text": "吃了。你不用每次都问。",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "m006",
+      "timestamp": "2026-01-05T20:22:00+08:00",
+      "sender_id": "user_demo",
+      "type": "text",
+      "text": "我是不是又忘了什么？",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "m007",
+      "timestamp": "2026-01-05T20:22:30+08:00",
+      "sender_id": "persona_demo",
+      "type": "text",
+      "text": "你自己想。",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "m008",
+      "timestamp": "2026-01-05T20:23:00+08:00",
+      "sender_id": "user_demo",
+      "type": "text",
+      "text": "周五的饭？",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "m009",
+      "timestamp": "2026-01-05T20:24:00+08:00",
+      "sender_id": "persona_demo",
+      "type": "text",
+      "text": "算了，你忙。",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "m010",
+      "timestamp": "2026-01-05T20:26:00+08:00",
+      "sender_id": "user_demo",
+      "type": "text",
+      "text": "我错了。周五我订好了，七点。",
+      "reply_to": "m009",
+      "attachments": []
+    },
+    {
+      "id": "m011",
+      "timestamp": "2026-01-05T20:27:00+08:00",
+      "sender_id": "persona_demo",
+      "type": "text",
+      "text": "我不是生气。我是觉得你每次都这样，先答应，然后临时有事。",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "m012",
+      "timestamp": "2026-01-05T20:28:00+08:00",
+      "sender_id": "user_demo",
+      "type": "text",
+      "text": "我知道。下次我先确认日历再答应。",
+      "reply_to": "m011",
+      "attachments": []
+    },
+    {
+      "id": "m013",
+      "timestamp": "2026-01-05T20:29:00+08:00",
+      "sender_id": "persona_demo",
+      "type": "text",
+      "text": "嗯。到家说一声。",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "m014",
+      "timestamp": "2026-01-05T20:35:00+08:00",
+      "sender_id": "persona_demo",
+      "type": "voice",
+      "text": "外面下雨了，你带伞没？",
+      "reply_to": null,
+      "attachments": [
+        {
+          "kind": "voice",
+          "name": "voice_demo_001.wav",
+          "duration_seconds": 4,
+          "transcript": "外面下雨了，你带伞没？"
+        }
+      ]
+    },
+    {
+      "id": "m015",
+      "timestamp": "2026-01-05T20:36:00+08:00",
+      "sender_id": "user_demo",
+      "type": "text",
+      "text": "没带。",
+      "reply_to": "m014",
+      "attachments": []
+    },
+    {
+      "id": "m016",
+      "timestamp": "2026-01-05T20:36:30+08:00",
+      "sender_id": "persona_demo",
+      "type": "text",
+      "text": "我就知道。地铁口等我。",
+      "reply_to": "m015",
+      "attachments": []
+    },
+    {
+      "id": "m017",
+      "timestamp": "2026-01-05T20:37:00+08:00",
+      "sender_id": "user_demo",
+      "type": "text",
+      "text": "好。",
+      "reply_to": null,
+      "attachments": []
+    },
+    {
+      "id": "m018",
+      "timestamp": "2026-01-05T20:40:00+08:00",
+      "sender_id": "persona_demo",
+      "type": "text",
+      "text": "上次也是下雨，你把伞给我，自己淋回去。别又这样。",
+      "reply_to": null,
+      "attachments": []
+    }
+  ],
+  "notes": "Synthetic fixture for relationship distillation: expression DNA, conflict repair, care pattern, memory signature. No real person or chat data."
+}

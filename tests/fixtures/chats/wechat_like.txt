@@ -1,0 +1,15 @@
+# SYNTHETIC FIXTURE - not real chat data
+# Format: WeChatMsg / PyWxDump text-like export
+# All names, accounts, and messages are fabricated for tests.
+2026-01-05 20:12:00 小岚
+你今天怎么这么晚才回？
+2026-01-05 20:13:10 小舟
+临时开会，刚结束。
+2026-01-05 20:24:00 小岚
+算了，你忙。
+2026-01-05 20:27:00 小岚
+我不是生气。我是觉得你每次都这样，先答应，然后临时有事。
+2026-01-05 20:29:00 小岚
+嗯。到家说一声。
+2026-01-05 20:36:30 小岚
+我就知道。地铁口等我。
