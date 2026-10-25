@@ -1,0 +1,23 @@
+name: openai-smoke
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install HTTP + OpenAI SDK test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "fastapi>=0.110,<1" "uvicorn>=0.27,<1" "httpx>=0.27,<1" "pydantic>=2,<3" "openai>=1,<3"
+      - name: Zero-dependency OpenAI compat tests
+        run: python tests/test_openai_compat.py
+      - name: Real HTTP OpenAI compat smoke
+        run: python scripts/dev/verify_openai_http.py

@@ -18,5 +18,6 @@ jobs:
         run: |
           python tests/test_routing.py
           python tests/test_limits.py
+          python tests/test_openai_compat.py
           python tests/test_custom_provider.py
           python tests/test_smoke.py

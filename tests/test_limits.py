@@ -195,6 +195,15 @@ def test_platform_quota_and_byok_separation() -> None:
         assert limits.usage.daily_tokens("alice", kind="platform") == 11
         assert limits.usage.daily_tokens("alice", kind="byok") == 99
 
+        try:
+            limits.check_platform_quota("alice", platform)
+        except RateLimitExceeded as exc:
+            assert exc.code == "quota_exceeded"
+        else:
+            raise AssertionError("直接检查平台配额时应拒绝")
+        # BYOK 主路由不受平台配额影响。
+        limits.check_platform_quota("alice", byok)
+
         totals = limits.usage.totals("alice")
         assert totals["kinds"]["platform"]["total_tokens"] == 11
         assert totals["kinds"]["byok"]["total_tokens"] == 99
@@ -343,6 +352,43 @@ def test_http_middleware_429_and_retry_after() -> None:
         assert headers[b"retry-after"]
         payload = json.loads(second[1]["body"])
         assert payload["code"] == "rate_limited"
+    finally:
+        limits.close()
+
+
+def test_http_middleware_openai_error_shape() -> None:
+    limits = _service(_db(), user_rpm=1, ip_rpm=0)
+
+    async def app(scope, receive, send):
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b'{"ok":true}'})
+
+    middleware = LimitsMiddleware(app, limits, route_lookup=lambda user: ())
+
+    def run_once():
+        sent = []
+
+        async def send(message):
+            sent.append(message)
+
+        asyncio.run(
+            middleware(
+                _scope("/v1/chat/completions"),
+                None,
+                send,
+            )
+        )
+        return sent
+
+    try:
+        assert run_once()[0]["status"] == 200
+        blocked = run_once()
+        assert blocked[0]["status"] == 429
+        headers = {key.lower(): value for key, value in blocked[0]["headers"]}
+        assert headers[b"retry-after"]
+        payload = json.loads(blocked[1]["body"])
+        assert payload["error"]["type"] == "rate_limit_error"
+        assert payload["error"]["code"] == "rate_limited"
     finally:
         limits.close()
 

@@ -54,6 +54,11 @@ from shell.limits import (  # noqa: E402
     RateLimitExceeded,
 )
 from shell.limits_api import build_limits_admin_router  # noqa: E402
+from shell.openai_api import (  # noqa: E402
+    build_openai_router,
+    install_openai_error_handlers,
+)
+from shell.openai_format import error_body, is_openai_path  # noqa: E402
 from shell.providers import Registry, Route, RouteError  # noqa: E402
 from shell.routing import (  # noqa: E402
     AllProvidersFailed,
@@ -162,8 +167,36 @@ upstream.get_or_create_session = _alpha_get_or_create_session
 upstream._persist_agent = _alpha_persist_agent
 
 
+def _openai_error(
+    status_code: int,
+    message: str,
+    *,
+    code: str,
+    headers: dict[str, str] | None = None,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content=error_body(
+            message,
+            error_type=(
+                "server_error"
+                if status_code >= 500
+                else (
+                    "rate_limit_error"
+                    if status_code == 429
+                    else "invalid_request_error"
+                )
+            ),
+            code=code,
+        ),
+        headers={"X-Alpha-Error": code, **(headers or {})},
+    )
+
+
 @app.exception_handler(RouteError)
 async def _route_error_handler(request, exc: RouteError) -> JSONResponse:
+    if is_openai_path(request.url.path):
+        return _openai_error(400, str(exc), code="provider_unavailable")
     return JSONResponse(
         status_code=409,
         content={
@@ -176,6 +209,12 @@ async def _route_error_handler(request, exc: RouteError) -> JSONResponse:
 
 @app.exception_handler(AllProvidersFailed)
 async def _all_failed_handler(request, exc: AllProvidersFailed) -> JSONResponse:
+    if is_openai_path(request.url.path):
+        return _openai_error(
+            500,
+            "上游模型调用失败，请稍后重试",
+            code="provider_unavailable",
+        )
     return JSONResponse(
         status_code=502,
         content={
@@ -189,6 +228,8 @@ async def _all_failed_handler(request, exc: AllProvidersFailed) -> JSONResponse:
 
 @app.exception_handler(RouteNotConfigured)
 async def _not_configured_handler(request, exc: RouteNotConfigured) -> JSONResponse:
+    if is_openai_path(request.url.path):
+        return _openai_error(400, str(exc), code="route_not_configured")
     return JSONResponse(
         status_code=409,
         content={
@@ -201,6 +242,13 @@ async def _not_configured_handler(request, exc: RouteNotConfigured) -> JSONRespo
 
 @app.exception_handler(RateLimitExceeded)
 async def _rate_limit_handler(request, exc: RateLimitExceeded) -> JSONResponse:
+    if is_openai_path(request.url.path):
+        return _openai_error(
+            429,
+            exc.detail,
+            code=exc.code,
+            headers={"Retry-After": str(exc.retry_after)},
+        )
     return JSONResponse(
         status_code=429,
         content=exc.as_dict(),
@@ -223,6 +271,18 @@ def _dev_route() -> Route | None:
 
 
 DEV_ROUTE = _dev_route()
+
+app.include_router(
+    build_openai_router(
+        upstream,
+        store=store,
+        registry=registry,
+        custom_store=custom_store,
+        dev_route=DEV_ROUTE,
+        limits=limits,
+    )
+)
+install_openai_error_handlers(app)
 
 
 def _user_of(scope: dict) -> str:

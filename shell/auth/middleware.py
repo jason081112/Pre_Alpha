@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 from urllib.parse import parse_qs
 
+from ..openai_format import error_body, is_openai_path
 from .scope import (
     current_auth_scope_enabled,
     current_auth_user,
@@ -30,12 +31,14 @@ _PROTECTED_EXACT = {
     "/api/tts",
     "/api/image",
     "/ws/chat",
+    "/v1/chat/completions",
 }
 _PROTECTED_PREFIXES = (
     "/api/me/",
     "/api/chat/history/",
     "/api/session/",
     "/api/routes/",
+    "/v1/",
 )
 
 
@@ -180,19 +183,28 @@ class AuthMiddleware:
                 }
             )
             return
-        body = json.dumps(
-            {"error": "unauthorized", "detail": "未登录或 token 无效"},
-            ensure_ascii=False,
-        ).encode("utf-8")
+        openai_path = is_openai_path(scope.get("path", ""))
+        if openai_path:
+            payload = error_body(
+                "Invalid API key",
+                error_type="invalid_request_error",
+                code="invalid_api_key",
+            )
+        else:
+            payload = {"error": "unauthorized", "detail": "未登录或 token 无效"}
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        headers = [
+            (b"content-type", b"application/json; charset=utf-8"),
+            (b"content-length", str(len(body)).encode("ascii")),
+            (b"www-authenticate", b"Bearer"),
+        ]
+        if openai_path:
+            headers.append((b"x-alpha-error", b"invalid_api_key"))
         await send(
             {
                 "type": "http.response.start",
                 "status": 401,
-                "headers": [
-                    (b"content-type", b"application/json; charset=utf-8"),
-                    (b"content-length", str(len(body)).encode("ascii")),
-                    (b"www-authenticate", b"Bearer"),
-                ],
+                "headers": headers,
             }
         )
         await send({"type": "http.response.body", "body": body})

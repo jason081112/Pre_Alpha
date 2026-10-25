@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Callable, Iterator, Sequence
 from urllib.parse import urlsplit
 
+from .openai_format import error_body, is_openai_path
 from .providers import Route
 
 _TRUTHY = {"1", "true", "yes", "on"}
@@ -752,11 +753,30 @@ class LimitsService:
 
         if not user_id or not chain:
             return
-        # 配额按主路由判定：BYOK 主路由只做防滥用限流，不扣平台额度。
-        primary = chain[0]
-        uses_platform = not primary.provider.startswith("custom-")
-        if not uses_platform or config.platform_daily_tokens <= 0:
+        self.check_platform_quota(user_id, chain[0], now=now, config=config)
+
+    def check_platform_quota(
+        self,
+        user_id: str | None,
+        route: Route,
+        *,
+        now: float | None = None,
+        config: LimitConfig | None = None,
+    ) -> None:
+        """只检查平台额度，不消耗 RPM/RPD。
+
+        OpenAI 兼容端点在解析出本次实际主路由后单独调用，避免
+        `model=provider/model` 覆盖路由时绕过平台配额。
+        """
+        if not user_id:
             return
+        # 配额按主路由判定：BYOK 主路由只做防滥用限流，不扣平台额度。
+        if route.provider.startswith("custom-"):
+            return
+        config = config or self.config()
+        if config.platform_daily_tokens <= 0:
+            return
+        now = self._clock() if now is None else now
         used = self.usage.daily_tokens(user_id, utc_day(now), kind="platform")
         if used >= config.platform_daily_tokens:
             raise RateLimitExceeded(
@@ -850,6 +870,7 @@ _HTTP_LIMITED = {
     "/api/auth/login",
     "/api/auth/register",
     "/api/auth/refresh",
+    "/v1/chat/completions",
 }
 _WS_LIMITED = {"/ws/chat"}
 
@@ -907,8 +928,11 @@ class LimitsMiddleware:
 
         user_id = self._user(scope)
         ip = client_ip(scope, trust_proxy=self.limits.trust_proxy)
+        # /v1 的 model 可以覆盖本次实际主路由，配额由端点在解析路由后检查；
+        # 中间件这里只做 RPM/RPD，避免用旧路由重复判断或误拦 BYOK。
+        chain = () if path == "/v1/chat/completions" else self._chain(user_id)
         try:
-            self.limits.check_request(user_id, ip, self._chain(user_id))
+            self.limits.check_request(user_id, ip, chain)
         except RateLimitExceeded as exc:
             await self._reject_http(scope, send, exc)
             return
@@ -946,7 +970,16 @@ class LimitsMiddleware:
 
     @staticmethod
     async def _reject_http(scope, send, exc: RateLimitExceeded) -> None:
-        body = json.dumps(exc.as_dict(), ensure_ascii=False).encode("utf-8")
+        path = (scope.get("path", "") or "/").rstrip("/") or "/"
+        if is_openai_path(path):
+            payload = error_body(
+                exc.detail,
+                error_type="rate_limit_error",
+                code=exc.code,
+            )
+        else:
+            payload = exc.as_dict()
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         await send(
             {
                 "type": "http.response.start",
