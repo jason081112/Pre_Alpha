@@ -1,0 +1,63 @@
+{
+  "issue": 67,
+  "title": "接入层：限流与配额（按用户/IP 的 RPM/RPD，超额 429 + 降级）",
+  "date": "2026-10-25",
+  "commit": "de32a10",
+  "unit": {
+    "limits": {
+      "command": "python3 tests/test_limits.py",
+      "tests": 12,
+      "passed": 12,
+      "failed": 0
+    },
+    "routing": {
+      "command": "python3 tests/test_routing.py",
+      "tests": 15,
+      "passed": 15,
+      "failed": 0
+    }
+  },
+  "public_guard": {
+    "workflow": "public-guard",
+    "run_id": 40156087953,
+    "url": "https://github.com/jason081112/Pre_Alpha/actions/runs/40156087953",
+    "status": "PASS"
+  },
+  "http_smoke": {
+    "command": "python3 scripts/dev/verify_limits_http.py",
+    "workflow": "limits-smoke",
+    "run_id": 40156087976,
+    "url": "https://github.com/jason081112/Pre_Alpha/actions/runs/40156087976",
+    "status": "PASS",
+    "duration_seconds": 20,
+    "python": "3.11.17",
+    "fastapi": "0.162.0",
+    "starlette": "1.10.0",
+    "uvicorn": "0.54.0",
+    "httpx": "0.28.1",
+    "pydantic": "2.14.1",
+    "checks": [
+      "admin config readable",
+      "IP RPM -> 429 + Retry-After",
+      "user RPM -> 429",
+      "concurrent burst: 2 pass / 4 blocked",
+      "daily token audit",
+      "platform quota blocks, BYOK passes",
+      "hot reload without restart"
+    ]
+  },
+  "outbound_regression": {
+    "workflow": "outbound-smoke",
+    "run_id": 40156087982,
+    "url": "https://github.com/jason081112/Pre_Alpha/actions/runs/40156087982",
+    "status": "PASS"
+  },
+  "notes": [
+    "本机 Termux 未安装 fastapi/uvicorn/httpx；真实 HTTP transport 在 GitHub Actions 执行",
+    "平台配额按主路由判定；BYOK 主路由只做防滥用限流，不扣平台额度",
+    "流式 token 为字符估算并写入 estimated_requests，不作为账单依据",
+    "探活并发计数是单进程内存；多 worker 时实际并发为 workers × 配置",
+    "ALPHA_TRUST_PROXY=1 只能在可信反向代理后开启，否则可伪造 X-Forwarded-For",
+    "provider 探活限制已覆盖 #67 评论中的 10 次/小时、2 并发、失败退避"
+  ]
+}

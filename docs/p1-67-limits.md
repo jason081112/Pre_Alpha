@@ -215,6 +215,9 @@ python3 scripts/dev/verify_limits_http.py
 配置热更新、平台配额、BYOK 放行和审计查询。GitHub Actions workflow：
 `limits-smoke`。
 
+原始结果与 CI run：
+[`data/p1-67-limits.json`](data/p1-67-limits.json)。
+
 ## 已知边界
 
 - 平台 token 配额是软配额：并发请求可能在额度边缘多放行一轮。
