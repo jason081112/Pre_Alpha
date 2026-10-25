@@ -1,6 +1,9 @@
 # P1-81 provider 出站策略与 DNS rebinding 防护
 
 - 日期：2026-10-25
+- 结果：零依赖单测 **13 / 13 PASS**；真实 HTTP transport smoke **PASS**
+- CI：<https://github.com/jason081112/Pre_Alpha/actions/runs/40154278011>
+- 原始结果：[`docs/data/p1-81-outbound.json`](data/p1-81-outbound.json)
 - 范围：自定义 provider 的创建、更新、探活、真实请求
 - 代码：[`shell/outbound.py`](../shell/outbound.py)
 - 单测：[`tests/test_outbound.py`](../tests/test_outbound.py)
@@ -86,6 +89,8 @@ python3 tests/test_routing.py
 
 ### 真实 HTTP 传输冒烟
 
+结果：**PASS**（GitHub Actions，Python 3.11.17，httpx 0.28.1）。
+
 `scripts/dev/verify_outbound_http.py` 需要 `httpx`，在 CI 里跑：
 
 - 启动 `127.0.0.1` 本地 HTTP mock
@@ -101,6 +106,16 @@ python3 tests/test_routing.py
 python -m pip install "httpx>=0.27,<1"
 python scripts/dev/verify_outbound_http.py
 ```
+
+### 验收映射
+
+| issue 验收 | 结果 |
+|---|---|
+| 首次解析公网、二次解析 127.0.0.1，请求被拒绝 | PASS：策略层拒绝，固定 IP 后请求不会重新解析 |
+| 内网 IP 字面量、私网域名均被拒绝 | PASS |
+| 本机 `http://localhost:11434/v1` 正常可用 | PASS：`ALPHA_ALLOW_PRIVATE_PROVIDERS=1` 下策略放行；真实 transport 用 localhost mock 验证 |
+| 探活无法被当作端口扫描器 | 私网不可达、重定向不跟随已做；速率限制由 #67 承接 |
+| 失败信息不泄露内网地址细节 | PASS：单测断言错误文本不含 `127.0.0.1` / `10.1.2.3` |
 
 ## 使用
 

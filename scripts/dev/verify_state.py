@@ -1,5 +1,8 @@
 """#69 引擎状态外置运行时验收。
 
+前置：
+    ALPHA_ALLOW_PRIVATE_PROVIDERS=1 python -m shell.app
+
 流程：
     python scripts/dev/verify_state.py warm
     # 重启 shell.app

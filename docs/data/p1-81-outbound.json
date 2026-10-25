@@ -1,0 +1,38 @@
+{
+  "issue": 81,
+  "title": "provider 出站策略与 DNS rebinding 防护",
+  "date": "2026-10-25",
+  "unit": {
+    "command": "python3 tests/test_outbound.py",
+    "tests": 13,
+    "passed": 13,
+    "failed": 0
+  },
+  "routing_unit": {
+    "command": "python3 tests/test_routing.py",
+    "tests": 13,
+    "passed": 13,
+    "failed": 0
+  },
+  "http_smoke": {
+    "command": "python3 scripts/dev/verify_outbound_http.py",
+    "status": "PASS",
+    "workflow": "outbound-smoke",
+    "run_id": 40154278011,
+    "url": "https://github.com/jason081112/Pre_Alpha/actions/runs/40154278011",
+    "python": "3.11.17",
+    "httpx": "0.28.1",
+    "checks": [
+      "localhost pinned to 127.0.0.1",
+      "Host header preserved as localhost:port",
+      "302 not followed",
+      "private address rejected by default",
+      "second DNS answer 127.0.0.1 rejected"
+    ]
+  },
+  "notes": [
+    "本机 Termux 未安装 httpx/openai；真实 transport 在 GitHub Actions 执行",
+    "探活端口扫描防护由 #67 的 RPM/RPD 限流承接",
+    "ALPHA_ALLOW_PRIVATE_PROVIDERS=1 会放行所有私网地址，仅用于调试"
+  ]
+}

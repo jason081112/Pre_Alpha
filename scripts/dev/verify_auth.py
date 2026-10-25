@@ -4,7 +4,7 @@
 """#66 运行时验收：注册、登录、刷新、双用户会话/历史/记忆隔离。
 
 前置：
-    ALPHA_REQUIRE_INVITE=1 python -m shell.app
+    ALPHA_REQUIRE_INVITE=1 ALPHA_ALLOW_PRIVATE_PROVIDERS=1 python -m shell.app
     ALPHA_INVITE_CODE=... python scripts/dev/verify_auth.py
 
 如果邀请码没通过环境变量传入，脚本会尝试在本地 auth.db 生成一个 2 次邀请码。

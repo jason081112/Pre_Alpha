@@ -159,7 +159,7 @@ python3 tests/test_agent_state.py
 
 ```bash
 # 服务端
-ALPHA_REQUIRE_INVITE=1 python -m shell.app
+ALPHA_REQUIRE_INVITE=1 ALPHA_ALLOW_PRIVATE_PROVIDERS=1 python -m shell.app
 
 # 客户端
 ALPHA_INVITE_CODE=ALPHA-XXXXX-XXXXX python scripts/dev/verify_auth.py

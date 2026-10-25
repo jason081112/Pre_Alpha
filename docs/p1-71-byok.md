@@ -171,7 +171,7 @@ DELETE /api/me/providers/custom-a1b2c3d4
 
 ```bash
 python scripts/dev/mock_provider.py
-python -m shell.app
+ALPHA_ALLOW_PRIVATE_PROVIDERS=1 python -m shell.app
 python scripts/dev/verify_byok.py
 ```
 

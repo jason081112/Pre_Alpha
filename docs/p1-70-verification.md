@@ -50,7 +50,7 @@
 python scripts/dev/mock_provider.py
 
 # 终端 2（仓库根目录）
-python -m shell.app
+ALPHA_ALLOW_PRIVATE_PROVIDERS=1 python -m shell.app
 
 # 终端 3
 python scripts/dev/verify_routing.py
