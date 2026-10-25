@@ -318,6 +318,38 @@ def main() -> int:
             assert "stop" in finishes, finishes
             passed.append("openai-python SDK 流式（标记跨 chunk）")
 
+            # 4.5) 原始 SSE：不依赖 SDK，模拟通用流式客户端
+            with client.stream(
+                "POST",
+                "/v1/chat/completions",
+                headers=auth,
+                json={
+                    "model": "luna",
+                    "user": "sse-user",
+                    "stream": True,
+                    "messages": [{"role": "user", "content": "原始SSE"}],
+                },
+            ) as response:
+                assert response.status_code == 200, response.read().decode()
+                assert response.headers["content-type"].startswith(
+                    "text/event-stream"
+                ), response.headers
+                raw_sse = "".join(response.iter_text())
+            assert "data: [DONE]" in raw_sse
+            assert "【最终回复】" not in raw_sse
+            events = [
+                line[6:]
+                for line in raw_sse.splitlines()
+                if line.startswith("data: ") and line != "data: [DONE]"
+            ]
+            sse_text = "".join(
+                choice.get("delta", {}).get("content", "")
+                for event in events
+                for choice in json.loads(event).get("choices", [])
+            )
+            assert sse_text.strip() == "luna流式：原始SSE", repr(sse_text)
+            passed.append("原始 SSE 标准流式消费")
+
             # 5) 显式 provider/model 路由
             routed = expect(
                 client.post(
