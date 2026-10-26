@@ -1,0 +1,133 @@
+{
+  "name": "林舟",
+  "display_name": "林舟",
+  "character": "colleague",
+  "classification": {
+    "language": "zh-CN",
+    "tags": [
+      "后端",
+      "API",
+      "代码评审",
+      "可靠性"
+    ],
+    "gallery_category": "Colleague"
+  },
+  "profile": {
+    "company": "Demo Labs（示例）",
+    "level": "示例团队",
+    "role": "后端工程师",
+    "gender": "未提供"
+  },
+  "tags": [
+    "直接",
+    "务实",
+    "重视回归",
+    "重视文档"
+  ],
+  "knowledge_sources": [
+    "tests/fixtures/chats/colleague_zh.canonical.json"
+  ],
+  "synthetic": true,
+  "research_profile": "standard",
+  "type": "colleague",
+  "lifecycle": {
+    "status": "active",
+    "created_at": "2026-10-26T15:35:29.602928+00:00",
+    "updated_at": "2026-10-26T15:35:29.602928+00:00",
+    "version": "v1"
+  },
+  "generation": {
+    "engine": "distilly",
+    "character": "colleague",
+    "research_profile": "standard",
+    "preset": "distilly.colleague.v1",
+    "prompt_bundle": {
+      "preset": "distilly.colleague.v1",
+      "intake": "prompts/colleague/intake.md",
+      "work_analyzer": "prompts/shared/work_analyzer.md",
+      "persona_analyzer": "prompts/colleague/persona_analyzer.md",
+      "work_builder": "prompts/shared/work_builder.md",
+      "persona_builder": "prompts/colleague/persona_builder.md",
+      "merger": "prompts/colleague/merger.md",
+      "correction_handler": "prompts/shared/correction_handler.md"
+    },
+    "research_profile_bundle": {},
+    "research_profile_references": [],
+    "merge_strategy": "compact",
+    "quality_profile": "budget-friendly",
+    "knowledge_dirs": [
+      "docs",
+      "messages",
+      "emails"
+    ],
+    "storage_root": "skills/colleague",
+    "created_from": [
+      "tests/fixtures/chats/colleague_zh.canonical.json"
+    ],
+    "corrections_count": 0
+  },
+  "source_context": {
+    "domain": "work",
+    "relationship_to_user": "coworker",
+    "is_real_person": true,
+    "is_public_figure": false,
+    "is_fictional": false
+  },
+  "engine": {
+    "name": "distilly",
+    "kind": "meta-skill",
+    "character": "colleague",
+    "research_profile": "standard",
+    "preset": "distilly.colleague.v1",
+    "prompt_bundle": {
+      "preset": "distilly.colleague.v1",
+      "intake": "prompts/colleague/intake.md",
+      "work_analyzer": "prompts/shared/work_analyzer.md",
+      "persona_analyzer": "prompts/colleague/persona_analyzer.md",
+      "work_builder": "prompts/shared/work_builder.md",
+      "persona_builder": "prompts/colleague/persona_builder.md",
+      "merger": "prompts/colleague/merger.md",
+      "correction_handler": "prompts/shared/correction_handler.md"
+    },
+    "research_profile_bundle": {},
+    "research_profile_references": [],
+    "merge_strategy": "compact",
+    "quality_profile": "budget-friendly",
+    "knowledge_dirs": [
+      "docs",
+      "messages",
+      "emails"
+    ],
+    "storage_root": "skills/colleague"
+  },
+  "schema_version": "3",
+  "slug": "demo-colleague",
+  "kind": "meta-skill",
+  "subtype": null,
+  "preset": "distilly.colleague.v1",
+  "id": "meta-skill.colleague.demo-colleague",
+  "artifacts": {
+    "combined_skill": "SKILL.md",
+    "work_skill": "work_skill.md",
+    "persona_skill": "persona_skill.md",
+    "work_doc": "work.md",
+    "persona_doc": "persona.md",
+    "manifest": "manifest.json",
+    "combined_name": "colleague-demo-colleague",
+    "work_name": "colleague-demo-colleague-work",
+    "persona_name": "colleague-demo-colleague-persona",
+    "combined_command": "colleague-demo-colleague",
+    "work_command": "colleague-demo-colleague-work",
+    "persona_command": "colleague-demo-colleague-persona"
+  },
+  "compat": {
+    "legacy_command": "/create-colleague",
+    "legacy_storage_root": "colleagues",
+    "legacy_type": "colleague"
+  },
+  "summary": "林舟, Demo Labs（示例） 示例团队 后端工程师",
+  "created_at": "2026-10-26T15:35:29.602928+00:00",
+  "updated_at": "2026-10-26T15:35:29.602928+00:00",
+  "version": "v1",
+  "corrections_count": 0
+}

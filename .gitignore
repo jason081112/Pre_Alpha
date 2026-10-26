@@ -36,6 +36,9 @@ Thumbs.db
 # 上游代码（fork 后维护，不提交本仓库）
 vendor/
 
+# Distilly 生成物（合成 golden 除外，见 tests/fixtures/golden/）
+skills/
+
 # Open-core 隔离：这些永远不进公开仓库
 .data/
 cloud/
