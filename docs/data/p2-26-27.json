@@ -1,0 +1,164 @@
+{
+  "issues": [
+    26,
+    27
+  ],
+  "title": "P2 Distilly 合成 Skill：colleague + relationship",
+  "date": "2026-10-26",
+  "commit": "cbab860",
+  "distilly": {
+    "fork": "https://github.com/jason081112/distilly",
+    "upstream": "https://github.com/titanwings/distilly",
+    "branch": "dot-skill",
+    "commit": "0afc45c29c360ba7bc8260f1bb0bf34e9155f4fa"
+  },
+  "environment": {
+    "codespace": "supreme-goggles-5r5v45w4xqqf44wv",
+    "base_commit": "c50be40",
+    "authoring": "OpenCode agent following Distilly prompts",
+    "glm": "not configured in Codespace",
+    "fallback_model": "ollama-cloud/gemma4:31b"
+  },
+  "smoke": [
+    {
+      "family": "relationship",
+      "label": "glm-fallback",
+      "provider": "ollama-cloud",
+      "model": "gemma4:31b",
+      "turns": 5,
+      "errors": 0,
+      "leak_markers": [],
+      "duration_seconds": 6.95,
+      "sample_replies": [
+        {
+          "user": "我今晚加班，可能又赶不上吃饭了。",
+          "assistant": "算了，你忙。"
+        },
+        {
+          "user": "我不是故意的。",
+          "assistant": "我不是在说你故意不故意。我是觉得你每次都这样。"
+        }
+      ]
+    },
+    {
+      "family": "relationship",
+      "label": "ollama-cloud",
+      "provider": "ollama-cloud",
+      "model": "gemma4:31b",
+      "turns": 5,
+      "errors": 0,
+      "leak_markers": [],
+      "duration_seconds": 5.07,
+      "sample_replies": [
+        {
+          "user": "我今晚加班，可能又赶不上吃饭了。",
+          "assistant": "算了，你忙。"
+        },
+        {
+          "user": "我不是故意的。",
+          "assistant": "我不是在说你故意。我是觉得你每次都这样。"
+        }
+      ]
+    },
+    {
+      "family": "colleague",
+      "label": "glm-fallback",
+      "provider": "ollama-cloud",
+      "model": "gemma4:31b",
+      "turns": 5,
+      "errors": 0,
+      "leak_markers": [],
+      "duration_seconds": 4.67,
+      "sample_replies": [
+        {
+          "user": "429 重试逻辑怎么写？",
+          "assistant": "Retry-After 读了吗？"
+        },
+        {
+          "user": "测试只写 happy path 可以吗？",
+          "assistant": "不行。补上并发和失败路径。"
+        }
+      ]
+    },
+    {
+      "family": "colleague",
+      "label": "ollama-cloud",
+      "provider": "ollama-cloud",
+      "model": "gemma4:31b",
+      "turns": 5,
+      "errors": 0,
+      "leak_markers": [],
+      "duration_seconds": 4.71,
+      "sample_replies": [
+        {
+          "user": "429 重试逻辑怎么写？",
+          "assistant": "Retry-After 读了吗？"
+        },
+        {
+          "user": "测试只写 happy path 可以吗？",
+          "assistant": "不行。补上并发和失败路径。"
+        }
+      ]
+    }
+  ],
+  "checks": {
+    "golden_tests": {
+      "command": "python3 tests/test_golden_skill.py",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0
+    },
+    "fixture_tests": {
+      "command": "python3 tests/test_fixtures.py",
+      "tests": 6,
+      "passed": 6,
+      "failed": 0
+    },
+    "public_guard": {
+      "run_id": 40351836155,
+      "url": "https://github.com/jason081112/Pre_Alpha/actions/runs/40351836155",
+      "status": "PASS"
+    },
+    "limits_smoke": {
+      "run_id": 40351836219,
+      "url": "https://github.com/jason081112/Pre_Alpha/actions/runs/40351836219",
+      "status": "PASS"
+    },
+    "openai_smoke": {
+      "run_id": 40351836264,
+      "url": "https://github.com/jason081112/Pre_Alpha/actions/runs/40351836264",
+      "status": "PASS"
+    }
+  },
+  "goldens": {
+    "demo-colleague": {
+      "PROVENANCE.md": "e7701c462c5aaf3a452e536bb5abdc55dbaae056f584f0b7e78e26a216a054a0",
+      "SKILL.md": "002bfb57a18f23dd862d192f0fa4bcb08b5261aed28f481120459adee12a7ac6",
+      "manifest.json": "b5c84a2c8715a8b87bea0295117342022a52eabc43f65fe8d90325401b78b48c",
+      "meta.json": "c073b3b62de3888cf2801b0a4ce8541174fd791cae867fe3bac15ff7994e7362",
+      "persona.md": "c29047ed1e314346ec7e443f6f85e1412eb661c03717cb06113361922faf370b",
+      "persona_skill.md": "45d7f49415a4ec00b8c3a151d1406f46c8dbc629b4b151e4581d6f66a462d1d5",
+      "work.md": "487e16bd212f12c00ae648d61a93cc6e54a522d3aa3617af786d3554a9e5966e",
+      "work_skill.md": "0788ba12cbcc884a10e31dc95497a1c16adebb84cfcf2fcc47d6e6a36d8940fe"
+    },
+    "demo-relationship": {
+      "PROVENANCE.md": "bfbab013f89911e95e5cfea5866061e0e3c64cacc42e227e349b3a4871036b31",
+      "SKILL.md": "e6793f21d63c792c702d64f6397fdec102904ca9a03fe47667ba1f29124ebcc5",
+      "manifest.json": "6661ae267319b47b00f597977626ee551272c7d37a090ff156db13947906a8f9",
+      "meta.json": "8bdf70037972937f7b58b256aa869a6e3b4a800c9912adf244fad22d386b41f2",
+      "persona.md": "45987e13f531429e4d6141a5384ade6d736423e653fd0c062dcea9b5ad5e5ac6",
+      "persona_skill.md": "018626bb3b7d23f3a86af5c6f9196725e828b13fbfe9d4c22e112085b3b040b9",
+      "work.md": "3517d2175fee707a4ea5c28ea7eeb62035a3d1ad8ce078628070cd402820c125",
+      "work_skill.md": "7920b618c3914f12e3f6a982b72145fd57cd0f124479b453eda9c478f55fd81a"
+    }
+  },
+  "notes": [
+    "两套 golden 均来自 tests/fixtures/chats/ 的合成数据，不对应真实人物或聊天记录。",
+    "GLM 未在 Codespace 配置；按约定 GLM 组回退到 ollama-cloud/gemma4:31b，所以两组 smoke 实际使用同一模型。",
+    "artifact authoring 由 OpenCode agent 按 Distilly prompt 完成；provider 只用于 persona smoke。",
+    "20/20 smoke 回合成功，0 个错误，0 个泄露标记（无 【内心独白】/【表达方式】/Layer 0）。",
+    "meta.json 的 source_context.is_real_person 是 Distilly preset 默认值；以 synthetic: true 和 PROVENANCE.md 为准。",
+    "golden 已提交到 Pre_Alpha tests/fixtures/golden/，未提交到 alpha-cloud。",
+    "所有 provider key 均从 Codespace 环境读取，未写入仓库或日志。"
+  ]
+}
