@@ -1,0 +1,163 @@
+{
+  "issues": [
+    28
+  ],
+  "title": "P2 产出物结构归档：六层人格 / 口头禅 / 纠错层",
+  "date": "2026-10-28",
+  "commit_base": "7145b6d",
+  "doc": "docs/p2-28-persona-structure.md",
+  "upstream": {
+    "distilly": {
+      "repo": "jason081112/distilly",
+      "branch": "dot-skill",
+      "commit": "0afc45c29c360ba7bc8260f1bb0bf34e9155f4fa"
+    },
+    "openher": {
+      "repo": "kellyvv/OpenHer",
+      "branch": "main",
+      "commit": "ef5b2145c9c1",
+      "scope": "persona/engine/memory/agent prompt"
+    }
+  },
+  "structure": {
+    "slots": [
+      "Layer 0",
+      "Layer 1",
+      "Layer 2",
+      "Layer 3",
+      "Layer 4",
+      "Layer 5",
+      "Correction Log",
+      "General Behavior Principles"
+    ],
+    "layer_titles": {
+      "demo-relationship": {
+        "Layer 0": "Core Relational Rules",
+        "Layer 1": "Relationship Context",
+        "Layer 2": "Expression DNA",
+        "Layer 3": "Emotional Logic",
+        "Layer 4": "Conflict and Repair",
+        "Layer 5": "Memory Signature"
+      },
+      "demo-colleague": {
+        "Layer 0": "Core Personality (highest priority; never violate under any circumstances)",
+        "Layer 1": "Identity",
+        "Layer 2": "Expression Style",
+        "Layer 3": "Decisions and Judgment",
+        "Layer 4": "Interpersonal Behavior",
+        "Layer 5": "Boundaries and Sore Spots"
+      }
+    },
+    "correction_fields": [
+      "scene",
+      "wrong",
+      "correct"
+    ],
+    "correction_max_entries": 50
+  },
+  "openher_slots": {
+    "frontmatter_injected": [
+      "name",
+      "name_zh",
+      "gender",
+      "age"
+    ],
+    "frontmatter_display": [
+      "mbti",
+      "tags",
+      "bio"
+    ],
+    "genome_seed": [
+      "drive_baseline",
+      "engine_params",
+      "signal_buckets"
+    ],
+    "drives": [
+      "connection",
+      "novelty",
+      "expression",
+      "safety",
+      "play"
+    ],
+    "signals": [
+      "directness",
+      "vulnerability",
+      "playfulness",
+      "initiative",
+      "depth",
+      "warmth",
+      "defiance",
+      "curiosity"
+    ],
+    "body_sections": [
+      "personality",
+      "speaking_style",
+      "background",
+      "behavioral_rules"
+    ]
+  },
+  "hashes": {
+    "goldens": {
+      "demo-colleague": {
+        "PROVENANCE.md": "e7701c462c5aaf3a452e536bb5abdc55dbaae056f584f0b7e78e26a216a054a0",
+        "SKILL.md": "002bfb57a18f23dd862d192f0fa4bcb08b5261aed28f481120459adee12a7ac6",
+        "manifest.json": "b5c84a2c8715a8b87bea0295117342022a52eabc43f65fe8d90325401b78b48c",
+        "meta.json": "c073b3b62de3888cf2801b0a4ce8541174fd791cae867fe3bac15ff7994e7362",
+        "persona.md": "c29047ed1e314346ec7e443f6f85e1412eb661c03717cb06113361922faf370b",
+        "persona_skill.md": "45d7f49415a4ec00b8c3a151d1406f46c8dbc629b4b151e4581d6f66a462d1d5",
+        "work.md": "487e16bd212f12c00ae648d61a93cc6e54a522d3aa3617af786d3554a9e5966e",
+        "work_skill.md": "0788ba12cbcc884a10e31dc95497a1c16adebb84cfcf2fcc47d6e6a36d8940fe"
+      },
+      "demo-relationship": {
+        "PROVENANCE.md": "bfbab013f89911e95e5cfea5866061e0e3c64cacc42e227e349b3a4871036b31",
+        "SKILL.md": "e6793f21d63c792c702d64f6397fdec102904ca9a03fe47667ba1f29124ebcc5",
+        "manifest.json": "6661ae267319b47b00f597977626ee551272c7d37a090ff156db13947906a8f9",
+        "meta.json": "8bdf70037972937f7b58b256aa869a6e3b4a800c9912adf244fad22d386b41f2",
+        "persona.md": "45987e13f531429e4d6141a5384ade6d736423e653fd0c062dcea9b5ad5e5ac6",
+        "persona_skill.md": "018626bb3b7d23f3a86af5c6f9196725e828b13fbfe9d4c22e112085b3b040b9",
+        "work.md": "3517d2175fee707a4ea5c28ea7eeb62035a3d1ad8ce078628070cd402820c125",
+        "work_skill.md": "7920b618c3914f12e3f6a982b72145fd57cd0f124479b453eda9c478f55fd81a"
+      }
+    },
+    "sources": {
+      "persona.schema.json": "ee8816c7efe6f3c32bb6bb8e0baf87394f8b24cb71613d0e5b2e7c5380faf144",
+      "tests/test_golden_skill.py": "af80c6d2a46dbe7ee62014996e41635a05de7afe74d247c1bfbe89ebca0eb12c"
+    },
+    "upstream_files": {
+      "distilly: prompts/shared/correction_handler.md": "e0635e12ebc7ec36248c0b1bbfd404a8b929795b0fd21f7555f7737fb5dfd65e",
+      "openher: persona/loader.py": "65f84ad8b77d30b7e03cde44fc86a0cfcc40fdadb17852ddefd8abccd4cc3fcb",
+      "openher: engine/genome/genome_engine.py": "2b285ab8e67f5acc750606c73ef19b266ec3079effa2e6380299227081d84ee5",
+      "openher: engine/genome/drive_metabolism.py": "551f3c943440ec665f416ee95babb560f5755a8e59b988dbda908e379e3a1313",
+      "openher: engine/genome/style_memory.py": "34981ccb1525ec932fa6d1e6048f7afa2fd8a08dad178a5e849abdccd7d9dcb1",
+      "openher: persona/personas/luna/SOUL.md": "8aeac11ec1c37db04974aa3f58eedb79e7df4cb23c91c9adc393d44ff983ca37"
+    }
+  },
+  "notes": [
+    "六层槽位号跨族一致，但 Layer 1/3/4/5 语义按 family 不同，不可当通用字段名。",
+    "口头禅无独立字段，寄居 Layer 2 三个子节，无权重/频次。",
+    "golden 的 Correction Log 为空表；字段来自 Distilly correction_handler prompt。",
+    "OpenHer SOUL.md 只认四个 H2 槽位，Layer 0/3/4 无直接落点。",
+    "seeds.bin 格式、Correction Log 消费路径、Layer3/4 标定规则均 insufficient source material。",
+    "vendor/ 已 gitignore，上游文件哈希仅作本次核对凭证，可由 commit 重建。",
+    "demo-relationship 的 General Behavior Principles 是跨族结构漂移：relationship 模板输出到 Correction Log 结束，该节来自 colleague 模板；不补断言，归 #29 观察。"
+  ],
+  "checks": {
+    "persona_structure_tests": {
+      "command": "python3 tests/test_persona_structure.py",
+      "tests": 7,
+      "passed": 7,
+      "failed": 0
+    },
+    "pytest_full": {
+      "command": "python3 -m pytest tests/ -q",
+      "passed": 104,
+      "failed": 0,
+      "environment": "sandbox (Debian 13, python 3.12)"
+    },
+    "secret_scan": {
+      "command": "python3 scripts/secret_scan.py",
+      "result": "ok (128 files)"
+    },
+    "public_guard": "tests/test_persona_structure.py 已加入 .github/workflows/public-guard.yml"
+  }
+}

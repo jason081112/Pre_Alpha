@@ -21,5 +21,6 @@ jobs:
           python tests/test_openai_compat.py
           python tests/test_fixtures.py
           python tests/test_golden_skill.py
+          python tests/test_persona_structure.py
           python tests/test_custom_provider.py
           python tests/test_smoke.py
