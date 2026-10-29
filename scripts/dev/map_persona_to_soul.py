@@ -71,6 +71,14 @@ def split_subsections(body: str) -> dict[str, str]:
     return sections
 
 
+PLACEHOLDER_RE = re.compile(r"[（(]\s*(?:示例|样例|sample|example|placeholder)\s*[）)]", re.IGNORECASE)
+
+
+def clean_placeholder(text: str) -> str:
+    """去掉元数据里的占位标注，避免模型把人格当成"示例剧本"。"""
+    return PLACEHOLDER_RE.sub("", text).strip()
+
+
 def bullets(text: str) -> list[str]:
     out = []
     for line in text.splitlines():
@@ -140,8 +148,8 @@ def build(persona_path: Path, meta_path: Path | None, persona_id: str, name_over
     layer4_subs = split_subsections(layers[4])
 
     name = name_override or meta.get("display_name") or meta.get("name") or persona_id
-    relationship = (meta.get("profile") or {}).get("relationship_subtype", "")
-    status = (meta.get("profile") or {}).get("current_status", "")
+    relationship = clean_placeholder((meta.get("profile") or {}).get("relationship_subtype", ""))
+    status = clean_placeholder((meta.get("profile") or {}).get("current_status", ""))
     tags = meta.get("tags") or []
     language = ((meta.get("classification") or {}).get("language") or "zh-CN").split("-")[0]
 
@@ -214,6 +222,18 @@ def build(persona_path: Path, meta_path: Path | None, persona_id: str, name_over
         doc.append("")
         doc.append("常用说法：")
         doc.extend(f"- {item}" for item in phrasing)
+    examples = plain(layer2_subs.get("example replies", ""))
+    if examples:
+        doc.append("")
+        doc.append("这样说的时候，参考这些回法：")
+        buffer: list[str] = []
+        for line in examples.splitlines():
+            if buffer and buffer[-1].endswith(":"):
+                buffer[-1] = f"{buffer[-1]} {line}"
+            else:
+                buffer.append(line)
+        for item in buffer:
+            doc.append(f"- {item}")
     doc.append("")
     doc.append("## 行为规则")
     doc.append("")
