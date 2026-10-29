@@ -236,6 +236,52 @@
     "docs/p2-28-persona-structure.md": "e0a38a1a6826478c61964195be9050c2fa5c30beff245e25993c864119a645f2",
     "persona.schema.json": "ee8816c7efe6f3c32bb6bb8e0baf87394f8b24cb71613d0e5b2e7c5380faf144",
     "tests/fixtures/golden/demo-relationship/persona.md": "45987e13f531429e4d6141a5384ade6d736423e653fd0c062dcea9b5ad5e5ac6",
-    "vendor/OpenHer/persona/loader.py": "65f84ad8b77d30b7e03cde44fc86a0cfcc40fdadb17852ddefd8abccd4cc3fcb"
+    "vendor/OpenHer/persona/loader.py": "65f84ad8b77d30b7e03cde44fc86a0cfcc40fdadb17852ddefd8abccd4cc3fcb",
+    "docs/data/p2-30-e2e.json": "8e9fbd87faedfa83c53f44e2b7532b8d35a318a9764c9ee8619cfbb620c7a9e5"
+  },
+  "acceptance": {
+    "status": "executed",
+    "date": "2026-10-29",
+    "environment": {
+      "codespace": "supreme-goggles-5r5v45w4xqqf44wv",
+      "python": "3.14.2",
+      "openher_commit": "ef5b2145c9c15582499ecc5fb9d10376d82eccdf",
+      "repo_commit": "9a62b40",
+      "start": "vendor/OpenHer/run.sh --bg (uvicorn main:app :8000)"
+    },
+    "endpoint_deviation": "使用 OpenHer 原生 /api/chat；未经过 Pre_Alpha /v1/chat/completions",
+    "persona_loaded": {
+      "persona_id": "xiaolan",
+      "name": "小岚",
+      "age": null,
+      "mbti": null,
+      "gender": "female（未写该键，loader 回落默认，已知损耗）",
+      "tags_zh": [
+        "短句",
+        "不直接示弱",
+        "用行动关心",
+        "需要具体回应"
+      ]
+    },
+    "verdict": {
+      "load": "PASS",
+      "no_leak": "PASS",
+      "style": "PARTIAL",
+      "style_hit": [
+        "短句（平均 12.7 字/句）",
+        "行动关心（垫肚子/喝水/洗澡）",
+        "先结论后补充"
+      ],
+      "style_miss": [
+        "嘴硬与『把话收短』未体现（出现『我等你』『我一直都在』）",
+        "口头禅（算了，你忙）未出现"
+      ]
+    },
+    "root_cause": "drive_baseline / engine_params / style_memory seeds 三项未映射，恰好承载『嘴硬』这类非文本特征；仅靠四段文本模型回落到通用温和风格。",
+    "traps_found": [
+      "session 复用：固定 client_id 会残留历史，模型把新消息当重复发送（已修为每次唯一 client_id，9a62b40）",
+      "占位标注：meta 里的『（示例）』写入人格描述后，模型认为在演示例剧本（已在映射时清洗，f5bebcc）"
+    ],
+    "raw": "docs/data/p2-30-e2e.json"
   }
 }

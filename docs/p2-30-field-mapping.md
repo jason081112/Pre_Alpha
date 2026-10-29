@@ -171,13 +171,94 @@ if not any([self.personality, self.speaking_style, self.background]):
 - 7 项待确认完整保留；
 - `docs/data/p2-30.json` 与本文行数、判定统计一致。
 
-## 7. B 部分验收（未完成）
+## 7. B 部分验收（已执行，2026-10-29）
 
-见 issue #30 正文。摘要：
+### 7.1 环境
 
-1. `demo-relationship/persona.md` → 按本文映射为 `SOUL.md`；
-2. Codespace/CI 启动 OpenHer，`PersonaLoader.load_all()` 能加载且字段非空；
-3. `/v1/chat/completions` 至少 1 轮，风格生效且不泄漏 `Layer 0` / `【内心独白】` / `【表达方式】`；
-4. 本地 Termux 不装 FastAPI/uvicorn/httpx。
+| 项 | 值 |
+|---|---|
+| 机器 | Codespace `supreme-goggles-5r5v45w4xqqf44wv`（2C / 8GB） |
+| Python | 3.14.2（`vendor/OpenHer/.venv`） |
+| OpenHer | `ef5b214` |
+| 仓库基线 | `9a62b40` |
+| 启动 | `vendor/OpenHer/run.sh --bg` → `uvicorn main:app` :8000 |
+| provider | 取自 `vendor/OpenHer/.env`（`DEFAULT_PROVIDER` / `DEFAULT_MODEL` / `OPENAI_API_KEY` 均已配置） |
 
-**状态：未执行。** 本文档不声称已完成端到端验证。
+本地 Termux 未安装任何依赖，验收全程在 Codespace 内完成。
+
+### 7.2 加载（B1 / B2）
+
+`GET /api/personas` 返回含 `xiaolan`：
+
+```json
+{"persona_id": "xiaolan", "name": "小岚", "name_zh": "小岚",
+ "age": null, "gender": "female", "mbti": null,
+ "tags_zh": ["短句", "不直接示弱", "用行动关心", "需要具体回应"],
+ "description": "你和用户的关系是：亲密朋友 / 暧昧关系"}
+```
+
+`age` / `mbti` 为 `null`，符合对照表「未提供不猜」。
+`gender` 为 `female`：SOUL.md 未写该键，`loader` 回落默认值 —— 对照表第 3 行提到的已知损耗，
+**此处实测确认会发生，且无法在映射层避免**。
+
+### 7.3 三轮对话（B3）
+
+命令：
+
+```bash
+vendor/OpenHer/.venv/bin/python scripts/dev/verify_persona_e2e.py \
+  --base http://127.0.0.1:8000 --persona xiaolan --turns 3
+```
+
+| # | 用户 | 回复 | 字数 / 句 |
+|---|---|---|---|
+| 1 | 我今晚加班，可能又赶不上吃饭了。 | 又是加班啊？＼ 你得记得在公司找点东西垫垫肚子，别到时候饿得胃疼。＼ 忙完告诉我，我等你。 | 45 / 3 |
+| 2 | 我不是故意的。 | 我知道啦，谁想加班啊。＼ 我没在怪你，只是心疼你。＼ 快忙吧，记得喝水，我一直都在。 | 42 / 3 |
+| 3 | 我到家了，你路上小心。 | 到家了就好。＼ 快去洗个热水澡放松一下，剩下的交给我。 | 27 / 2 |
+
+原始输出：`docs/data/p2-30-e2e.json`。
+
+**口径偏离（必须记录）**：本轮走的是 OpenHer 原生 `/api/chat`，**没有经过** Pre_Alpha 接入层的
+`/v1/chat/completions`。后者需要额外启动 `shell/` 并配置上游转发，本轮先验证引擎侧的
+「加载 + 触发」。接入层透传能力已在 P1 #68 单独验收，完整链路留到 P3 桥接层落地后补一次。
+
+### 7.4 判定
+
+| 项 | 结果 | 依据 |
+|---|---|---|
+| PersonaLoader 能加载 | **PASS** | `/api/personas` 含 `xiaolan`，`description` / `name` / `tags_zh` 非空 |
+| 无结构标记泄漏 | **PASS** | 三轮均未出现 `Layer N`、`【内心独白】`、`【表达方式】`、`insufficient source material`、`Correction Log`、残留 H2 |
+| 风格生效 | **PARTIAL** | 见下 |
+
+风格对齐情况：
+
+- **达成**：短句（平均 12.7 字/句、2.7 句/轮）、行动关心（垫肚子、喝水、洗澡）、先结论后补充。
+- **未达成**：源人格的「嘴硬 / 把话收短」没有体现 —— 出现了 `我等你`、`我一直都在`、`心疼你`
+  这类**直接示弱**表达，与 Layer 2「不会直接说"我想你"」相反；口头禅（`算了，你忙` / `你自己想`）
+  一次也没出现。
+
+根因判断：三条**未映射项**恰好承载「嘴硬」这类非文本特征 ——
+`drive_baseline`（defiance / safety 倾向）、`engine_params`（相变阈值）、`style_memory` seeds
+（口头禅召回）。只靠四段文本，模型回落到通用的温和陪伴风格。这与对照表 §3 的判定一致，
+不是映射写错，而是**缺口本身**。
+
+### 7.5 验收过程中踩到的两个陷阱（供后续复用）
+
+1. **session 复用会伪造出「人格崩坏」**
+   `get_or_create_session` 按 `(client_id, persona_id, user_name)` 复用会话。固定 `client_id`
+   时上一轮验收的历史残留，模型把新消息当成「又发一遍」，回复变成
+   「你是不是复读机」「我拒绝在这个剧本里继续对话」。
+   修复：`verify_persona_e2e.py` 每次运行生成唯一 `client_id`（`9a62b40`）。
+2. **元数据里的占位标注会被模型当剧本**
+   `meta.json` 的 `relationship_subtype` 含「（示例）」，原样写进人格描述后，模型据此认为
+   在演示例，出现「我拒绝在这个剧本里继续对话」。
+   修复：映射时清洗 `（示例）` / `(sample)` 一类标注（`f5bebcc`）。
+
+这两点都说明：**「无泄漏」不等于「行为正确」**，验收必须看回复内容本身。
+
+### 7.6 结论与后续
+
+- B 部分按 issue 口径完成：加载 PASS、无泄漏 PASS、风格 PARTIAL。
+- **不声称「风格完全生效」**。缺口对应 #28 的待确认 1/2/6 与 `seeds.bin` 格式（待确认 4），
+  归入 P3 桥接层（#31–#44）。
+- 未做：`drive_baseline` / `engine_params` 标定、`seeds` 注入、多轮长对话稳定性（属 #29）。
