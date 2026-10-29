@@ -92,7 +92,11 @@ def test_doc_records_comment_mismatch() -> None:
 def test_snapshot_hashes_match_disk() -> None:
     for name, digest in _data()["hashes"].items():
         path = ROOT / name
-        assert path.is_file(), name
+        if not path.is_file():
+            # vendor/ 已 gitignore，CI 与干净 clone 里不存在属预期；仓库内文件必须存在。
+            assert name.startswith("vendor/"), f"missing repo file: {name}"
+            print(f"SKIP: {name} 未拉取（vendor/ 不入库）")
+            continue
         assert hashlib.sha256(path.read_bytes()).hexdigest() == digest, name
 
 
