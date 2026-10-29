@@ -79,6 +79,7 @@ def main() -> int:
     parser.add_argument("--user", default="xinyu")
     parser.add_argument("--turns", type=int, default=3)
     parser.add_argument("--session")
+    parser.add_argument("--client", help="client_id；默认每次运行唯一，避免复用旧 session 造成历史污染")
     parser.add_argument("--message", action="append", default=[])
     args = parser.parse_args()
 
@@ -91,6 +92,9 @@ def main() -> int:
         return 2
     persona_meta = match[0]
 
+    # OpenHer 的 get_or_create_session 按 (client_id, persona, user) 复用会话；
+    # 固定 client_id 会让上一轮验收的历史残留，导致模型把新消息当成"又发一遍"。
+    client_id = args.client or f"verify-e2e-{int(time.time())}"
     messages = args.message or DEFAULT_TURNS[: args.turns]
     session_id = args.session
     rounds = []
@@ -101,7 +105,7 @@ def main() -> int:
             "message": message,
             "persona_id": args.persona,
             "user_name": args.user,
-            "client_id": "verify-e2e",
+            "client_id": client_id,
         }
         if session_id:
             payload["session_id"] = session_id
@@ -144,6 +148,7 @@ def main() -> int:
             for k in ("name", "name_zh", "gender", "age", "mbti", "tags_zh", "description")
         },
         "session_id": session_id,
+        "client_id": client_id,
         "rounds": rounds,
         "leak_hits": sorted(set(all_leaks)),
         "summary": {
