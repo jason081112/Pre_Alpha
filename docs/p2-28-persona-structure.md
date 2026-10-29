@@ -290,4 +290,5 @@ scripts/dev/fetch_distilly.sh          # 需 vendor/distilly
 # OpenHer 人格/引擎部分按需拉取（不含 idimage 素材）
 ```
 
-OpenHer 侧未提供 fetch 脚本（`vendor/` 已 gitignore），拉取方式待 P2 收尾后补。
+OpenHer 侧用 `scripts/dev/fetch_openher.sh`（partial clone + sparse checkout，默认跳过
+`idimage/` / `docs/assets/` / `desktop/`；网络受限时可加 `--minimal` 走 raw 逐文件拉取）。

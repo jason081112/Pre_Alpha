@@ -1,0 +1,241 @@
+{
+  "issues": [
+    30
+  ],
+  "scope": "A（字段对照表）；B 部分端到端验收未执行",
+  "title": "Distilly 产出 → 内部 schema 字段对照表",
+  "date": "2026-10-29",
+  "commit_base": "1907867",
+  "doc": "docs/p2-30-field-mapping.md",
+  "upstream": {
+    "distilly": {
+      "commit": "0afc45c29c360ba7bc8260f1bb0bf34e9155f4fa",
+      "branch": "dot-skill"
+    },
+    "openher": {
+      "commit": "ef5b2145c9c15582499ecc5fb9d10376d82eccdf",
+      "branch": "main"
+    }
+  },
+  "openher_contract": {
+    "body_sections": [
+      "personality",
+      "speaking_style",
+      "background",
+      "behavioral_rules"
+    ],
+    "section_titles": {
+      "personality": [
+        "性格",
+        "personality"
+      ],
+      "speaking_style": [
+        "说话风格",
+        "speaking style"
+      ],
+      "background": [
+        "背景故事",
+        "background",
+        "背景"
+      ],
+      "behavioral_rules": [
+        "行为规则",
+        "behavioral rules",
+        "rules"
+      ]
+    },
+    "injected_into_prompt": [
+      "name",
+      "age",
+      "gender",
+      "mbti",
+      "tags",
+      "personality",
+      "speaking_style",
+      "background",
+      "behavioral_rules"
+    ],
+    "not_injected": [
+      "bio",
+      "name_zh",
+      "lang",
+      "genome_seed"
+    ],
+    "raw_content_fallback": "仅当 personality/speaking_style/background 全空时才拼进 prompt",
+    "comment_mismatch": "SOUL.md 注释称 mbti/tags 属 Display 不注入，实现中二者均被注入"
+  },
+  "mapping": [
+    {
+      "id": 1,
+      "source": "meta.json → display_name / Persona H1",
+      "target": "frontmatter.name",
+      "verdict": "D",
+      "rule": "取 display_name，剥离 H1 的 '— {family} Persona' 后缀"
+    },
+    {
+      "id": 2,
+      "source": "meta.json → profile.age_range",
+      "target": "frontmatter.age",
+      "verdict": "L",
+      "rule": "age_range 是区间字符串；age 要 int；未提供时留空不猜"
+    },
+    {
+      "id": 3,
+      "source": "meta.json → profile.gender",
+      "target": "frontmatter.gender",
+      "verdict": "L",
+      "rule": "值可能为'未提供'；loader 默认 female，未提供时不得落成 female"
+    },
+    {
+      "id": 4,
+      "source": "meta.json → classification.language",
+      "target": "frontmatter.lang",
+      "verdict": "D",
+      "rule": "zh-CN → zh"
+    },
+    {
+      "id": 5,
+      "source": "无对应",
+      "target": "frontmatter.name_zh",
+      "verdict": "M",
+      "rule": "需要时取 display_name"
+    },
+    {
+      "id": 6,
+      "source": "meta.json → classification.tags / tags",
+      "target": "frontmatter.tags",
+      "verdict": "L",
+      "rule": "两个 tags 语义不同，需人工取舍；loader 会注入 prompt"
+    },
+    {
+      "id": 7,
+      "source": "六层无 MBTI",
+      "target": "frontmatter.mbti",
+      "verdict": "M",
+      "rule": "insufficient source material，留空"
+    },
+    {
+      "id": 8,
+      "source": "无对应",
+      "target": "frontmatter.bio",
+      "verdict": "M",
+      "rule": "可生成层级摘要，属新写内容，需人工过目"
+    },
+    {
+      "id": 9,
+      "source": "Layer 1 身份/关系 + Layer 3 情绪逻辑",
+      "target": "body.personality",
+      "verdict": "L",
+      "rule": "R1：合并成散文，不得保留 Layer N 字样"
+    },
+    {
+      "id": 10,
+      "source": "Layer 2 Rhythm / How You Talk",
+      "target": "body.speaking_style",
+      "verdict": "D",
+      "rule": "段落直贴，去掉 H3"
+    },
+    {
+      "id": 11,
+      "source": "Layer 0 硬规则",
+      "target": "body.behavioral_rules",
+      "verdict": "L",
+      "rule": "R2：逐条转写，首行加最高优先级声明"
+    },
+    {
+      "id": 12,
+      "source": "Layer 4 Boundaries / Layer 5 边界",
+      "target": "body.behavioral_rules",
+      "verdict": "L",
+      "rule": "与 #11 合并，边界放末尾"
+    },
+    {
+      "id": 13,
+      "source": "General Behavior Principles",
+      "target": "body.behavioral_rules",
+      "verdict": "L",
+      "rule": "元指引，relationship 族是否保留待 #29 结论"
+    },
+    {
+      "id": 14,
+      "source": "Layer 2 Signature phrases / Catchphrases",
+      "target": "seeds",
+      "verdict": "L",
+      "rule": "R3：等权列表，无权重来源"
+    },
+    {
+      "id": 15,
+      "source": "Layer 2 Example replies / What You Would Say",
+      "target": "seeds + body.speaking_style",
+      "verdict": "L",
+      "rule": "场景标签保留为 scene"
+    },
+    {
+      "id": 16,
+      "source": "Layer 5 Memory Signature",
+      "target": "memories",
+      "verdict": "L",
+      "rule": "R4：salience 无来源，保留 null"
+    },
+    {
+      "id": 17,
+      "source": "Layer 3 Emotional Logic",
+      "target": "drive_baseline",
+      "verdict": "M",
+      "rule": "无标定规则，不填"
+    },
+    {
+      "id": 18,
+      "source": "Layer 4 Conflict / Repair",
+      "target": "engine_params",
+      "verdict": "M",
+      "rule": "无数值对应证据"
+    },
+    {
+      "id": 19,
+      "source": "Correction Log 条目",
+      "target": "critic",
+      "verdict": "M",
+      "rule": "运行期消费路径未核实"
+    },
+    {
+      "id": 20,
+      "source": "work.md 全篇",
+      "target": "无",
+      "verdict": "M",
+      "rule": "工作侧不进陪伴引擎"
+    },
+    {
+      "id": 21,
+      "source": "manifest.json / meta.json / PROVENANCE.md",
+      "target": "无",
+      "verdict": "M",
+      "rule": "打包与溯源元数据，不注入"
+    }
+  ],
+  "stats": {
+    "D": 3,
+    "L": 10,
+    "M": 8
+  },
+  "pending": [
+    "Layer 3 → drive_baseline 的标定规则",
+    "Layer 4 → engine_params 的数值对应",
+    "Correction Log 的运行期消费路径",
+    "seeds.bin 序列化格式",
+    "SHELL.md 正文是否注入 prompt",
+    "口头禅权重来源",
+    "General Behavior Principles 是否应存在于 relationship 产物"
+  ],
+  "risks": [
+    "若映射后只保留 ## Layer N 标题，内容会静默丢失而 PersonaLoader 仍显示加载成功",
+    "tags 会被注入 prompt，分类标签混入可能造成风格漂移",
+    "关系标签无 OpenHer 字段，只能写进散文"
+  ],
+  "hashes": {
+    "docs/p2-28-persona-structure.md": "e0a38a1a6826478c61964195be9050c2fa5c30beff245e25993c864119a645f2",
+    "persona.schema.json": "ee8816c7efe6f3c32bb6bb8e0baf87394f8b24cb71613d0e5b2e7c5380faf144",
+    "tests/fixtures/golden/demo-relationship/persona.md": "45987e13f531429e4d6141a5384ade6d736423e653fd0c062dcea9b5ad5e5ac6",
+    "vendor/OpenHer/persona/loader.py": "65f84ad8b77d30b7e03cde44fc86a0cfcc40fdadb17852ddefd8abccd4cc3fcb"
+  }
+}
