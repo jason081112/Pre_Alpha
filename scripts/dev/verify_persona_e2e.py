@@ -114,7 +114,8 @@ def main() -> int:
             continue
         elapsed = round(time.time() - started, 2)
         session_id = result.get("session_id", session_id)
-        reply = (result.get("reply") or "").strip()
+        # OpenHer /api/chat 的回复字段是 response；segments 是拆分后的多条消息
+        reply = (result.get("response") or result.get("reply") or "").strip()
         hits = leaks(reply)
         all_leaks.extend(hits)
         rounds.append(
@@ -126,6 +127,9 @@ def main() -> int:
                 "leaks": hits,
                 "metrics": sentence_stats(reply),
                 "modality": result.get("modality"),
+                "segments": result.get("segments") or [],
+                "dominant_drive": result.get("dominant_drive"),
+                "signals": result.get("signals"),
             }
         )
 
