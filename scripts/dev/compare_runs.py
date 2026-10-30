@@ -43,14 +43,14 @@ H3_RE = re.compile(r"^### (.+)$")
 STRUCT_JACCARD_MIN = 0.8
 ENTRY_VARIATION_MAX = 0.30
 
-# 幻觉候选的启发式模式
+# 幻觉候选的启发式模式。刻意收窄：宁可漏报，也不要给出上百条噪声。
 ENTITY_PATTERNS = [
-    re.compile(r"[A-Z][A-Za-z0-9.+-]{2,}"),                       # 英文专名 / 技术栈
-    re.compile(r"[\u4e00-\u9fa5]{2,8}(?:公司|团队|集团|实验室|研究院|部门)"),  # 机构
-    re.compile(r"[\u4e00-\u9fa5A-Za-z]{2,10}(?:系统|平台|框架|服务|组件|中间件)"),
+    re.compile(r"\b[A-Z][a-z]+[A-Z][A-Za-z]+\b"),               # 驼峰专名：ByteDance / RetryAfter
+    re.compile(r"\b[A-Za-z]+(?:-[A-Za-z]+)+\b"),                # 连字符技术词：Retry-After
+    re.compile(r"[\u4e00-\u9fa5]{2,10}(?:公司|集团|研究院|实验室)"),  # 机构（不收泛化的"系统/平台"）
 ]
 NUMBER_PATTERNS = [
-    re.compile(r"\d+\s*(?:年|岁|个月|周|天|小时|分钟)(?:经验|工作|以上|以下)?"),
+    re.compile(r"\d+\s*(?:年|岁)(?:以上)?(?:经验|工作|开发)"),
     re.compile(r"\d{4}\s*年\s*\d{1,2}\s*月"),
     re.compile(r"\d+\s*(?:万|亿|千)\s*元"),
 ]
@@ -58,7 +58,8 @@ NUMBER_PATTERNS = [
 STOPWORDS = {
     "API", "HTTP", "HTTPS", "JSON", "SQL", "URL", "ID", "OK", "TODO",
     "Layer", "README", "SKILL", "Markdown", "Skill", "Persona", "Work",
-    "Correction", "Log", "PR", "CI", "SDK", "CLI",
+    "Correction", "Log", "PR", "CI", "SDK", "CLI", "Well", "Okay",
+    "Retry-After", "Last4", "Layer-0", "UTF-8",
 }
 
 
@@ -160,6 +161,10 @@ def hallucination_candidates(run: Path, fixture_text: str) -> list[dict]:
                 for match in pattern.finditer(line):
                     token = match.group(0).strip()
                     if token in STOPWORDS or len(token) < 2:
+                        continue
+                    # 产物自身的命名（slug / 文件 stem）不算幻觉
+                    if any(marker in token.lower() for marker in
+                           ("demo-", "qa-", "-persona", "-work", "skill.md", "persona.md")):
                         continue
                     if token.lower() in fixture_text.lower():
                         continue
@@ -270,10 +275,35 @@ def main() -> int:
         consistent[key] = {"values": values, "consistent": len({str(v) for v in values.values()}) == 1}
     report["meta"] = consistent
 
-    # 幻觉候选
+    # 幻觉候选：跨 run 聚合，只在少数 run 出现的排前面（更可疑）
     if fixture_text:
-        for label, run in zip(labels, runs):
-            report["hallucination"][label] = hallucination_candidates(run, fixture_text)
+        per_run = {label: hallucination_candidates(run, fixture_text)
+                   for label, run in zip(labels, runs)}
+        counter: dict[str, int] = {}
+        for items in per_run.values():
+            for item in items:
+                counter[item["text"]] = counter.get(item["text"], 0) + 1
+        aggregated = []
+        for label, items in per_run.items():
+            for item in items:
+                item["runs_present"] = counter[item["text"]]
+                aggregated.append(item)
+        # 去重（同 token 同文件保留一条），按 出现次数升序 → 长度降序
+        seen = set()
+        deduped = []
+        for item in sorted(aggregated, key=lambda x: (x["runs_present"], -len(x["text"]))):
+            key = (item["file"], item["text"])
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(item)
+        report["hallucination"] = {
+            "per_run_counts": {label: len(items) for label, items in per_run.items()},
+            "total_unique": len(deduped),
+            "singletons": [item for item in deduped if item["runs_present"] == 1][:25],
+            "recurrent": [item for item in deduped if item["runs_present"] > 1][:25],
+            "note": "启发式候选，需人工确认；singletons 指仅在 1 个 run 出现，更可能是幻觉",
+        }
 
     # 判定
     reasons = []
@@ -293,7 +323,7 @@ def main() -> int:
             "structure_jaccard_min": STRUCT_JACCARD_MIN,
             "entry_variation_max": ENTRY_VARIATION_MAX,
         },
-        "hallucination_candidates": sum(len(v) for v in report["hallucination"].values()),
+        "hallucination_unique_candidates": report["hallucination"].get("total_unique", 0),
     }
 
     text = json.dumps(report, ensure_ascii=False, indent=2)
