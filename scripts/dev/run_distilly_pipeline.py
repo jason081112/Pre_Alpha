@@ -209,6 +209,19 @@ def main() -> int:
             if item.is_file():
                 (args.out / item.name).write_text(item.read_text(encoding="utf-8"), encoding="utf-8")
 
+    provenance = f"""# Provenance: {args.slug}
+
+- **Status:** synthetic test fixture. Not a real person, relationship, or chat export.
+- **Source fixture:** `{args.fixture}`
+- **Pipeline:** programmatic (`scripts/dev/run_distilly_pipeline.py`) —
+  intake → work_analyzer / persona_analyzer → work_builder / persona_builder → skill_writer
+- **Model:** `{args.model}` (temperature {args.temperature}, max_tokens {args.max_tokens})
+- **Started:** {time.strftime('%Y-%m-%dT%H:%M:%S%z', time.localtime(started))}
+- **Distilly:** in-repo `vendor/distilly` (fork pinned in `scripts/dev/fetch_distilly.sh`)
+- **Generated from synthetic data only:** no keys, raw chats, real names, or absolute paths.
+"""
+    (args.out / "PROVENANCE.md").write_text(provenance, encoding="utf-8")
+
     run_meta = {
         "model": args.model,
         "character": args.character,
