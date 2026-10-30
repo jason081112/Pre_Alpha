@@ -1,0 +1,285 @@
+{
+  "issues": [
+    29
+  ],
+  "title": "质量基线：同一数据跑 3 次，评估稳定性与幻觉点",
+  "date": "2026-10-30",
+  "commit_base": "da69a4e",
+  "method": {
+    "paradigm": "pipeline 驱动（口径 A）：prompts 程序化调用 + skill_writer 组装",
+    "runner": "scripts/dev/run_distilly_pipeline.py",
+    "comparator": "scripts/dev/compare_runs.py",
+    "fixture": "tests/fixtures/chats/colleague_zh.canonical.json",
+    "character": "colleague",
+    "temperature": 0.7,
+    "max_tokens": 8000,
+    "runs_per_model": 3,
+    "models": [
+      "gemma4:31b",
+      "gpt-oss:120b"
+    ],
+    "provider": "ollama-cloud (OpenAI 兼容端点)",
+    "steps": [
+      "intake",
+      "work_analyzer",
+      "persona_analyzer",
+      "work_builder",
+      "persona_builder",
+      "skill_writer"
+    ],
+    "thresholds": {
+      "structure_jaccard_min": 0.8,
+      "entry_variation_max": 0.3
+    }
+  },
+  "runs": {
+    "gemma4-1": {
+      "model": "gemma4:31b",
+      "temperature": 0.7,
+      "max_tokens": 8000,
+      "duration_s": 21.1,
+      "skill_writer_exit": 0
+    },
+    "gemma4-2": {
+      "model": "gemma4:31b",
+      "temperature": 0.7,
+      "max_tokens": 8000,
+      "duration_s": 21.5,
+      "skill_writer_exit": 0
+    },
+    "gemma4-3": {
+      "model": "gemma4:31b",
+      "temperature": 0.7,
+      "max_tokens": 8000,
+      "duration_s": 22.3,
+      "skill_writer_exit": 0
+    },
+    "gptoss-1": {
+      "model": "gpt-oss:120b",
+      "temperature": 0.7,
+      "max_tokens": 8000,
+      "duration_s": 25.1,
+      "skill_writer_exit": 0
+    },
+    "gptoss-2": {
+      "model": "gpt-oss:120b",
+      "temperature": 0.7,
+      "max_tokens": 8000,
+      "duration_s": 19.9,
+      "skill_writer_exit": 0
+    },
+    "gptoss-3": {
+      "model": "gpt-oss:120b",
+      "temperature": 0.7,
+      "max_tokens": 8000,
+      "duration_s": 18.1,
+      "skill_writer_exit": 0
+    }
+  },
+  "stability": {
+    "gemma4:31b": {
+      "verdict": "pass",
+      "reasons": [],
+      "min_h2_jaccard": 1.0,
+      "pairwise_jaccard": {
+        "gemma-1|gemma-2": 1.0,
+        "gemma-1|gemma-3": 1.0,
+        "gemma-2|gemma-3": 1.0
+      },
+      "entry_stats": {
+        "Layer 0": {
+          "values": [
+            5,
+            5,
+            5
+          ],
+          "cv": 0.0
+        },
+        "Layer 1": {
+          "values": [
+            0,
+            0,
+            0
+          ],
+          "cv": 0.0
+        },
+        "Layer 2": {
+          "values": [
+            4,
+            5,
+            4
+          ],
+          "cv": 0.1088
+        },
+        "Layer 3": {
+          "values": [
+            4,
+            4,
+            3
+          ],
+          "cv": 0.1286
+        },
+        "Layer 4": {
+          "values": [
+            0,
+            0,
+            0
+          ],
+          "cv": 0.0
+        },
+        "Layer 5": {
+          "values": [
+            6,
+            7,
+            5
+          ],
+          "cv": 0.1361
+        }
+      },
+      "text_drift_mean": 0.4743,
+      "text_drift_min": 0.2049,
+      "files_complete": true,
+      "meta_consistent": true,
+      "hallucination_auto": {
+        "unique": 57,
+        "per_run": {
+          "gemma-1": 28,
+          "gemma-2": 28,
+          "gemma-3": 25
+        },
+        "singletons": []
+      }
+    },
+    "gpt-oss:120b": {
+      "verdict": "warn",
+      "reasons": [
+        "结构 Jaccard 0.7778 < 0.8",
+        "条目波动超限：Layer 1"
+      ],
+      "min_h2_jaccard": 0.7778,
+      "pairwise_jaccard": {
+        "gptoss-1|gptoss-2": 1.0,
+        "gptoss-1|gptoss-3": 0.7778,
+        "gptoss-2|gptoss-3": 0.7778
+      },
+      "entry_stats": {
+        "Layer 0": {
+          "values": [
+            9,
+            10,
+            8
+          ],
+          "cv": 0.0907
+        },
+        "Layer 1": {
+          "values": [
+            0,
+            4,
+            0
+          ],
+          "cv": 1.4142
+        },
+        "Layer 2": {
+          "values": [
+            22,
+            17,
+            27
+          ],
+          "cv": 0.1856
+        },
+        "Layer 3": {
+          "values": [
+            15,
+            10,
+            9
+          ],
+          "cv": 0.2316
+        },
+        "Layer 4": {
+          "values": [
+            14,
+            10,
+            10
+          ],
+          "cv": 0.1664
+        },
+        "Layer 5": {
+          "values": [
+            7,
+            8,
+            6
+          ],
+          "cv": 0.1166
+        }
+      },
+      "text_drift_mean": 0.2521,
+      "text_drift_min": 0.0218,
+      "files_complete": true,
+      "meta_consistent": true,
+      "hallucination_auto": {
+        "unique": 8,
+        "per_run": {
+          "gptoss-1": 5,
+          "gptoss-2": 5,
+          "gptoss-3": 8
+        },
+        "singletons": []
+      }
+    }
+  },
+  "findings": [
+    {
+      "id": "F1",
+      "level": "pass",
+      "text": "gemma4:31b 三次结构完全一致（H2 Jaccard 1.0），条目数波动 CV ≤ 0.14，元数据一致，文件齐全。"
+    },
+    {
+      "id": "F2",
+      "level": "warn",
+      "text": "gpt-oss:120b 第三次把 Layer 0 标题译成中文（\"核心人格（最高优先级；绝不可违背）\"），与另两次的英文标题不一致，Jaccard 降至 0.7778。"
+    },
+    {
+      "id": "F3",
+      "level": "warn",
+      "text": "gpt-oss:120b 的 Layer 1 条目数 0/4/0（CV 1.41），同一模型内结构粒度不稳定。"
+    },
+    {
+      "id": "F4",
+      "level": "info",
+      "text": "gpt-oss:120b 产出显著更细（Layer 2: 22/17/27 条 vs gemma 4/5/4），但文本漂移更大（3-gram Jaccard 均值 0.252 vs gemma 0.474）。"
+    },
+    {
+      "id": "F5",
+      "level": "violation",
+      "text": "gemma4:31b 在 Layer 4 写出 \"(Insufficient source material; inferred: ...)\"：既标了材料不足，又补了推断内容，违反\"不把推断当事实\"的约定。"
+    },
+    {
+      "id": "F6",
+      "level": "method",
+      "text": "自动幻觉启发式信噪比低：gemma 的 57 个候选全是连字符构词（self-explanatory / report-oriented），gptoss 的 8 个是命名与元数据词（lin-zhou / gpt-oss / user-invocable）。自动候选只能当检索器，判定需人工。"
+    },
+    {
+      "id": "F7",
+      "level": "info",
+      "text": "未检出无源数字（年龄/年限/日期/金额）：数字类规则零命中。"
+    }
+  ],
+  "artifacts": {
+    "runs_dir": "runs/（gitignored，可用 scripts/dev/run_distilly_pipeline.py 重跑）",
+    "sample_hashes": {
+      "gemma4-1/persona.md": "ad6a577de331b49e45479078986bf0cb3167ff945f910270971212c61637c7ae",
+      "gemma4-2/persona.md": "5808c71ab56dcd19dcd4c2a7ff1420c6d662e84d3344030d0c287173868fd186",
+      "gemma4-3/persona.md": "c533951f4fc5fb7a7923f27d833307a7e8aa2624fd4e34ca9a7ba18a3bb33979",
+      "gptoss-1/persona.md": "5d5f6d30bef331465a8d5e893867a796838a942b0583dc97b6ce8617dd16db33",
+      "gptoss-2/persona.md": "f00321605ceeedfaaecfd09c87f242e5c60f562def5529933a8a8d45f03daff0",
+      "gptoss-3/persona.md": "f969b88a28ffd6a0cfc2be0b1442d8fa65eb6422093c58a0b2f19ce4734b4867"
+    },
+    "fixture_sha256": "a460ee07ec45a0744a8e2182cf8d6ff50e1c697a659a3dd5b2105ca1ce7bd9cc"
+  },
+  "limitations": [
+    "两个模型都走 ollama-cloud 同一 provider，不代表跨 provider 稳定性。",
+    "只跑 colleague 一个 family、一个 fixture；relationship / celebrity 未覆盖。",
+    "3 次样本量小，CV 只作方向性参考，不能当统计显著性证据。",
+    "pipeline 是程序化复刻（prompts 直喂 LLM），与 agent 手写产物的差异未量化。"
+  ]
+}

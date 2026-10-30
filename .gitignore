@@ -47,3 +47,6 @@ evals/
 master.key
 master.salt
 *.key
+
+# #29 质量基线的重复运行产物（每次可重跑生成）
+runs/
