@@ -58,21 +58,21 @@ def test_skeleton_dirs() -> None:
         assert (ROOT / rel).is_dir(), f"缺少目录: {rel}"
 
 
-def test_profile2soul_placeholder() -> None:
+def test_profile2soul_identity_mapping() -> None:
+    """#32：身份字段应能映射为 frontmatter；正文仍留待 #33–#38。"""
     from bridge.model import Asserted, Identity, PersonProfile
     from bridge.profile2soul import profile_to_soul
 
-    profile = PersonProfile(persona_id="luna", identity=Identity(name=Asserted.source("luna")))
-    try:
-        profile_to_soul(profile)
-    except NotImplementedError:
-        return
-    raise AssertionError("profile2soul 的映射实现属 #32 起，当前应保持占位（NotImplementedError）")
+    profile = PersonProfile(persona_id="luna", identity=Identity(name=Asserted.source("Luna")))
+    result = profile_to_soul(profile)
+    assert result["frontmatter"]["name"] == "Luna"
+    assert result["body"] == {}
+    assert result["markdown"].startswith("---")
 
 
 if __name__ == "__main__":
     test_packages_import()
     test_cli_parses()
     test_skeleton_dirs()
-    test_profile2soul_placeholder()
+    test_profile2soul_identity_mapping()
     print("smoke ok")

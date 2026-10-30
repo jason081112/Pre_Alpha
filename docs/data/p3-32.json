@@ -1,0 +1,83 @@
+{
+  "issues": [
+    32
+  ],
+  "title": "profile2soul.py：身份字段 → SOUL.md frontmatter",
+  "date": "2026-10-30",
+  "commit_base": "7d016b7",
+  "mapping": [
+    {
+      "source": "identity.name",
+      "target": "name",
+      "rule": "source/inferred 写入"
+    },
+    {
+      "source": "identity.name_zh",
+      "target": "name_zh",
+      "rule": "缺失不写"
+    },
+    {
+      "source": "identity.age",
+      "target": "age",
+      "rule": "转 int；缺失不写（loader 无默认值）"
+    },
+    {
+      "source": "identity.gender",
+      "target": "gender",
+      "rule": "缺失不写但必须告警：loader 回落 female"
+    },
+    {
+      "source": "identity.mbti",
+      "target": "mbti",
+      "rule": "缺失不写"
+    },
+    {
+      "source": "identity.lang",
+      "target": "lang",
+      "rule": "必写，默认 zh"
+    },
+    {
+      "source": "meta.tags",
+      "target": "tags",
+      "rule": "透传"
+    },
+    {
+      "source": "meta.bio",
+      "target": "bio",
+      "rule": "透传，loader 不注入"
+    }
+  ],
+  "provenance_behavior": {
+    "source": "写值",
+    "inferred": "写值，basis 不写入 frontmatter",
+    "missing": "不写键；有 loader 默认值时告警"
+  },
+  "constraints": [
+    "只写 PersonaLoader 实际读取的键（白名单）",
+    "输出不得含 Layer N",
+    "basis 不进入 frontmatter",
+    "空值跳过并告警",
+    "gender 缺失默认告警，strict=True 抛 ValueError"
+  ],
+  "known_loss": "loader 对 gender 默认 female（#30 §7.2 实测），本实现通过 warnings/strict 暴露该损耗",
+  "hashes": {
+    "bridge/profile2soul.py": "9265b548a7c961da84499245a7aba13fb374188347a73b509ff1221517898834",
+    "tests/test_profile2soul.py": "1ee34dfb2d57ce50dd77d4972703891b467d7a2f1bc5ad40a7f61a5a3a0ad2cc",
+    "docs/p3-32-identity-mapping.md": "cc92c41b67b783e148ae83b0a625ebc01450f788515d08840afd71bfbd14b7c4"
+  },
+  "checks": {
+    "profile2soul_tests": {
+      "command": "python3 tests/test_profile2soul.py",
+      "tests": 11,
+      "passed": 11,
+      "failed": 0
+    },
+    "pytest_full": {
+      "command": "python3 -m pytest tests/ -q",
+      "passed": 139,
+      "failed": 0
+    },
+    "secret_scan": "ok (148 files)",
+    "yaml_roundtrip": "pyyaml 6.0.3 解析生成的 frontmatter 通过"
+  }
+}
