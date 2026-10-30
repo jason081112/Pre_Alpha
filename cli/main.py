@@ -47,6 +47,10 @@ def build_parser() -> argparse.ArgumentParser:
     route_show = route_sub.add_parser("show", help="查看当前模型")
     route_show.add_argument("--user", default="local", help="用户标识（默认 local）")
 
+    from cli.persona import add_parser as add_persona_parser
+
+    add_persona_parser(sub)
+
     return parser
 
 
@@ -105,6 +109,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "route":
         return _route_command(args)
+    if args.command == "persona":
+        from cli.persona import run as run_persona
+
+        return run_persona(args)
     print(f"[alpha] {args.command}: 尚未实现（骨架阶段，P1-2）", file=sys.stderr)
     return 2
 

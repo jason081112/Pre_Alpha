@@ -1,0 +1,95 @@
+{
+  "issues": [
+    85
+  ],
+  "scope": "A 部分（CLI）；Web /personas 与试聊沙箱未做",
+  "title": "人格创建向导：alpha persona CLI",
+  "date": "2026-10-31",
+  "commit_base": "85f9795",
+  "commands": [
+    {
+      "cmd": "alpha persona new --from scratch --id <slug> --name <名字>",
+      "note": "默认 dry-run，--yes 落盘"
+    },
+    {
+      "cmd": "alpha persona new --from builtin:<id> --id <slug>",
+      "note": "从 SOUL.md 最小导入"
+    },
+    {
+      "cmd": "alpha persona list [--include-deleted]",
+      "note": ""
+    },
+    {
+      "cmd": "alpha persona show <id>",
+      "note": "输出 profile + state JSON"
+    },
+    {
+      "cmd": "alpha persona preview <id>",
+      "note": "渲染 SOUL.md 并给 diff"
+    },
+    {
+      "cmd": "alpha persona edit <id> --set k=v",
+      "note": "白名单字段，可重复"
+    },
+    {
+      "cmd": "alpha persona delete <id> --yes",
+      "note": "软删除"
+    }
+  ],
+  "settable_paths": [
+    "identity.name",
+    "identity.name_zh",
+    "identity.age",
+    "identity.gender",
+    "identity.mbti",
+    "expression.rhythm",
+    "relation.label",
+    "relation.status"
+  ],
+  "builtin_import": {
+    "module": "bridge/soul2profile.py",
+    "maps": [
+      "frontmatter → identity",
+      "说话风格首段 → expression.rhythm",
+      "引号短句 → habits（≤20）",
+      "行为规则 bullet → hard_rules"
+    ],
+    "not_inferred": [
+      "relation",
+      "logic",
+      "conflict"
+    ]
+  },
+  "principles": {
+    "dry_run_default": true,
+    "gender_loss_reported": true,
+    "unknown_field_rejected": true,
+    "no_stack_trace": true
+  },
+  "hashes": {
+    "cli/persona.py": "79afe20c11d397663ccc70f33398f042f85e2c58f5aa3f15f208e4912401aaae",
+    "cli/main.py": "117b78b4f458b5bbdaca993ec4321272f23d3cf5e0b2c586be65071f533e362b",
+    "bridge/soul2profile.py": "7eec6cf117dfe76db3e69c79a3c8fae5095afac71e3ad4f52d47263a9349d0c4",
+    "tests/test_cli_persona.py": "5ef54ac19c3681484db31137637015088c35650387b09d352ffa1c878843d5be",
+    "docs/p4-85-persona-cli.md": "49d79048ff431afe226c5afa24c771f6ed963315fde0742aae0d77db7edb046f"
+  },
+  "checks": {
+    "cli_persona_tests": {
+      "command": "python3 tests/test_cli_persona.py",
+      "tests": 12,
+      "passed": 12,
+      "failed": 0
+    },
+    "pytest_full": {
+      "command": "python3 -m pytest tests/ -q",
+      "passed": 169,
+      "failed": 0
+    },
+    "secret_scan": "ok (158 files)"
+  },
+  "deferred": [
+    "Web /personas 向导（#46/#72）",
+    "试聊沙箱（#86 探针共用）",
+    "从蒸馏创建（#42/#44）"
+  ]
+}
