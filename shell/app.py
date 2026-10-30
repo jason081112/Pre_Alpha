@@ -54,6 +54,8 @@ from shell.limits import (  # noqa: E402
     RateLimitExceeded,
 )
 from shell.limits_api import build_limits_admin_router  # noqa: E402
+from shell.persona_repo import PersonaRepository  # noqa: E402
+from shell.personas_api import build_personas_router  # noqa: E402
 from shell.openai_api import (  # noqa: E402
     build_openai_router,
     install_openai_error_handlers,
@@ -102,6 +104,32 @@ app.include_router(build_router(registry, store, custom_store, limits=limits))
 app.include_router(build_auth_router(auth_service))
 app.include_router(build_page_router())
 app.include_router(build_limits_admin_router(limits))
+
+# ── 人格 CRUD（#83）──────────────────────────────────────────────
+# profile.json 落在 ALPHA_PERSONA_ROOT/<user>/personas/<id>/；
+# 同时把渲染出的 SOUL.md 镜像到引擎读取目录，写完即可被加载。
+# 按用户隔离与配额的完整实现由 #84 接管。
+PERSONA_ROOT = Path(os.getenv("ALPHA_PERSONA_ROOT", str(DATA_DIR / "users")))
+PERSONA_MIRROR = Path(
+    os.getenv("ALPHA_PERSONA_MIRROR", str(VENDOR / "persona" / "personas"))
+)
+
+
+def _reload_persona(user: str, persona_id: str) -> None:
+    """人格变更后重载引擎缓存；失败不阻断写操作。"""
+    loader = getattr(upstream, "persona_loader", None)
+    if loader is None:
+        return
+    try:
+        loader.reload(persona_id)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+persona_repo = PersonaRepository(
+    PERSONA_ROOT, mirror_dir=PERSONA_MIRROR, on_change=_reload_persona
+)
+app.include_router(build_personas_router(persona_repo))
 
 # ── ChatAgent 补充状态：上游没有持久化关系 EMA / turn_count ──
 # 不改 vendor，只在运行时包装两个入口：

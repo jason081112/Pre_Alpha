@@ -25,5 +25,6 @@ jobs:
           python tests/test_field_mapping.py
           python tests/test_bridge_model.py
           python tests/test_profile2soul.py
+          python tests/test_personas_api.py
           python tests/test_custom_provider.py
           python tests/test_smoke.py

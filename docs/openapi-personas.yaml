@@ -1,0 +1,241 @@
+openapi: 3.1.0
+info:
+  title: Alpha Personas API
+  version: "1.0"
+  description: |
+    人格 CRUD（看板 #83）。人格是用户的资源：`profile.json` 是真相来源，
+    `SOUL.md` 是渲染产物。所有写入必须通过 PersonProfile v2 校验，
+    且不得携带原文（`raw_text` / `messages` / `chat_log` / `transcript` / `conversation`）。
+
+    身份：请求头 `x-alpha-user`（开发/自托管），生产由认证中间件注入。
+servers:
+  - url: http://127.0.0.1:8000
+paths:
+  /v1/personas:
+    get:
+      summary: 列出当前用户的人格
+      parameters:
+        - name: include_deleted
+          in: query
+          schema: { type: boolean, default: false }
+        - $ref: "#/components/parameters/UserHeader"
+      responses:
+        "200":
+          description: 列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/PersonaSummary" }
+    post:
+      summary: 创建人格
+      parameters:
+        - $ref: "#/components/parameters/UserHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PersonProfile" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonaSummary" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/Quota" }
+  /v1/personas/{persona_id}:
+    parameters:
+      - name: persona_id
+        in: path
+        required: true
+        schema: { type: string, pattern: "^[a-z0-9][a-z0-9_-]{0,63}$" }
+      - $ref: "#/components/parameters/UserHeader"
+    get:
+      summary: 读取人格（profile + state）
+      responses:
+        "200":
+          description: 详情
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  profile: { $ref: "#/components/schemas/PersonProfile" }
+                  state: { $ref: "#/components/schemas/PersonaState" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      summary: 全量替换（需 If-Match 乐观锁）
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PersonProfile" }
+      responses:
+        "200":
+          description: 已更新
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonaSummary" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+    patch:
+      summary: 局部更新（JSON merge patch，需 If-Match）
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          description: 已更新
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonaSummary" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+    delete:
+      summary: 软删除（进回收站）
+      responses:
+        "200":
+          description: 已删除
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  persona_id: { type: string }
+                  deleted_at: { type: string, format: date-time }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /v1/personas/{persona_id}/restore:
+    parameters:
+      - name: persona_id
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: "#/components/parameters/UserHeader"
+    post:
+      summary: 从回收站恢复
+      responses:
+        "200":
+          description: 已恢复
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonaSummary" }
+  /v1/personas/{persona_id}/fork:
+    parameters:
+      - name: persona_id
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: "#/components/parameters/UserHeader"
+    post:
+      summary: 复制为可编辑副本
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                persona_id: { type: string }
+      responses:
+        "201":
+          description: 已复制
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonaSummary" }
+        "409": { $ref: "#/components/responses/Conflict" }
+components:
+  parameters:
+    UserHeader:
+      name: x-alpha-user
+      in: header
+      required: false
+      schema: { type: string }
+      description: 开发/自托管身份；生产由认证中间件注入
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema: { type: string }
+      description: 当前版本号，如 "3"
+  responses:
+    BadRequest:
+      description: 缺少或非法的 If-Match
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: 不存在或无权访问（越权统一 404）
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: 版本冲突或已存在
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unprocessable:
+      description: 校验失败（invalid_profile / raw_text_not_allowed）
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Quota:
+      description: 超出人格数量配额
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          enum: [not_found, version_conflict, invalid_profile, raw_text_not_allowed,
+                 readonly, quota_personas, bad_request]
+        message: { type: string }
+    PersonaSummary:
+      type: object
+      properties:
+        persona_id: { type: string }
+        display_name: { type: [string, "null"] }
+        version: { type: integer }
+        source: { type: string }
+        created_at: { type: string }
+        updated_at: { type: string }
+        deleted_at: { type: [string, "null"] }
+    PersonaState:
+      type: object
+      properties:
+        version: { type: integer }
+        created_at: { type: string }
+        updated_at: { type: string }
+        source: { type: string }
+        deleted_at: { type: [string, "null"] }
+    PersonProfile:
+      type: object
+      description: 与 bridge/profile.schema.json 一致（Alpha PersonProfile v2）
+      required: [schema_version, persona_id, identity]
+      properties:
+        schema_version: { const: "2.0" }
+        persona_id: { type: string, pattern: "^[a-z0-9_-]{1,64}$" }
+        identity: { type: object }
+        relation: { type: [object, "null"] }
+        expression: { type: object }
+        logic: { type: [object, "null"] }
+        conflict: { type: [object, "null"] }
+        memory_signature: { type: array, items: { type: object } }
+        hard_rules: { type: array, items: { type: object } }
+        corrections: { type: array, items: { type: object } }
+        engine: { type: object }
+        meta: { type: object }

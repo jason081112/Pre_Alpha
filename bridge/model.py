@@ -292,9 +292,92 @@ def validate_profile(profile: PersonProfile) -> list[str]:
     return errors
 
 
+# ── 反序列化（#83 起 API 需要把请求体还原为模型） ──────────────────────────
+
+def _asserted_from_dict(data: Any) -> Any:
+    """把 {"kind": "asserted", value/provenance/basis/reason} 还原为 Asserted。"""
+    if not isinstance(data, dict):
+        return data
+    if data.get("kind") == "asserted" or ({"provenance"} <= set(data) and "kind" not in data):
+        provenance = data.get("provenance")
+        try:
+            prov = Provenance(provenance)
+        except ValueError as exc:
+            raise ValueError(f"非法 provenance: {provenance!r}") from exc
+        return Asserted(
+            value=data.get("value"),
+            provenance=prov,
+            basis=data.get("basis"),
+            reason=data.get("reason"),
+        )
+    return data
+
+
+def _build_dataclass(cls, data: dict) -> Any:
+    kwargs = {}
+    for f in fields(cls):
+        if f.name not in data:
+            continue
+        value = data[f.name]
+        if value is None:
+            kwargs[f.name] = None
+            continue
+        kwargs[f.name] = _asserted_from_dict(value)
+    return cls(**kwargs)
+
+
+def profile_from_dict(data: dict) -> PersonProfile:
+    """把 API 请求体还原为 PersonProfile（与 to_dict 对称）。
+
+    只做结构还原，不做校验；调用方随后应执行 `validate_profile()`。
+    """
+    if not isinstance(data, dict):
+        raise ValueError("profile 必须是对象")
+
+    identity_data = data.get("identity")
+    if not isinstance(identity_data, dict):
+        raise ValueError("identity 必须是对象")
+    identity = _build_dataclass(Identity, identity_data)
+
+    relation = _build_dataclass(RelationContext, data["relation"]) if data.get("relation") else None
+    logic = _build_dataclass(LogicProfile, data["logic"]) if data.get("logic") else None
+    conflict = _build_dataclass(ConflictProfile, data["conflict"]) if data.get("conflict") else None
+
+    expression_data = data.get("expression") or {}
+    expression = Expression(
+        rhythm=_asserted_from_dict(expression_data.get("rhythm")) or Asserted.missing("未提供节奏"),
+        habits=[_asserted_from_dict(item) for item in expression_data.get("habits", [])],
+        examples=[Example(**item) for item in expression_data.get("examples", [])],
+    )
+
+    engine_data = data.get("engine") or {}
+    engine = EngineHints(
+        drive_baseline={k: _asserted_from_dict(v) for k, v in (engine_data.get("drive_baseline") or {}).items()},
+        engine_params={k: _asserted_from_dict(v) for k, v in (engine_data.get("engine_params") or {}).items()},
+        calibration=_asserted_from_dict(engine_data.get("calibration")) or None,
+    )
+
+    corrections = [Correction(**item) for item in data.get("corrections", [])]
+
+    return PersonProfile(
+        persona_id=data.get("persona_id", ""),
+        identity=identity,
+        relation=relation,
+        expression=expression,
+        logic=logic,
+        conflict=conflict,
+        memory_signature=[_asserted_from_dict(i) for i in data.get("memory_signature", [])],
+        hard_rules=[_asserted_from_dict(i) for i in data.get("hard_rules", [])],
+        corrections=corrections,
+        engine=engine,
+        meta=data.get("meta") or {},
+        schema_version=data.get("schema_version", SCHEMA_VERSION),
+    )
+
+
 __all__ = [
     "SCHEMA_VERSION", "DRIVES", "ENGINE_PARAM_KEYS", "FORBIDDEN_KEYS",
     "Provenance", "Asserted", "Identity", "RelationContext", "Example",
     "Expression", "LogicProfile", "ConflictProfile", "Correction",
-    "EngineHints", "PersonProfile", "validate_profile",
+    "EngineHints", "PersonProfile", "validate_profile", "profile_from_dict",
 ]

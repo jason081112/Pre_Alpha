@@ -1,0 +1,116 @@
+{
+  "issues": [
+    83
+  ],
+  "title": "人格创建/编辑 API 契约与校验",
+  "date": "2026-10-31",
+  "commit_base": "6f79701",
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/v1/personas",
+      "note": "列表，include_deleted 可选"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/personas",
+      "note": "创建 201"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/personas/{id}",
+      "note": "profile + state"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/personas/{id}",
+      "note": "全量替换，需 If-Match"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/personas/{id}",
+      "note": "merge patch，需 If-Match"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/personas/{id}",
+      "note": "软删除"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/personas/{id}/restore",
+      "note": "恢复"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/personas/{id}/fork",
+      "note": "复制为可编辑副本"
+    }
+  ],
+  "error_codes": {
+    "400": "bad_request",
+    "403": "readonly",
+    "404": "not_found（含越权）",
+    "409": "version_conflict",
+    "422": [
+      "invalid_profile",
+      "raw_text_not_allowed"
+    ],
+    "429": "quota_personas"
+  },
+  "storage": {
+    "profile.json": "真相来源",
+    "state.json": "version/created_at/updated_at/source/deleted_at",
+    "SOUL.md": "渲染派生物",
+    "versions/": "滚动保留 10 个"
+  },
+  "write_chain": [
+    "递归查禁键",
+    "profile_from_dict",
+    "validate_profile",
+    "原子写",
+    "渲染 SOUL.md（失败不阻断）",
+    "镜像到引擎目录",
+    "on_change → PersonaLoader.reload"
+  ],
+  "boundaries": {
+    "done_here": [
+      "CRUD",
+      "乐观锁",
+      "软删除",
+      "快照",
+      "镜像生效",
+      "审计钩子"
+    ],
+    "deferred_to_84": [
+      "配额落地",
+      "加密",
+      "回收站定时清理",
+      "内置库 fork",
+      "按用户引擎目录"
+    ]
+  },
+  "hashes": {
+    "shell/persona_repo.py": "697c5fbf10a6bdb0bf9f8821f08907365b6b3feba09c7a93559159a65a3aef9e",
+    "shell/personas_api.py": "69739f5e2581e51cd15c5c183b8100af40e41e4ea297f49dd1cd00b1efb3799c",
+    "shell/app.py": "9ab800e7c34e23a86b666b4589db6c6d268a4282f28bb450ce0a84ea05405b40",
+    "tests/test_personas_api.py": "ae1fc22ec30340f7fc0071f920a0a899af24d2c76cd7fdf5405399ed17d90f77",
+    "docs/openapi-personas.yaml": "eafd45ebcdb35eca14875f9c1c51fd1b29e28e8fb792ea58a6d690db1c60c2e6",
+    "docs/p4-83-personas-api.md": "f3507686d7bcccc008bc0c251498ae1c0ae1c9a5a2e00100697ebcd60e27a98e",
+    "bridge/model.py": "09e1d3cc9d7f4a72c85f384915bde64b9750ecfe4081c22c55b0bc7258085a4e"
+  },
+  "checks": {
+    "personas_api_tests": {
+      "command": "python3 tests/test_personas_api.py",
+      "tests": 18,
+      "passed": 18,
+      "failed": 0
+    },
+    "pytest_full": {
+      "command": "python3 -m pytest tests/ -q",
+      "passed": 157,
+      "failed": 0
+    },
+    "secret_scan": "ok (152 files)"
+  }
+}
