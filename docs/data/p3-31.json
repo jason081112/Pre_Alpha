@@ -1,0 +1,94 @@
+{
+  "issues": [
+    31
+  ],
+  "title": "bridge/ 数据模型：PersonProfile dataclass + JSON Schema",
+  "date": "2026-10-30",
+  "commit_base": "7753960",
+  "schema_version": "2.0",
+  "design": {
+    "provenance_states": [
+      "source",
+      "inferred",
+      "missing"
+    ],
+    "layer_mapping": {
+      "Layer 0": "hard_rules",
+      "Layer 1": "relation",
+      "Layer 2": "expression",
+      "Layer 3": "logic",
+      "Layer 4": "conflict",
+      "Layer 5": "memory_signature",
+      "Correction Log": "corrections"
+    },
+    "drives": [
+      "connection",
+      "novelty",
+      "expression",
+      "safety",
+      "play"
+    ],
+    "engine_params_count": 11,
+    "no_weight_for_habits": "口头禅无频次来源（#28 §3.2），模型不设 weight 字段",
+    "engine_default_state": "missing（未标定，#33/#34）"
+  },
+  "rules": [
+    {
+      "id": "R1",
+      "rule": "inferred 必须有 basis"
+    },
+    {
+      "id": "R2",
+      "rule": "basis 不得含 insufficient（#29 F5）"
+    },
+    {
+      "id": "R3",
+      "rule": "missing 必须有 reason 且 value 为 null"
+    },
+    {
+      "id": "R4",
+      "rule": "source 必须有 value"
+    },
+    {
+      "id": "R5",
+      "rule": "identity.name 不得为 missing"
+    },
+    {
+      "id": "R6",
+      "rule": "drive 键限定五维"
+    },
+    {
+      "id": "R7",
+      "rule": "engine_params 键限定 11 个白名单"
+    },
+    {
+      "id": "R8",
+      "rule": "任何层级禁止原文键（与 refine-api 422 规则一致）"
+    },
+    {
+      "id": "R9",
+      "rule": "corrections ≤ 50 / habits ≤ 20 / memory_signature ≤ 200"
+    },
+    {
+      "id": "R10",
+      "rule": "persona_id 小写、字母数字连字符、≤ 64"
+    }
+  ],
+  "hashes": {
+    "bridge/model.py": "3643dfe2c46092cc935cd8462fc6691f34e4bd1bc7c1e3e15fe0717e0f5fd74e",
+    "bridge/profile.schema.json": "9ea62855c688219f15f1fbc46e8ecc15434a426dfffcbb8431f2985277fa18f9",
+    "bridge/profile2soul.py": "0148462b6d98bb12b7fa7de1bc386d386b58fa3102175f4615c44d4b4ee1408b",
+    "bridge/__init__.py": "e9a1f19748c3108f8cf9e3a45f66c51b1f42771e5ea04504b013cbf62dcc8cb4",
+    "tests/test_bridge_model.py": "f2094ddaf55a520dd442565e6f939925dabb29bd1bbe8171eae30a6b832769a1",
+    "docs/p3-31-person-profile.md": "3ae81b65cd861d17b2a0370298ecc67e397755a39cf1c1a43434c297f2a119e0"
+  },
+  "checks": {
+    "bridge_model_tests": {
+      "command": "python3 tests/test_bridge_model.py",
+      "tests": 15,
+      "passed": 15,
+      "failed": 0
+    },
+    "schema_validation": "jsonschema 4.26.0 严格校验序列化结果通过（CI 无该依赖时跳过）"
+  }
+}

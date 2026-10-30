@@ -1,27 +1,32 @@
+# SPDX-FileCopyrightText: 2026 jason081112
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """profile2soul —— 把 Distilly 蒸馏出的人格画像翻译成 OpenHer 可消费的种子。
 
-P1 阶段仅占位，用于固定模块路径与数据模型轮廓；实现属 P3（看板 #31–#44）。
+数据模型见 `bridge/model.py`（#31）。本模块的映射实现属 #32–#38，
+当前只固定函数签名与返回结构轮廓。
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import Any
 
-
-@dataclass
-class PersonProfile:
-    """Distilly 蒸馏产物在我方内部的统一表示（占位，字段随 P3 收敛）。"""
-
-    identity: dict[str, Any] = field(default_factory=dict)
-    expression: dict[str, Any] = field(default_factory=dict)
-    drives: dict[str, float] = field(default_factory=dict)
-    facts: list[str] = field(default_factory=list)
+from bridge.model import PersonProfile
 
 
 def profile_to_soul(profile: PersonProfile) -> dict[str, Any]:
-    """把 PersonProfile 映射为 SOUL.md frontmatter 所需的字典。
+    """把 PersonProfile 映射为 SOUL.md 所需结构。
 
-    占位实现，抛 NotImplementedError。
+    返回形如::
+
+        {"frontmatter": {...}, "body": {"personality": "...", "speaking_style": "...",
+                                       "behavioral_rules": "..."}}
+
+    约束（来自 #30 实测）：
+
+    - 正文只允许四个 H2：性格 / 说话风格 / 背景故事 / 行为规则；
+    - 输出中不得出现 ``Layer N`` 字样（会被当结构标记泄漏）；
+    - ``basis`` 里的推断说明不得写入正文。
+
+    实现见 #32（身份字段）与 #33–#38（数值与风格），当前为占位。
     """
-    raise NotImplementedError("P3 阶段实现：见看板 #31–#44")
+    raise NotImplementedError("P3 阶段实现：见看板 #32–#38")

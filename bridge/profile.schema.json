@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jason081112/Pre_Alpha/bridge/profile.schema.json",
+  "title": "Alpha PersonProfile v2",
+  "description": "Distilly 产物在我方内部的统一表示。每个字段用 asserted 三态包装：source（有依据）/ inferred（推断，必须有 basis）/ missing（材料不足，必须有 reason）。禁止携带原文。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "persona_id", "identity"],
+  "properties": {
+    "schema_version": { "const": "2.0" },
+    "persona_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]{1,64}$"
+    },
+    "identity": { "$ref": "#/$defs/identity" },
+    "relation": { "oneOf": [{ "$ref": "#/$defs/relation" }, { "type": "null" }] },
+    "expression": { "$ref": "#/$defs/expression" },
+    "logic": { "oneOf": [{ "$ref": "#/$defs/logic" }, { "type": "null" }] },
+    "conflict": { "oneOf": [{ "$ref": "#/$defs/conflict" }, { "type": "null" }] },
+    "memory_signature": {
+      "type": "array",
+      "maxItems": 200,
+      "items": { "$ref": "#/$defs/assertedText" }
+    },
+    "hard_rules": {
+      "type": "array",
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/assertedText" }
+    },
+    "corrections": {
+      "type": "array",
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/correction" }
+    },
+    "engine": { "$ref": "#/$defs/engine" },
+    "meta": { "type": "object" }
+  },
+  "$defs": {
+    "provenance": { "enum": ["source", "inferred", "missing"] },
+    "assertedText": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "provenance"],
+      "properties": {
+        "kind": { "const": "asserted" },
+        "value": { "type": ["string", "null"], "maxLength": 200 },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "basis": { "type": ["string", "null"] },
+        "reason": { "type": ["string", "null"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "provenance": { "const": "inferred" } }, "required": ["provenance"] },
+          "then": {
+            "required": ["basis"],
+            "properties": { "basis": { "type": "string", "minLength": 1, "not": { "pattern": "(?i)insufficient" } } }
+          }
+        },
+        {
+          "if": { "properties": { "provenance": { "const": "missing" } }, "required": ["provenance"] },
+          "then": {
+            "required": ["reason"],
+            "properties": {
+              "reason": { "type": "string", "minLength": 1 },
+              "value": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "provenance": { "const": "source" } }, "required": ["provenance"] },
+          "then": { "properties": { "value": { "type": "string", "minLength": 1 } } }
+        }
+      ]
+    },
+    "assertedInt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "provenance"],
+      "properties": {
+        "kind": { "const": "asserted" },
+        "value": { "type": ["integer", "null"], "minimum": 0, "maximum": 150 },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "basis": { "type": ["string", "null"] },
+        "reason": { "type": ["string", "null"] }
+      }
+    },
+    "assertedNumber": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "provenance"],
+      "properties": {
+        "kind": { "const": "asserted" },
+        "value": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "basis": { "type": ["string", "null"] },
+        "reason": { "type": ["string", "null"] }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "$ref": "#/$defs/assertedText" },
+        "lang": { "enum": ["zh", "en"] },
+        "name_zh": { "oneOf": [{ "$ref": "#/$defs/assertedText" }, { "type": "null" }] },
+        "age": { "oneOf": [{ "$ref": "#/$defs/assertedInt" }, { "type": "null" }] },
+        "gender": { "oneOf": [{ "$ref": "#/$defs/assertedText" }, { "type": "null" }] },
+        "mbti": { "oneOf": [{ "$ref": "#/$defs/assertedText" }, { "type": "null" }] }
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label"],
+      "properties": {
+        "label": { "$ref": "#/$defs/assertedText" },
+        "status": { "oneOf": [{ "$ref": "#/$defs/assertedText" }, { "type": "null" }] },
+        "defining_facts": { "type": "array", "maxItems": 20, "items": { "$ref": "#/$defs/assertedText" } }
+      }
+    },
+    "expression": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rhythm": { "$ref": "#/$defs/assertedText" },
+        "habits": { "type": "array", "maxItems": 20, "items": { "$ref": "#/$defs/assertedText" } },
+        "examples": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["scene", "text"],
+            "properties": {
+              "scene": { "type": "string", "maxLength": 60 },
+              "text": { "type": "string", "maxLength": 200 }
+            }
+          }
+        }
+      }
+    },
+    "logic": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "opens_up_when": { "oneOf": [{ "$ref": "#/$defs/assertedText" }, { "type": "null" }] },
+        "pulls_away_when": { "oneOf": [{ "$ref": "#/$defs/assertedText" }, { "type": "null" }] },
+        "defends_by": { "oneOf": [{ "$ref": "#/$defs/assertedText" }, { "type": "null" }] },
+        "shows_care_by": { "oneOf": [{ "$ref": "#/$defs/assertedText" }, { "type": "null" }] },
+        "priorities": { "type": "array", "maxItems": 20, "items": { "$ref": "#/$defs/assertedText" } }
+      }
+    },
+    "conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "style": { "oneOf": [{ "$ref": "#/$defs/assertedText" }, { "type": "null" }] },
+        "silence": { "oneOf": [{ "$ref": "#/$defs/assertedText" }, { "type": "null" }] },
+        "repair": { "oneOf": [{ "$ref": "#/$defs/assertedText" }, { "type": "null" }] },
+        "boundaries": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/assertedText" } }
+      }
+    },
+    "correction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scene", "wrong", "correct"],
+      "properties": {
+        "scene": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "wrong": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "correct": { "type": "string", "minLength": 1, "maxLength": 200 }
+      }
+    },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "drive_baseline": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "connection": { "$ref": "#/$defs/assertedNumber" },
+            "novelty": { "$ref": "#/$defs/assertedNumber" },
+            "expression": { "$ref": "#/$defs/assertedNumber" },
+            "safety": { "$ref": "#/$defs/assertedNumber" },
+            "play": { "$ref": "#/$defs/assertedNumber" }
+          }
+        },
+        "engine_params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "baseline_lr": { "$ref": "#/$defs/assertedNumber" },
+            "elasticity": { "$ref": "#/$defs/assertedNumber" },
+            "hebbian_lr": { "$ref": "#/$defs/assertedNumber" },
+            "phase_threshold": { "$ref": "#/$defs/assertedNumber" },
+            "connection_hunger_k": { "$ref": "#/$defs/assertedNumber" },
+            "novelty_hunger_k": { "$ref": "#/$defs/assertedNumber" },
+            "frustration_decay": { "$ref": "#/$defs/assertedNumber" },
+            "hawking_gamma": { "$ref": "#/$defs/assertedNumber" },
+            "crystal_threshold": { "$ref": "#/$defs/assertedNumber" },
+            "temp_coeff": { "$ref": "#/$defs/assertedNumber" },
+            "temp_floor": { "$ref": "#/$defs/assertedNumber" }
+          }
+        },
+        "calibration": { "oneOf": [{ "$ref": "#/$defs/assertedText" }, { "type": "null" }] }
+      }
+    }
+  }
+}

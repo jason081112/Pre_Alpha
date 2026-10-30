@@ -59,14 +59,15 @@ def test_skeleton_dirs() -> None:
 
 
 def test_profile2soul_placeholder() -> None:
-    from bridge.profile2soul import PersonProfile, profile_to_soul
+    from bridge.model import Asserted, Identity, PersonProfile
+    from bridge.profile2soul import profile_to_soul
 
-    profile = PersonProfile(identity={"name": "luna"})
+    profile = PersonProfile(persona_id="luna", identity=Identity(name=Asserted.source("luna")))
     try:
         profile_to_soul(profile)
     except NotImplementedError:
         return
-    raise AssertionError("P1 阶段 profile_to_soul 应保持占位（NotImplementedError）")
+    raise AssertionError("profile2soul 的映射实现属 #32 起，当前应保持占位（NotImplementedError）")
 
 
 if __name__ == "__main__":
