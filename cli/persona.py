@@ -59,8 +59,15 @@ def _data_root() -> Path:
 
 
 def _mirror() -> Path | None:
+    """只有显式设置 ALPHA_PERSONA_MIRROR 才镜像到引擎目录。
+
+    默认不写 `vendor/OpenHer/persona/personas`：那是上游源码目录，
+    CLI 误写会污染内置人格（曾把测试人格写进去）。
+    """
     raw = os.getenv("ALPHA_PERSONA_MIRROR")
-    path = Path(raw) if raw else BUILTIN_ROOT
+    if not raw:
+        return None
+    path = Path(raw)
     return path if path.parent.is_dir() else None
 
 
@@ -275,6 +282,56 @@ def _cmd_edit(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_calibrate(args: argparse.Namespace) -> int:
+    from bridge.calibrate import calibrate
+    from bridge.model import profile_from_dict
+
+    repo = _repo()
+    try:
+        record = repo.get(args.user, args.persona_id)
+    except PersonaError as exc:
+        print(f"[alpha] {exc.message}", file=sys.stderr)
+        return 2
+    profile = profile_from_dict(record["profile"])
+    hints = calibrate(profile)
+
+    print(f"[alpha] {args.persona_id} 的标定建议（v1 启发式）")
+    print("  drive_baseline:")
+    for drive, asserted in hints.drive_baseline.items():
+        mark = "缺失" if asserted.provenance.value == "missing" else f"{asserted.value}"
+        print(f"    {drive:<12}{mark}")
+    if hints.engine_params:
+        print("  engine_params:")
+        for key, asserted in hints.engine_params.items():
+            mark = "缺失" if asserted.provenance.value == "missing" else f"{asserted.value}"
+            print(f"    {key:<22}{mark}")
+    if hints.calibration is not None:
+        print(f"  依据: {hints.calibration.basis}")
+
+    if not args.yes:
+        print("[alpha] dry-run：未写入。加 --yes 写回 profile（engine 块整体替换）。")
+        return 0
+
+    version = int(record["state"]["version"])
+    patch = {
+        "engine": {
+            "drive_baseline": {k: v.to_dict() | {"kind": "asserted"}
+                               for k, v in hints.drive_baseline.items()},
+            "engine_params": {k: v.to_dict() | {"kind": "asserted"}
+                              for k, v in hints.engine_params.items()},
+            "calibration": (hints.calibration.to_dict() | {"kind": "asserted"})
+            if hints.calibration is not None else None,
+        }
+    }
+    try:
+        updated = repo.patch(args.user, args.persona_id, patch, version)
+    except PersonaError as exc:
+        print(f"[alpha] {exc.message}", file=sys.stderr)
+        return 2
+    print(f"[alpha] 已写回 {updated['persona_id']} → v{updated['version']}")
+    return 0
+
+
 def _cmd_check(args: argparse.Namespace) -> int:
     from bridge.model import profile_from_dict
     from shell.persona_check import run_check
@@ -372,6 +429,12 @@ def add_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:  # t
     p_edit.add_argument("--yes", action="store_true")
     _add_user(p_edit)
     p_edit.set_defaults(func=_cmd_edit)
+
+    p_cal = psub.add_parser("calibrate", help="按 v1 启发式标定 drive/engine_params")
+    p_cal.add_argument("persona_id")
+    p_cal.add_argument("--yes", action="store_true", help="写回 profile")
+    _add_user(p_cal)
+    p_cal.set_defaults(func=_cmd_calibrate)
 
     p_check = psub.add_parser("check", help="人格体检（结构/隐私/加载/探针）")
     p_check.add_argument("persona_id")

@@ -1,0 +1,487 @@
+{
+  "issues": [
+    33,
+    34
+  ],
+  "title": "特征 → drive_baseline / engine_params 标定 v1",
+  "date": "2026-10-31",
+  "commit_base": "15aa9ca",
+  "sample_source": {
+    "repo": "kellyvv/OpenHer",
+    "commit": "ef5b2145c9c15582499ecc5fb9d10376d82eccdf",
+    "n": 10
+  },
+  "clarification": "issue #33 标题写 13 个 engine_params，OpenHer 实际 11 个",
+  "samples": [
+    {
+      "id": "ember",
+      "mbti": "INFP",
+      "drives": {
+        "connection": 0.4,
+        "novelty": 0.6,
+        "expression": 0.5,
+        "safety": 0.6,
+        "play": 0.35
+      },
+      "params": {
+        "baseline_lr": 0.01,
+        "elasticity": 0.06,
+        "hebbian_lr": 0.02,
+        "phase_threshold": 2.8,
+        "connection_hunger_k": 0.08,
+        "novelty_hunger_k": 0.09,
+        "frustration_decay": 0.12,
+        "hawking_gamma": 0.0007,
+        "crystal_threshold": 0.4,
+        "temp_coeff": 0.08,
+        "temp_floor": 0.02
+      }
+    },
+    {
+      "id": "iris",
+      "mbti": "INFP",
+      "drives": {
+        "connection": 0.45,
+        "novelty": 0.55,
+        "expression": 0.6,
+        "safety": 0.65,
+        "play": 0.4
+      },
+      "params": {
+        "baseline_lr": 0.01,
+        "elasticity": 0.05,
+        "hebbian_lr": 0.02,
+        "phase_threshold": 2.5,
+        "connection_hunger_k": 0.1,
+        "novelty_hunger_k": 0.08,
+        "frustration_decay": 0.1,
+        "hawking_gamma": 0.0008,
+        "crystal_threshold": 0.45,
+        "temp_coeff": 0.1,
+        "temp_floor": 0.02
+      }
+    },
+    {
+      "id": "kai",
+      "mbti": "ISTP",
+      "drives": {
+        "connection": 0.35,
+        "novelty": 0.45,
+        "expression": 0.25,
+        "safety": 0.55,
+        "play": 0.4
+      },
+      "params": {
+        "baseline_lr": 0.008,
+        "elasticity": 0.06,
+        "hebbian_lr": 0.015,
+        "phase_threshold": 3.0,
+        "connection_hunger_k": 0.1,
+        "novelty_hunger_k": 0.05,
+        "frustration_decay": 0.08,
+        "hawking_gamma": 0.001,
+        "crystal_threshold": 0.5,
+        "temp_coeff": 0.08,
+        "temp_floor": 0.02
+      }
+    },
+    {
+      "id": "kelly",
+      "mbti": "ENTP",
+      "drives": {
+        "connection": 0.4,
+        "novelty": 0.8,
+        "expression": 0.75,
+        "safety": 0.2,
+        "play": 0.7
+      },
+      "params": {
+        "baseline_lr": 0.015,
+        "elasticity": 0.03,
+        "hebbian_lr": 0.02,
+        "phase_threshold": 2.0,
+        "connection_hunger_k": 0.08,
+        "novelty_hunger_k": 0.15,
+        "frustration_decay": 0.1,
+        "hawking_gamma": 0.002,
+        "crystal_threshold": 0.4,
+        "temp_coeff": 0.12,
+        "temp_floor": 0.05
+      }
+    },
+    {
+      "id": "luna",
+      "mbti": "ENFP",
+      "drives": {
+        "connection": 0.75,
+        "novelty": 0.65,
+        "expression": 0.75,
+        "safety": 0.25,
+        "play": 0.8
+      },
+      "params": {
+        "baseline_lr": 0.015,
+        "elasticity": 0.04,
+        "hebbian_lr": 0.025,
+        "phase_threshold": 1.5,
+        "connection_hunger_k": 0.15,
+        "novelty_hunger_k": 0.08,
+        "frustration_decay": 0.12,
+        "hawking_gamma": 0.0012,
+        "crystal_threshold": 0.4,
+        "temp_coeff": 0.15,
+        "temp_floor": 0.04
+      }
+    },
+    {
+      "id": "mia",
+      "mbti": "ESFP",
+      "drives": {
+        "connection": 0.8,
+        "novelty": 0.45,
+        "expression": 0.85,
+        "safety": 0.2,
+        "play": 0.9
+      },
+      "params": {
+        "baseline_lr": 0.02,
+        "elasticity": 0.02,
+        "hebbian_lr": 0.03,
+        "phase_threshold": 1.2,
+        "connection_hunger_k": 0.18,
+        "novelty_hunger_k": 0.04,
+        "frustration_decay": 0.15,
+        "hawking_gamma": 0.002,
+        "crystal_threshold": 0.35,
+        "temp_coeff": 0.18,
+        "temp_floor": 0.05
+      }
+    },
+    {
+      "id": "nova",
+      "mbti": "ENFP",
+      "drives": {
+        "connection": 0.7,
+        "novelty": 0.85,
+        "expression": 0.75,
+        "safety": 0.3,
+        "play": 0.85
+      },
+      "params": {
+        "baseline_lr": 0.014,
+        "elasticity": 0.04,
+        "hebbian_lr": 0.022,
+        "phase_threshold": 1.8,
+        "connection_hunger_k": 0.12,
+        "novelty_hunger_k": 0.14,
+        "frustration_decay": 0.1,
+        "hawking_gamma": 0.001,
+        "crystal_threshold": 0.42,
+        "temp_coeff": 0.14,
+        "temp_floor": 0.04
+      }
+    },
+    {
+      "id": "rex",
+      "mbti": "ENTJ",
+      "drives": {
+        "connection": 0.35,
+        "novelty": 0.6,
+        "expression": 0.65,
+        "safety": 0.8,
+        "play": 0.25
+      },
+      "params": {
+        "baseline_lr": 0.006,
+        "elasticity": 0.08,
+        "hebbian_lr": 0.012,
+        "phase_threshold": 3.5,
+        "connection_hunger_k": 0.06,
+        "novelty_hunger_k": 0.06,
+        "frustration_decay": 0.05,
+        "hawking_gamma": 0.0005,
+        "crystal_threshold": 0.55,
+        "temp_coeff": 0.05,
+        "temp_floor": 0.01
+      }
+    },
+    {
+      "id": "sora",
+      "mbti": "INFJ",
+      "drives": {
+        "connection": 0.55,
+        "novelty": 0.6,
+        "expression": 0.5,
+        "safety": 0.7,
+        "play": 0.3
+      },
+      "params": {
+        "baseline_lr": 0.01,
+        "elasticity": 0.06,
+        "hebbian_lr": 0.018,
+        "phase_threshold": 2.8,
+        "connection_hunger_k": 0.12,
+        "novelty_hunger_k": 0.07,
+        "frustration_decay": 0.07,
+        "hawking_gamma": 0.0007,
+        "crystal_threshold": 0.45,
+        "temp_coeff": 0.09,
+        "temp_floor": 0.02
+      }
+    },
+    {
+      "id": "vivian",
+      "mbti": "INTJ",
+      "drives": {
+        "connection": 0.3,
+        "novelty": 0.7,
+        "expression": 0.35,
+        "safety": 0.7,
+        "play": 0.2
+      },
+      "params": {
+        "baseline_lr": 0.008,
+        "elasticity": 0.07,
+        "hebbian_lr": 0.018,
+        "phase_threshold": 3.0,
+        "connection_hunger_k": 0.08,
+        "novelty_hunger_k": 0.07,
+        "frustration_decay": 0.06,
+        "hawking_gamma": 0.0006,
+        "crystal_threshold": 0.55,
+        "temp_coeff": 0.06,
+        "temp_floor": 0.015
+      }
+    }
+  ],
+  "mbti_priors": {
+    "E": {
+      "connection": 0.6
+    },
+    "I": {
+      "connection": 0.41
+    },
+    "N": {
+      "novelty": 0.67
+    },
+    "S": {
+      "novelty": 0.45
+    },
+    "F": {
+      "expression": 0.66
+    },
+    "T": {
+      "expression": 0.5
+    },
+    "J": {
+      "safety": 0.733,
+      "play": 0.25
+    },
+    "P": {
+      "safety": 0.393,
+      "play": 0.629
+    }
+  },
+  "fit": {
+    "baseline_lr": {
+      "deps": [
+        "connection",
+        "safety"
+      ],
+      "b0": 0.0133,
+      "b": [
+        0.0085,
+        -0.0122
+      ],
+      "mae": 0.095,
+      "r2": 0.904
+    },
+    "elasticity": {
+      "deps": [
+        "novelty",
+        "safety"
+      ],
+      "b0": -0.0001,
+      "b": [
+        0.0207,
+        0.077
+      ],
+      "mae": 0.097,
+      "r2": 0.883
+    },
+    "hebbian_lr": {
+      "deps": [
+        "connection",
+        "safety"
+      ],
+      "b0": 0.0161,
+      "b": [
+        0.0158,
+        -0.0081
+      ],
+      "mae": 0.105,
+      "r2": 0.773
+    },
+    "phase_threshold": {
+      "deps": [
+        "connection",
+        "safety"
+      ],
+      "b0": 2.3361,
+      "b": [
+        -1.8013,
+        1.9869
+      ],
+      "mae": 0.051,
+      "r2": 0.951
+    },
+    "connection_hunger_k": {
+      "deps": [
+        "connection",
+        "novelty"
+      ],
+      "b0": 0.0646,
+      "b": [
+        0.1828,
+        -0.0799
+      ],
+      "mae": 0.071,
+      "r2": 0.921
+    },
+    "novelty_hunger_k": {
+      "deps": [
+        "novelty",
+        "safety"
+      ],
+      "b0": -0.0438,
+      "b": [
+        0.2274,
+        -0.0311
+      ],
+      "mae": 0.148,
+      "r2": 0.823
+    },
+    "frustration_decay": {
+      "deps": [
+        "novelty",
+        "safety"
+      ],
+      "b0": 0.2076,
+      "b": [
+        -0.0912,
+        -0.1124
+      ],
+      "mae": 0.125,
+      "r2": 0.709
+    },
+    "hawking_gamma": {
+      "deps": [
+        "novelty",
+        "safety"
+      ],
+      "b0": 0.0027,
+      "b": [
+        -0.0009,
+        -0.0022
+      ],
+      "mae": 0.165,
+      "r2": 0.815
+    },
+    "crystal_threshold": {
+      "deps": [
+        "connection",
+        "safety"
+      ],
+      "b0": 0.4358,
+      "b": [
+        -0.1315,
+        0.1567
+      ],
+      "mae": 0.07,
+      "r2": 0.686
+    },
+    "temp_coeff": {
+      "deps": [
+        "connection",
+        "safety"
+      ],
+      "b0": 0.0881,
+      "b": [
+        0.125,
+        -0.0933
+      ],
+      "mae": 0.052,
+      "r2": 0.964
+    },
+    "temp_floor": {
+      "deps": [
+        "expression",
+        "safety"
+      ],
+      "b0": 0.0493,
+      "b": [
+        0.0118,
+        -0.0562
+      ],
+      "mae": 0.072,
+      "r2": 0.971
+    }
+  },
+  "backfit": {
+    "values": 110,
+    "mean_relative_error": 0.103,
+    "worst": [
+      {
+        "id": "rex",
+        "param": "connection_hunger_k",
+        "actual": 0.06,
+        "predicted": 0.08064,
+        "rel": 0.344
+      },
+      {
+        "id": "vivian",
+        "param": "novelty_hunger_k",
+        "actual": 0.07,
+        "predicted": 0.09361,
+        "rel": 0.337
+      },
+      {
+        "id": "kai",
+        "param": "frustration_decay",
+        "actual": 0.08,
+        "predicted": 0.10474,
+        "rel": 0.309
+      }
+    ]
+  },
+  "limitations": [
+    "样本 n=10、自由度 7，属经验拟合",
+    "MBTI 先验只是组均值，个体差异大",
+    "无 MBTI 时仅靠文本线索（±0.15）",
+    "输出 clamp 到样本范围外扩 10%",
+    "未做行为验证（等 #44）"
+  ],
+  "hashes": {
+    "bridge/calibrate.py": "f886fa052a276be5a8ee30fa941e315ec87ff450eb53314bbebf9d9cfd2f0196",
+    "cli/persona.py": "b13c012d0291d553f53151c65f8663f5bc4845371f1a780dfcf23fdff7ede5c5",
+    "tests/test_calibrate.py": "3c404caf98b4265439e89b11f27acb6bc8ca15f08e5a7678e97306be93fd56c1",
+    "docs/p3-33-calibration.md": "7c7ed941e679bf8f3ea85c26ba37ef5768c5b52733c5f6b19ab5907fb2a0571a"
+  },
+  "checks": {
+    "calibrate_tests": {
+      "command": "python3 tests/test_calibrate.py",
+      "tests": 10,
+      "passed": 10,
+      "failed": 0
+    },
+    "pytest_full": {
+      "command": "python3 -m pytest tests/ -q",
+      "passed": 191,
+      "failed": 0
+    },
+    "secret_scan": "ok (167 files)"
+  },
+  "notes": [
+    "vendor 内置人格目录勿被 CLI 误写：_mirror() 仅在显式设置 ALPHA_PERSONA_MIRROR 时生效"
+  ]
+}
