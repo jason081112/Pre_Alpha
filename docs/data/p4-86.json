@@ -1,0 +1,74 @@
+{
+  "issues": [
+    86
+  ],
+  "scope": "结构/隐私/加载完成；probe 仅骨架（需引擎环境）",
+  "title": "人格体检：结构 / 隐私 / 加载 / 探针",
+  "date": "2026-10-31",
+  "commit_base": "0829271",
+  "sections": {
+    "structure": {
+      "kind": "static",
+      "checks": [
+        "validate_profile 零错误",
+        "无 Layer N 泄漏",
+        "无 insufficient+inferred",
+        "内容充实度（rhythm/habits≥3/hard_rules≥1/boundaries≥1/drive 五维）"
+      ]
+    },
+    "privacy": {
+      "kind": "static",
+      "patterns": [
+        "phone",
+        "id_card",
+        "email",
+        "bank_card",
+        "absolute_path"
+      ]
+    },
+    "load": {
+      "kind": "dynamic",
+      "fallback": "skipped + reason"
+    },
+    "probe": {
+      "kind": "dynamic",
+      "status": "skeleton",
+      "blocked_by": "需运行中的引擎与 provider（#44 共用口径）"
+    }
+  },
+  "verdict_rules": {
+    "fail": "任一块 fail",
+    "warn": "无 fail 但有 warn",
+    "pass": "全 pass/skip"
+  },
+  "thresholds": {
+    "min_habits": 3,
+    "min_rules": 1,
+    "min_boundaries": 1,
+    "drives": 5
+  },
+  "hashes": {
+    "shell/persona_check.py": "018dcca6e437c593ee6e42b0149b0ce48afc82e0edad77adcf0fa19859540884",
+    "cli/persona.py": "86157806e544d5984fde1e830533e13612dcaaf50a2c58a03620cebf0cc260b1",
+    "tests/test_persona_check.py": "54c7be9b2439da083c0e27cd7c646de9bedb8ec7498e41a6edabd122ce938cd6",
+    "docs/p4-86-persona-check.md": "d38adb72be7d300d5826cc6d03f869e7e89fca457dcaab71ded4d63e0a908565"
+  },
+  "checks": {
+    "persona_check_tests": {
+      "command": "python3 tests/test_persona_check.py",
+      "tests": 12,
+      "passed": 12,
+      "failed": 0
+    },
+    "pytest_full": {
+      "command": "python3 -m pytest tests/ -q",
+      "passed": 181,
+      "failed": 0
+    },
+    "secret_scan": "ok (163 files)"
+  },
+  "notes": [
+    "降级必须显式 skipped，不伪装 pass",
+    "fixes 带 issue 号，便于用户知道去哪补"
+  ]
+}

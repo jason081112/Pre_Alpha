@@ -275,6 +275,49 @@ def _cmd_edit(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_check(args: argparse.Namespace) -> int:
+    from bridge.model import profile_from_dict
+    from shell.persona_check import run_check
+
+    try:
+        record = _repo().get(args.user, args.persona_id)
+    except PersonaError as exc:
+        print(f"[alpha] {exc.message}", file=sys.stderr)
+        return 2
+    profile = profile_from_dict(record["profile"])
+    report = run_check(
+        profile,
+        persona_id=args.persona_id,
+        personas_dir=_mirror(),
+        probe=args.probe,
+    )
+
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        print(f"[alpha] 体检结果: {report['verdict']}")
+        for name, section in report["sections"].items():
+            status = section.get("status")
+            detail = ""
+            if name == "structure":
+                detail = f"问题 {len(section.get('issues', []))} 项，缺口 {len(section.get('gaps', []))} 项"
+                if section.get("metrics"):
+                    detail += f"，口头禅 {section['metrics']['habits']} 条"
+            elif name == "privacy":
+                detail = f"{len(section.get('hits', []))} 处命中"
+            elif section.get("reason"):
+                detail = section["reason"]
+            elif section.get("warnings"):
+                detail = "；".join(section["warnings"])
+            print(f"  {name:<10}{status:<9}{detail}")
+        if report["fixes"]:
+            print("建议：")
+            for item in report["fixes"]:
+                print(f"  - {item}")
+
+    return 0 if report["verdict"] != "fail" else 1
+
+
 def _cmd_delete(args: argparse.Namespace) -> int:
     if not args.yes:
         print(f"[alpha] dry-run：将软删除 {args.persona_id}。确认后加 --yes。")
@@ -329,6 +372,13 @@ def add_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:  # t
     p_edit.add_argument("--yes", action="store_true")
     _add_user(p_edit)
     p_edit.set_defaults(func=_cmd_edit)
+
+    p_check = psub.add_parser("check", help="人格体检（结构/隐私/加载/探针）")
+    p_check.add_argument("persona_id")
+    p_check.add_argument("--json", action="store_true", help="输出 JSON")
+    p_check.add_argument("--probe", action="store_true", help="启用风格探针（需引擎）")
+    _add_user(p_check)
+    p_check.set_defaults(func=_cmd_check)
 
     p_del = psub.add_parser("delete", help="软删除")
     p_del.add_argument("persona_id")

@@ -27,5 +27,6 @@ jobs:
           python tests/test_profile2soul.py
           python tests/test_personas_api.py
           python tests/test_cli_persona.py
+          python tests/test_persona_check.py
           python tests/test_custom_provider.py
           python tests/test_smoke.py
