@@ -152,7 +152,7 @@
     "cli/persona.py": "fc81985c938212e8e3d76249418a540fd277f27ff3682a510e0f4115c3d240f2",
     "tests/test_seeds.py": "afae2f7e44196ded18071fca157223f7b4419b316ed0e6480b0952831af3212d",
     "tests/fixtures/seeds/xiaolan.txt": "b6b24515be8df4e4fc69ae13caf79ffdc375b27a62a7a46859d56e34539604bd",
-    "docs/p3-35-seeds.md": "5755ae776de3d5f52342fc18fd03058e0e6b715c39ba6089cccfc2ee26ce1625"
+    "docs/p3-35-seeds.md": "fdd1e9275b45df70acdaf0b878047805fbdf1a4010590a246ef84f06c71c5bbd"
   },
   "checks": {
     "seeds_tests": {
@@ -170,5 +170,22 @@
   "not_done": [
     "召回效果未验证（需 Codespace 跑引擎，属 #44）",
     "其他角色（林舟）素材未写"
-  ]
+  ],
+  "shared_input_vector_spread": {
+    "sample": "61 个被 >=5 个人格共用的 user_input",
+    "max_minus_min_per_dim": {
+      "conflict_level": 0.03,
+      "user_emotion": 0.074,
+      "user_engagement": 0.082,
+      "user_vulnerability": 0.079,
+      "topic_intimacy": 0.057,
+      "conversation_depth": 0.077,
+      "novelty_level": 0.036,
+      "time_of_day": 0.026
+    },
+    "median_all_dims": 0.0,
+    "mass_identical": "59/61",
+    "conclusion": "vector 与 mass 由情境决定，不由人格决定；情境标签表全局唯一，角色差异只在 monologue/reply"
+  },
+  "retracted": "初版设想「不同角色用不同情境标签表」，已被上游数据否证并撤回"
 }
