@@ -1,0 +1,109 @@
+{
+  "issues": [
+    38
+  ],
+  "date": "2026-10-31",
+  "outputs": [
+    "critic_persona_section（注入 critic 的 persona_section 槽）",
+    "signal_priors（8 行为信号先验，结构事实优先）",
+    "phase_threshold（base 2.0 的情绪相变阈值校准）"
+  ],
+  "phase_rules": {
+    "suppressed": "+0.35",
+    "outburst": "-0.40",
+    "repair_hard": "+0.20",
+    "repair_fast": "-0.20"
+  },
+  "phase_range": [
+    0.8,
+    4.0
+  ],
+  "samples": {
+    "xiaolan": {
+      "usable": true,
+      "phase_threshold": 2.35,
+      "phase_basis": "base 2.0 → 2.35；冲突时压抑不外发，挫败积累更久才相变（+0.35）",
+      "signals": {
+        "directness": 0.72,
+        "vulnerability": 0.6,
+        "playfulness": null,
+        "initiative": 0.65,
+        "depth": 0.65,
+        "warmth": 0.72,
+        "defiance": 0.65,
+        "curiosity": 0.55
+      },
+      "coverage": {
+        "signals_with_evidence": 7,
+        "signals_total": 8,
+        "missing": [
+          "playfulness"
+        ]
+      }
+    },
+    "linzhou": {
+      "usable": true,
+      "phase_threshold": 1.6,
+      "phase_basis": "base 2.0 → 1.6；冲突时当场外发，不需要长时间累积（-0.40）",
+      "signals": {
+        "directness": 0.72,
+        "vulnerability": 0.6,
+        "playfulness": null,
+        "initiative": 0.65,
+        "depth": 0.65,
+        "warmth": 0.72,
+        "defiance": 0.75,
+        "curiosity": 0.55
+      },
+      "coverage": {
+        "signals_with_evidence": 7,
+        "signals_total": 8,
+        "missing": [
+          "playfulness"
+        ]
+      }
+    },
+    "aria": {
+      "usable": false,
+      "phase_threshold": null,
+      "phase_basis": null,
+      "signals": {
+        "directness": 0.35,
+        "vulnerability": null,
+        "playfulness": null,
+        "initiative": null,
+        "depth": null,
+        "warmth": null,
+        "defiance": 0.55,
+        "curiosity": 0.4
+      },
+      "coverage": {
+        "signals_with_evidence": 3,
+        "signals_total": 8,
+        "missing": [
+          "vulnerability",
+          "playfulness",
+          "initiative",
+          "depth",
+          "warmth"
+        ]
+      }
+    }
+  },
+  "known_limitation": "signal_priors 对材料完整的人格区分度极低（xiaolan 与 linzhou 7/8 项相同）；它测的是材料完整度而非性格内容，定位是带置信度的中性起点 + 与 critic 判定的偏差检测",
+  "rejected_approach": "v1 用关键词词表猜性格维度，将小岚（短句/收短/不提问）判为直接度 0.75，明显违反事实 → 改为结构事实优先，测不出即 missing",
+  "hashes": {
+    "bridge/triggers.py": "267a7f38d21fa7be3a3fd7d6294665758ec14a5d6b291f8be485641ee3c6aa8e",
+    "cli/persona.py": "d378e1a2387fc920c2acf8c2430250bdc5581697f82ab028acc116aa6378a11c",
+    "tests/test_triggers.py": "9d480a9851acb465393b20432d12f45f132d5f8a0b5eb97cd5de839fa612849f",
+    "docs/p3-38-triggers.md": "c44430a527f2c0278cc774a1e6524199fd9e3d75177f2fba7844b558fd3be9a1"
+  },
+  "checks": {
+    "unit": 23,
+    "pytest_total": 280,
+    "failed": 0
+  },
+  "not_done": [
+    "未接真实 critic（需模型），效果归 #44"
+  ]
+}

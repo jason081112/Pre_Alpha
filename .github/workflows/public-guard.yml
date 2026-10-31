@@ -33,5 +33,6 @@ jobs:
           python tests/test_cli_profile2soul.py
           python tests/test_consistency.py
           python tests/test_golden.py
+          python tests/test_triggers.py
           python tests/test_custom_provider.py
           python tests/test_smoke.py

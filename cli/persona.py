@@ -329,6 +329,65 @@ def _cmd_seeds(args: argparse.Namespace) -> int:
 _STATUS_MARK = {"pass": "✓", "warn": "!", "fail": "✗", "skipped": "-"}
 
 
+def _load_profile_arg(target: str):
+    """target 可以是 persona_id（从仓库读）或 profile.json 路径。"""
+    from bridge.model import profile_from_dict
+
+    path = Path(target)
+    if path.suffix == ".json" or path.is_file():
+        if not path.is_file():
+            raise PersonaError(f"文件不存在: {path}")
+        return profile_from_dict(json.loads(path.read_text(encoding="utf-8")))
+    return profile_from_dict(_repo().get(args_user_for_repo(), target)["profile"])
+
+
+def args_user_for_repo() -> str:
+    return os.getenv("ALPHA_USER") or "local"
+
+
+def _cmd_triggers(args: argparse.Namespace) -> int:
+    from bridge.triggers import SIGNAL_LABELS, analyze
+
+    try:
+        profile = _load_profile_arg(args.target)
+    except Exception as exc:  # noqa: BLE001 - 统一转成 CLI 错误
+        print(f"[alpha] 无法加载 profile：{exc}", file=sys.stderr)
+        return 2
+
+    report = analyze(profile)
+    print(f"[alpha] {report['persona_id']}  ·  可用于 critic: {'是' if report['usable'] else '否'}")
+    print(f"\nphase_threshold = {report['phase_threshold']['value']}"
+          f"（base {report['phase_threshold']['base']}，范围 {report['phase_threshold']['range']}）")
+    if report["phase_threshold"]["basis"]:
+        print(f"  {report['phase_threshold']['basis']}")
+
+    print("\n信号先验：")
+    for key, entry in report["signal_priors"].items():
+        label = SIGNAL_LABELS[key][0]
+        value = "—" if entry["value"] is None else f"{entry['value']:.2f}"
+        flag = "" if entry["value"] is not None else "  (无依据)"
+        print(f"  {label:<6}{value}{flag}")
+        if entry["basis"]:
+            print(f"        依据：{entry['basis']}")
+
+    print(f"\n驱力敏感度：")
+    for key, entry in report["drive_sensitivity"].items():
+        value = "—" if entry["value"] is None else f"{entry['value']:.2f}"
+        print(f"  {key:<12}{value}")
+
+    cov = report["coverage"]
+    print(f"\n覆盖：{cov['signals_with_evidence']}/{cov['signals_total']} 个信号有依据"
+          + (f"，缺 {', '.join(cov['missing'])}" if cov["missing"] else ""))
+
+    print("\ncritic persona_section：")
+    for line in report["critic_persona_section"].splitlines():
+        print(f"  {line}")
+
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0
+
+
 def _cmd_verify(args: argparse.Namespace) -> int:
     import json as _json
 
@@ -523,6 +582,11 @@ def add_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:  # t
     p_seeds.add_argument("--yes", action="store_true", help="写入文件")
     _add_user(p_seeds)
     p_seeds.set_defaults(func=_cmd_seeds)
+
+    p_trig = psub.add_parser("triggers", help="情绪触发 → critic 特征 + phase_threshold（#38）")
+    p_trig.add_argument("target", help="persona_id 或 profile.json 路径")
+    p_trig.add_argument("--json", action="store_true", help="输出机器可读报告")
+    p_trig.set_defaults(func=_cmd_triggers)
 
     p_verify = psub.add_parser("verify", help="一致性校验：产物 ↔ loader / store 契约（#41）")
     p_verify.add_argument("root", nargs="?", default=".data/soul", help="含 <id>/SOUL.md 的目录")
