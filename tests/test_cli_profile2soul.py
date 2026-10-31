@@ -172,7 +172,13 @@ def test_loader_accepts_output_when_vendor_present() -> None:
                      "--write"]).returncode == 0
         sys.path.insert(0, str(vendor))
         try:
-            from persona.loader import PersonaLoader  # type: ignore
+            try:
+                from persona.loader import PersonaLoader  # type: ignore
+            except ModuleNotFoundError as exc:
+                # vendor loader 依赖 python-frontmatter；CI 未装依赖时跳过，
+                # 但不得伪装成通过（#41 的 consistency 测试会报 skipped）。
+                print(f"SKIP 缺依赖：{exc}")
+                return
 
             loaded = PersonaLoader(str(tmp)).get("xiaolan")
             assert loaded is not None, "loader 未找到 xiaolan"

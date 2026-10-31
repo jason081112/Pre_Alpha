@@ -1,0 +1,66 @@
+{
+  "issues": [
+    36
+  ],
+  "date": "2026-10-31",
+  "why_not_vendor": "vendor MemoryStore 无 role/source 字段，装不下 issue 要求；桥接层自建 + export_for_engine 映射",
+  "fts_finding": {
+    "sqlite": "3.46.1",
+    "trigram": "<3 字查询返回空（加班/对方 查不到）",
+    "unicode61": "整句一个 token，只能整句匹配",
+    "solution": "写入时中文逐字切分（召回层）+ LIKE 精确子串精筛（准确层）+ FTS 无解时退化 LIKE"
+  },
+  "schema": {
+    "table": "memories",
+    "roles": [
+      "user",
+      "assistant",
+      "system",
+      "fact"
+    ],
+    "categories": [
+      "fact",
+      "event",
+      "preference",
+      "conversation"
+    ],
+    "sources": [
+      "runtime",
+      "distilled",
+      "import"
+    ],
+    "unique": " (user_id, persona_id, content)",
+    "fts": "memories_fts(tokens, content=memories)，三触发器同步"
+  },
+  "api": [
+    "add",
+    "add_facts",
+    "seed_from_profile",
+    "search",
+    "get_recent",
+    "get_important",
+    "build_context",
+    "export_for_engine",
+    "stats",
+    "delete"
+  ],
+  "context_policy": "重要事实(>=0.8 最多4) → 查询命中 → 最近补齐，去重，上限 8；空则返回空串",
+  "ci_fix": "public-guard.yml 新增 pip install 步骤（此前从未装依赖，vendor 测试在 CI 必然 ModuleNotFoundError）",
+  "hashes": {
+    "shell/memory.py": "67cdd75f2d4c020ed65b1e4b54bdd13033323366222e185088e71ceff7c40b16",
+    "cli/persona.py": "75c0dc0a65b350963d956ba2e32dd0d0a7ee4e9ed55725d044b2dbdb1ce09e6a",
+    "tests/test_memory.py": "4a21922b38249cb49c065b0848df79c1282e40c3de9770ddbc84047b45f17c49",
+    "docs/p3-36-memory.md": "f9890132d582d5de8e13198a01ece04d578ba366158f8c406574c05c3a5e7617",
+    ".github/workflows/public-guard.yml": "29d877a44e21bff6200c276905a8a92b2e88ab5a6bfccce9528d2ca4529d2a11"
+  },
+  "checks": {
+    "unit": 30,
+    "pytest_total": 338,
+    "failed": 0
+  },
+  "not_done": [
+    "未接对话链路（build_context 留给 #44）",
+    "无语义去重",
+    "无向量检索"
+  ]
+}

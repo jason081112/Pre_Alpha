@@ -14,7 +14,9 @@ jobs:
           python-version: "3.12"
       - name: Secret scan
         run: python scripts/secret_scan.py
-      - name: Zero-dependency tests
+      - name: Install test deps
+        run: pip install -q python-frontmatter pyyaml jsonschema
+      - name: Unit tests
         run: |
           python tests/test_routing.py
           python tests/test_limits.py
@@ -35,5 +37,6 @@ jobs:
           python tests/test_golden.py
           python tests/test_triggers.py
           python tests/test_corrections.py
+          python tests/test_memory.py
           python tests/test_custom_provider.py
           python tests/test_smoke.py

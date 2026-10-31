@@ -352,6 +352,90 @@ def _correction_store():
     return CorrectionStore(db)
 
 
+def _memory_store():
+    from shell.memory import MemoryStore
+
+    db = os.getenv("ALPHA_MEMORY_DB") or str(ROOT / ".data" / "memory.db")
+    return MemoryStore(db)
+
+
+def _cmd_memory(args: argparse.Namespace) -> int:
+    from shell.memory import MemoryError
+
+    store = _memory_store()
+    persona_id = args.persona_id
+    action = args.action
+
+    if action == "add":
+        if not args.content:
+            print("[alpha] add 需要 --content", file=sys.stderr)
+            return 2
+        try:
+            record = store.add(
+                persona_id, args.content, role=args.role, category=args.category,
+                source="runtime", importance=args.importance, user_id=args.user,
+            )
+        except MemoryError as exc:
+            print(f"[alpha] 条目非法：{exc}", file=sys.stderr)
+            return 2
+        print(f"[alpha] #{record.id} 已写入 [{record.category}/{record.role}] {record.content}")
+        return 0
+
+    if action == "search":
+        if not args.query:
+            print("[alpha] search 需要 --query", file=sys.stderr)
+            return 2
+        hits = store.search(persona_id, args.query, limit=args.limit, user_id=args.user)
+        print(f"[alpha] 「{args.query}」命中 {len(hits)} 条")
+        for record in hits:
+            print(f"  #{record.id} [{record.category}] imp={record.importance:.2f} {record.content}")
+        return 0
+
+    if action == "list":
+        rows = store.get_recent(persona_id, limit=args.limit, user_id=args.user)
+        stats = store.stats(persona_id, user_id=args.user)
+        print(f"[alpha] {persona_id}: 共 {stats['total']} 条"
+              f"（fact {stats['fact']} / user {stats['user']} / assistant {stats['assistant']}）")
+        for record in rows:
+            print(f"  #{record.id} [{record.category}/{record.role}] "
+                  f"imp={record.importance:.2f} {record.content}")
+        return 0
+
+    if action == "seed":
+        from bridge.model import profile_from_dict
+
+        target = Path(args.file).expanduser()
+        if not target.is_file():
+            print(f"[alpha] 找不到 {target}", file=sys.stderr)
+            return 2
+        profile = profile_from_dict(json.loads(target.read_text(encoding="utf-8")))
+        data = json.loads(target.read_text(encoding="utf-8"))
+        added = store.seed_from_profile(data, user_id=args.user)
+        print(f"[alpha] 从 {target.name} 导入 {added} 条事实（重复内容自动吸收）")
+        return 0
+
+    if action == "context":
+        text = store.build_context(persona_id, query=args.query or "", user_id=args.user)
+        print(text if text else "（无记忆，不产生注入段）")
+        return 0
+
+    if action == "remove":
+        if not args.yes:
+            print(f"[alpha] 将删除 #{args.id}（不可恢复）。加 --yes 确认。")
+            return 0
+        ok = store.delete(int(args.id))
+        print("[alpha] 已删除" if ok else "[alpha] 条目不存在")
+        return 0 if ok else 2
+
+    if action == "export":
+        rows = store.export_for_engine(persona_id, user_id=args.user)
+        print(json.dumps(rows, ensure_ascii=False, indent=2))
+        return 0
+
+    print(f"[alpha] 未知操作 {action}", file=sys.stderr)
+    return 2
+
+
 def _cmd_corrections(args: argparse.Namespace) -> int:
     from shell.corrections import CorrectionError
 
@@ -665,6 +749,23 @@ def add_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:  # t
     p_seeds.add_argument("--yes", action="store_true", help="写入文件")
     _add_user(p_seeds)
     p_seeds.set_defaults(func=_cmd_seeds)
+
+    p_mem = psub.add_parser("memory", help="事实/共同记忆 → FTS5（#36）")
+    p_mem.add_argument("persona_id")
+    p_mem.add_argument("action", choices=["add", "search", "list", "seed", "context",
+                                          "remove", "export"])
+    p_mem.add_argument("--content", help="add 用：记忆内容")
+    p_mem.add_argument("--query", help="search/context 用：检索词")
+    p_mem.add_argument("--role", default="user", help="user/assistant/system/fact")
+    p_mem.add_argument("--category", default="fact",
+                       help="fact/event/preference/conversation")
+    p_mem.add_argument("--importance", type=float, default=0.5)
+    p_mem.add_argument("--limit", type=int, default=10)
+    p_mem.add_argument("--id", help="remove 用：条目 id")
+    p_mem.add_argument("--file", help="seed 用：profile.json 路径")
+    p_mem.add_argument("--yes", action="store_true", help="remove 时确认")
+    _add_user(p_mem)
+    p_mem.set_defaults(func=_cmd_memory)
 
     p_corr = psub.add_parser("corrections", help="纠错层：运行期可写约束（#39）")
     p_corr.add_argument("persona_id")
