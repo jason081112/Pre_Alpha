@@ -326,6 +326,42 @@ def _cmd_seeds(args: argparse.Namespace) -> int:
     return 0
 
 
+_STATUS_MARK = {"pass": "✓", "warn": "!", "fail": "✗", "skipped": "-"}
+
+
+def _cmd_verify(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from bridge.consistency import verify_dir
+
+    root = Path(args.root)
+    if not root.is_dir():
+        print(f"[alpha] 目录不存在: {root}", file=sys.stderr)
+        return 2
+
+    report = verify_dir(root, args.id or None)
+    if not report["count"]:
+        print(f"[alpha] {root} 下没有含 SOUL.md 的人格目录", file=sys.stderr)
+        return 2
+
+    print(f"[alpha] 校验 {root}（{report['count']} 个人格）")
+    for persona in report["personas"]:
+        mark = _STATUS_MARK.get(persona["status"], "?")
+        print(f"\n{mark} {persona['persona_id']}  →  {persona['status']}")
+        for item in persona["results"]:
+            sub = _STATUS_MARK.get(item["status"], "?")
+            print(f"   {sub} {item['name']:<9}{item['status']}")
+            for reason in item["reasons"]:
+                print(f"       - {reason}")
+
+    print(f"\n[alpha] 整体: {report['status']}")
+    if args.json:
+        print(_json.dumps(report, ensure_ascii=False, indent=2))
+    if args.check:
+        return 1 if report["status"] in ("fail", "warn") else 0
+    return 1 if report["status"] == "fail" else 0
+
+
 def _cmd_calibrate(args: argparse.Namespace) -> int:
     from bridge.calibrate import calibrate
     from bridge.model import profile_from_dict
@@ -487,6 +523,13 @@ def add_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:  # t
     p_seeds.add_argument("--yes", action="store_true", help="写入文件")
     _add_user(p_seeds)
     p_seeds.set_defaults(func=_cmd_seeds)
+
+    p_verify = psub.add_parser("verify", help="一致性校验：产物 ↔ loader / store 契约（#41）")
+    p_verify.add_argument("root", nargs="?", default=".data/soul", help="含 <id>/SOUL.md 的目录")
+    p_verify.add_argument("--id", action="append", help="只校验指定人格（可多次）")
+    p_verify.add_argument("--json", action="store_true", help="输出机器可读报告")
+    p_verify.add_argument("--check", action="store_true", help="warn 也返回非零（CI 模式）")
+    p_verify.set_defaults(func=_cmd_verify)
 
     p_check = psub.add_parser("check", help="人格体检（结构/隐私/加载/探针）")
     p_check.add_argument("persona_id")

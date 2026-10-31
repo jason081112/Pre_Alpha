@@ -1,0 +1,78 @@
+{
+  "issues": [
+    41
+  ],
+  "date": "2026-10-31",
+  "fact": {
+    "loader": "<id>/SOUL.md → 对话链路",
+    "store": "<id>/profile.json → 动态生成持久化",
+    "note": "store 注册成功 ≠ 能被对话使用；判据是 loader 是否解析出四段"
+  },
+  "contracts": {
+    "text": {
+      "needs_vendor": false,
+      "checks": [
+        "frontmatter name/lang",
+        "lang∈{zh,en}",
+        "gender∈{female,male}",
+        "age 整数",
+        "无 Layer N",
+        "无空壳标记",
+        "三核心段",
+        "行为规则段"
+      ],
+      "fail_rule": "三核心段全空",
+      "warn_rule": "缺一两段 / 行为规则空 / frontmatter 异常"
+    },
+    "load": {
+      "needs_vendor": true,
+      "assert": "四段解析结果均非空",
+      "raw_content_note": "raw_content=整个 body，永远非空，不可作判据；退化信号是三核心段全空"
+    },
+    "register": {
+      "needs_vendor": true,
+      "roundtrip": [
+        "id",
+        "name",
+        "gender",
+        "age",
+        "tags"
+      ],
+      "source": "personality/speaking_style/backstory 与 SOUL 正文同源，不另写一份"
+    }
+  },
+  "severity_order": [
+    "fail",
+    "warn",
+    "skipped",
+    "pass"
+  ],
+  "skipped_not_pass": true,
+  "cli": {
+    "command": "alpha persona verify <root>",
+    "flags": [
+      "--id",
+      "--json",
+      "--check"
+    ]
+  },
+  "hashes": {
+    "bridge/consistency.py": "bc5e0ab7ab63b0b13c37695b9587a57dcfa1e1d4cc25eb39e2ff43ca1d1d4ff2",
+    "cli/persona.py": "a85948dc238321efaad1feaa733ec51c29c042d2c6b4e12d022d6dab1d3a2eb1",
+    "tests/test_consistency.py": "27b42edda4a7907eb2dda6dccb7913086d9fea1d11aae1da2f9f43cf83cc5688",
+    "docs/p3-41-consistency.md": "5099118482e5963a213f73bad855de5d557c41ca9410219324e394d467da725e"
+  },
+  "checks": {
+    "unit": 21,
+    "pytest_total": 246,
+    "failed": 0
+  },
+  "live_run": {
+    "dir": "/tmp/cons",
+    "status": "pass",
+    "text": "pass",
+    "load": "pass",
+    "register": "pass",
+    "raw_content_present": true
+  }
+}
