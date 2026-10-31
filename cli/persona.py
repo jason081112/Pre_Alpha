@@ -345,6 +345,89 @@ def args_user_for_repo() -> str:
     return os.getenv("ALPHA_USER") or "local"
 
 
+def _correction_store():
+    from shell.corrections import CorrectionStore
+
+    db = os.getenv("ALPHA_CORRECTIONS_DB") or str(ROOT / ".data" / "corrections.db")
+    return CorrectionStore(db)
+
+
+def _cmd_corrections(args: argparse.Namespace) -> int:
+    from shell.corrections import CorrectionError
+
+    store = _correction_store()
+    persona_id = args.persona_id
+    action = args.action
+
+    if action == "list":
+        records = store.list(persona_id, user_id=args.user, include_inactive=args.all)
+        stats = store.stats(persona_id, user_id=args.user)
+        print(f"[alpha] {persona_id}: {stats['active']} 条生效 / 共 {stats['total']} 条"
+              f"（运行期 {stats['runtime']}）")
+        if not records:
+            print("  （空）")
+        for item in records:
+            mark = "✓" if item.active else "·"
+            scene = f"[{item.scene}] " if item.scene else ""
+            print(f"  {mark} #{item.id} {scene}不要说「{item.wrong}」→「{item.correct}」"
+                  f"  ({item.source})")
+        return 0
+
+    if action in ("disable", "enable"):
+        try:
+            record = store.set_active(int(args.id), action == "enable")
+        except CorrectionError as exc:
+            print(f"[alpha] {exc}", file=sys.stderr)
+            return 2
+        print(f"[alpha] #{record.id} 已{'启用' if record.active else '停用'}")
+        return 0
+
+    if action == "remove":
+        if not args.yes:
+            print(f"[alpha] 将删除条目 #{args.id}（不可恢复）。加 --yes 确认。")
+            return 0
+        ok = store.delete(int(args.id))
+        print("[alpha] 已删除" if ok else "[alpha] 条目不存在")
+        return 0 if ok else 2
+
+    if action == "add":
+        if not (args.wrong and args.correct):
+            print("[alpha] add 需要 --wrong 与 --correct", file=sys.stderr)
+            return 2
+        try:
+            record = store.add(
+                persona_id, args.wrong, args.correct,
+                scene=args.scene or "", user_id=args.user,
+                source="runtime", note=args.note,
+            )
+        except CorrectionError as exc:
+            print(f"[alpha] 条目非法：{exc}", file=sys.stderr)
+            return 2
+        print(f"[alpha] #{record.id} 已写入：不要说「{record.wrong}」→「{record.correct}」")
+        return 0
+
+    if action == "section":
+        text = store.render_section(persona_id, user_id=args.user)
+        print(text if text else "（无生效条目，不产生注入段）")
+        return 0
+
+    if action == "seed":
+        from bridge.model import profile_from_dict
+
+        target = Path(args.file).expanduser()
+        if not target.is_file():
+            print(f"[alpha] 找不到 {target}", file=sys.stderr)
+            return 2
+        profile = profile_from_dict(json.loads(target.read_text(encoding="utf-8")))
+        added = store.seed_from_profile(profile.persona_id, profile.corrections,
+                                        user_id=args.user)
+        print(f"[alpha] 导入 {added} 条（已存在的跳过，不覆盖运行期修改）")
+        return 0
+
+    print(f"[alpha] 未知操作 {action}", file=sys.stderr)
+    return 2
+
+
 def _cmd_triggers(args: argparse.Namespace) -> int:
     from bridge.triggers import SIGNAL_LABELS, analyze
 
@@ -582,6 +665,21 @@ def add_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:  # t
     p_seeds.add_argument("--yes", action="store_true", help="写入文件")
     _add_user(p_seeds)
     p_seeds.set_defaults(func=_cmd_seeds)
+
+    p_corr = psub.add_parser("corrections", help="纠错层：运行期可写约束（#39）")
+    p_corr.add_argument("persona_id")
+    p_corr.add_argument("action", choices=["list", "add", "disable", "enable", "remove",
+                                           "section", "seed"])
+    p_corr.add_argument("--id", help="条目 id（disable/enable/remove 用）")
+    p_corr.add_argument("--scene", help="触发场景")
+    p_corr.add_argument("--wrong", help="不要说的话")
+    p_corr.add_argument("--correct", help="改成的话")
+    p_corr.add_argument("--note", help="备注")
+    p_corr.add_argument("--file", help="seed 用：profile.json 路径")
+    p_corr.add_argument("--all", action="store_true", help="list 时包含已停用")
+    p_corr.add_argument("--yes", action="store_true", help="remove 时确认删除")
+    _add_user(p_corr)
+    p_corr.set_defaults(func=_cmd_corrections)
 
     p_trig = psub.add_parser("triggers", help="情绪触发 → critic 特征 + phase_threshold（#38）")
     p_trig.add_argument("target", help="persona_id 或 profile.json 路径")

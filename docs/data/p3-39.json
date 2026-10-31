@@ -1,0 +1,71 @@
+{
+  "issues": [
+    39
+  ],
+  "date": "2026-10-31",
+  "store": "SQLite，表 corrections，唯一键 (persona_id,user_id,scene,wrong)",
+  "fields": [
+    "id",
+    "persona_id",
+    "user_id",
+    "scene",
+    "wrong",
+    "correct",
+    "source",
+    "active",
+    "note",
+    "created_at",
+    "updated_at"
+  ],
+  "source_values": [
+    "runtime",
+    "distilled",
+    "import"
+  ],
+  "design_decisions": {
+    "not_in_soul_md": [
+      "golden 快照会被污染（#43 sha256 锁定）",
+      "loader 只认 4 个 H2，无多余槽位（#28）",
+      "纠错是每用户每人格的运行期状态，SOUL.md 是产物级静态文件"
+    ],
+    "active_not_only_delete": "临时压制需可逆、可审计",
+    "unique_key": "同一句改三次应覆盖而非堆积三段矛盾规则",
+    "source_priority": "运行期条目优先于蒸馏条目"
+  },
+  "validation": {
+    "max_wrong": 200,
+    "max_correct": 200,
+    "max_scene": 60,
+    "reject": [
+      "空",
+      "两者相同",
+      "超长",
+      "动作/旁白标记",
+      "疑似隐私"
+    ]
+  },
+  "injection": {
+    "header": "【纠错规则】",
+    "limit": 8,
+    "empty_returns": "空串，不产生空壳标记",
+    "lang": "随 lang 切中英"
+  },
+  "cli": {
+    "command": "alpha persona corrections <id> list|add|disable|enable|remove|section|seed"
+  },
+  "hashes": {
+    "shell/corrections.py": "813f7d6889524a246abd8163224bb54084463e7d4b064b64aa9024aacd5a477f",
+    "cli/persona.py": "328515b57d0781e565c452184cb76fe06fe1badac7998f9191a63f02b195b7e6",
+    "tests/test_corrections.py": "2071de29bfb4b0c256ba41d95e959083e91dcf301e0184bfcb98e60d43b21b60",
+    "docs/p3-39-corrections.md": "0423e0d767d6af0f57a059d12a1e1bf09c4c8e64eb535acfe6db718bdb25ef26"
+  },
+  "checks": {
+    "unit": 28,
+    "pytest_total": 308,
+    "failed": 0
+  },
+  "not_done": [
+    "未接入对话链路（render_section 接口留给 #44）",
+    "无语义去重（需模型）"
+  ]
+}

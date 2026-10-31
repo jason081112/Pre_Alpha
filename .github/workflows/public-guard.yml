@@ -34,5 +34,6 @@ jobs:
           python tests/test_consistency.py
           python tests/test_golden.py
           python tests/test_triggers.py
+          python tests/test_corrections.py
           python tests/test_custom_provider.py
           python tests/test_smoke.py
