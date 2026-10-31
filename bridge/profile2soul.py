@@ -59,6 +59,13 @@ def identity_to_frontmatter(profile: PersonProfile) -> tuple[dict[str, Any], lis
 
     def put(key: str, asserted: Asserted[Any] | None, *, transform=None) -> None:
         if asserted is None:
+            # 字段整个没给（None）同样是隐性缺失，不能静默放过 —— 否则 loader 会
+            # 悄悄用上默认值，而 warnings 里看不出任何痕迹（#32 遗留漏洞）。
+            if key in LOADER_DEFAULTS:
+                warnings.append(
+                    f"{key} 未提供：不写入 frontmatter，但 PersonaLoader 会回落为 "
+                    f"'{LOADER_DEFAULTS[key]}'（#30 §7.2 实测损耗）"
+                )
             return
         if asserted.provenance is Provenance.MISSING:
             if key in LOADER_DEFAULTS:

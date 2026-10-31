@@ -22,8 +22,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version="alpha 0.0.0")
     sub = parser.add_subparsers(dest="command")
 
-    p2s = sub.add_parser("profile2soul", help="把 Person Profile 转成 OpenHer 种子（P3 #42）")
-    p2s.add_argument("path", nargs="?", help="profile 目录")
+    p2s = sub.add_parser("profile2soul", help="PersonProfile 目录 → SOUL.md（P3 #42）")
+    p2s.add_argument("path", nargs="?", default=".", help="含 *.json 的目录，或单个 profile.json")
+    p2s.add_argument("--out", help="输出根目录（默认 .data/soul）")
+    p2s.add_argument("--write", action="store_true", help="写入文件（默认 dry-run）")
+    p2s.add_argument("--check", action="store_true", help="CI 模式：有变更或告警则退出码 1")
+    p2s.add_argument("--strict", action="store_true", help="gender/lang 回落即失败")
+    p2s.add_argument("--json", action="store_true", help="额外输出机器可读摘要")
 
     chat = sub.add_parser("chat", help="与指定 persona 对话（P4 #47）")
     chat.add_argument("--persona", help="persona id，如 luna")
@@ -109,6 +114,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "route":
         return _route_command(args)
+    if args.command == "profile2soul":
+        from cli.profile2soul_cmd import run as run_p2s
+
+        return run_p2s(args)
     if args.command == "persona":
         from cli.persona import run as run_persona
 

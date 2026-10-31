@@ -322,7 +322,11 @@ def _build_dataclass(cls, data: dict) -> Any:
         if value is None:
             kwargs[f.name] = None
             continue
-        kwargs[f.name] = _asserted_from_dict(value)
+        if isinstance(value, list):
+            # 对称性修复：to_dict 把 list[Asserted] 写成 list[dict]，反序列化必须逐项还原。
+            kwargs[f.name] = [_asserted_from_dict(item) for item in value]
+        else:
+            kwargs[f.name] = _asserted_from_dict(value)
     return cls(**kwargs)
 
 

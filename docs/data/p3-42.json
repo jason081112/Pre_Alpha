@@ -1,0 +1,74 @@
+{
+  "issues": [
+    42,
+    40
+  ],
+  "date": "2026-10-31",
+  "cli": {
+    "command": "alpha profile2soul <dir>",
+    "flags": [
+      "--out",
+      "--write",
+      "--check",
+      "--strict",
+      "--json"
+    ],
+    "default": "dry-run，输出根 .data/soul，路径 <out>/<persona_id>/SOUL.md"
+  },
+  "body_mapping": {
+    "personality": "logic.opens_up_when/pulls_away_when/defends_by/shows_care_by/priorities",
+    "speaking_style": "expression.rhythm/habits/examples",
+    "background": "relation.label/status/defining_facts + memory_signature",
+    "behavioral_rules": "hard_rules + conflict.style/silence/repair/boundaries"
+  },
+  "loader_titles": {
+    "zh": [
+      "性格",
+      "说话风格",
+      "背景故事",
+      "行为规则"
+    ],
+    "en": [
+      "Personality",
+      "Speaking Style",
+      "Background",
+      "Behavioral Rules"
+    ]
+  },
+  "bugs_fixed": [
+    {
+      "file": "bridge/model.py",
+      "what": "_build_dataclass 不还原 list[Asserted]，dict 漏进渲染",
+      "fix": "list 分支逐项 _asserted_from_dict",
+      "test": "test_list_deserialization_is_symmetric"
+    },
+    {
+      "file": "bridge/profile2soul.py",
+      "what": "gender 为 None 时不告警，隐性回落无痕迹，strict 拦不住",
+      "fix": "None + LOADER_DEFAULTS 键同样告警",
+      "test": "test_strict_mode_rejects_fallback"
+    }
+  ],
+  "loader_verification": {
+    "method": "PersonaLoader(str(dir)).get(\"xiaolan\")",
+    "assert": "personality/speaking_style/background 三者非空",
+    "skip": "vendor 缺失时跳过（完整校验归 #41）"
+  },
+  "hashes": {
+    "cli/profile2soul_cmd.py": "c7302ca8b1a34305ec9a184a5ec8c72021a2b4ec408a641e357f75695937713a",
+    "cli/main.py": "d58cdff676390e2ae9b49906f3ad6ebff7534a21e43954b16ff07c4bbe7edfad",
+    "bridge/model.py": "823b75a3653e7dfa76667705ca8db2f0f7a3b99960c9e86a04cb88e4a0a022ca",
+    "bridge/profile2soul.py": "2dbaee0c5622987f019f2dfa63ec9c9c37a9d579a565db5801864145efed386c",
+    "tests/test_cli_profile2soul.py": "cdb5a618161c8616b4a5b45e6cce4769d9270cde2455a079062b94497d1c9462",
+    "tests/fixtures/profiles/xiaolan.json": "bdd32bdf6046417e86ae2773a198d2581e4c55e8d6182c48cf1c23c7c8a67615",
+    "docs/p3-42-cli-profile2soul.md": "b21cc968a54a52108a226d686dea214c53c36bba363895e9ff637c8c30033d42"
+  },
+  "checks": {
+    "unit": 17,
+    "pytest_total": 225,
+    "failed": 0
+  },
+  "closed": {
+    "40": "not planned（SHELL 不进 prompt，TTS 搁置，将来可能重开）"
+  }
+}
