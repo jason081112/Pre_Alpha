@@ -1,0 +1,174 @@
+{
+  "issues": [
+    35
+  ],
+  "title": "expression DNA + 口头禅 → style_memory 种子",
+  "date": "2026-10-31",
+  "commit_base": "eb3f1a1",
+  "format_finding": {
+    "container": "gzip(JSON)",
+    "shape": "{persona_id: [seed, ...]}",
+    "seed_fields": [
+      "user_input",
+      "monologue",
+      "reply",
+      "vector",
+      "mass",
+      "lang"
+    ],
+    "vector_keys": [
+      "conflict_level",
+      "user_emotion",
+      "user_engagement",
+      "user_vulnerability",
+      "topic_intimacy",
+      "conversation_depth",
+      "novelty_level",
+      "time_of_day"
+    ],
+    "user_emotion_range": [
+      -1.0,
+      1.0
+    ],
+    "upstream_sample": {
+      "personas": 9,
+      "seeds": 642,
+      "per_persona": "69-72",
+      "missing": [
+        "nova"
+      ]
+    },
+    "in_prompt": "【内心独白】{monologue} + 【最终回复】{reply} 一起进 few-shot"
+  },
+  "material": {
+    "file": "tests/fixtures/seeds/xiaolan.txt",
+    "author": "user (Xinyu)",
+    "count": 8,
+    "situations": {
+      "被忽略": 2,
+      "对方道歉": 1,
+      "冲突升级": 2,
+      "表达关心": 1,
+      "亲密靠近": 1,
+      "深夜低落": 1
+    },
+    "mass_2_0": 4
+  },
+  "situation_vectors": {
+    "日常闲聊": [
+      0.0,
+      0.2,
+      0.5,
+      0.1,
+      0.4,
+      0.2,
+      0.2,
+      0.5
+    ],
+    "被忽略": [
+      0.5,
+      -0.5,
+      0.4,
+      0.2,
+      0.5,
+      0.4,
+      0.1,
+      0.5
+    ],
+    "对方道歉": [
+      0.3,
+      -0.2,
+      0.6,
+      0.4,
+      0.6,
+      0.5,
+      0.1,
+      0.5
+    ],
+    "表达关心": [
+      0.0,
+      0.4,
+      0.7,
+      0.3,
+      0.8,
+      0.5,
+      0.1,
+      0.5
+    ],
+    "亲密靠近": [
+      0.0,
+      0.7,
+      0.8,
+      0.5,
+      0.9,
+      0.6,
+      0.2,
+      0.5
+    ],
+    "冲突升级": [
+      0.8,
+      -0.7,
+      0.3,
+      0.3,
+      0.5,
+      0.5,
+      0.1,
+      0.5
+    ],
+    "深夜低落": [
+      0.2,
+      -0.3,
+      0.4,
+      0.6,
+      0.6,
+      0.6,
+      0.1,
+      0.9
+    ]
+  },
+  "rules": {
+    "monologue_chars": [
+      15,
+      80
+    ],
+    "reply_chars_max": 40,
+    "scene_chars_max": 60,
+    "must_differ": true,
+    "forbidden": [
+      "action_paren",
+      "action_star",
+      "bracket_marker",
+      "phone",
+      "email"
+    ],
+    "required_situations": [
+      "被忽略",
+      "冲突升级"
+    ]
+  },
+  "output_default": ".data/seeds.bin（不写 vendor，避免污染上游）",
+  "hashes": {
+    "bridge/seeds.py": "d581c87244b40bc18558faf86ef958641ffebff649f929ccd8b16e9139ea06a9",
+    "cli/persona.py": "fc81985c938212e8e3d76249418a540fd277f27ff3682a510e0f4115c3d240f2",
+    "tests/test_seeds.py": "afae2f7e44196ded18071fca157223f7b4419b316ed0e6480b0952831af3212d",
+    "tests/fixtures/seeds/xiaolan.txt": "b6b24515be8df4e4fc69ae13caf79ffdc375b27a62a7a46859d56e34539604bd",
+    "docs/p3-35-seeds.md": "5755ae776de3d5f52342fc18fd03058e0e6b715c39ba6089cccfc2ee26ce1625"
+  },
+  "checks": {
+    "seeds_tests": {
+      "command": "python3 tests/test_seeds.py",
+      "tests": 17,
+      "passed": 17,
+      "failed": 0
+    },
+    "pytest_full": {
+      "command": "python3 -m pytest tests/ -q",
+      "passed": 208,
+      "failed": 0
+    }
+  },
+  "not_done": [
+    "召回效果未验证（需 Codespace 跑引擎，属 #44）",
+    "其他角色（林舟）素材未写"
+  ]
+}

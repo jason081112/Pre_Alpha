@@ -282,6 +282,50 @@ def _cmd_edit(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_seeds(args: argparse.Namespace) -> int:
+    from bridge.model import profile_from_dict
+    from bridge.seeds import build_from_file, persona_lang, read_seeds_bin, write_seeds_bin
+
+    material = Path(args.material)
+    if not material.is_file():
+        print(f"[alpha] 找不到素材文件 {material}", file=sys.stderr)
+        return 2
+
+    lang = "zh"
+    try:
+        record = _repo().get(args.user, args.persona_id)
+        lang = persona_lang(profile_from_dict(record["profile"]))
+    except PersonaError:
+        print(f"[alpha] 提示：没有找到已保存的 {args.persona_id}，按 lang=zh 处理")
+
+    seeds, errors, drafts = build_from_file(material, persona_id=args.persona_id, lang=lang)
+    if errors:
+        print("[alpha] 素材校验未通过：", file=sys.stderr)
+        for line in errors:
+            print(f"  - {line}", file=sys.stderr)
+        return 2
+
+    print(f"[alpha] {args.persona_id}: {len(seeds)} 条 seed（lang={lang}）")
+    print(f"{'#':<3}{'情境':<10}{'mass':<6}{'心里':<6}{'回复':<6}摘要")
+    for index, (draft, seed) in enumerate(zip(drafts, seeds), start=1):
+        print(f"{index:<3}{draft.situation:<10}{seed['mass']:<6}"
+              f"{len(draft.monologue):<6}{len(draft.reply):<6}"
+              f"{draft.reply[:18]}")
+
+    out = Path(args.out) if args.out else (ROOT / ".data" / "seeds.bin")
+    if not args.yes:
+        print(f"[alpha] dry-run：未写入。加 --yes 写入 {out}")
+        return 0
+
+    result = write_seeds_bin(out, args.persona_id, seeds)
+    total = len(read_seeds_bin(out)[args.persona_id])
+    print(f"[alpha] 已写入 {out}（该人格 {total} 条，共 {result['personas']} 个人格）")
+    if "vendor" not in str(out):
+        print("[alpha] 提示：这是独立文件；要让引擎读到，需合并到 vendor/OpenHer/persona/seeds.bin"
+              "（或部署时复制）")
+    return 0
+
+
 def _cmd_calibrate(args: argparse.Namespace) -> int:
     from bridge.calibrate import calibrate
     from bridge.model import profile_from_dict
@@ -435,6 +479,14 @@ def add_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:  # t
     p_cal.add_argument("--yes", action="store_true", help="写回 profile")
     _add_user(p_cal)
     p_cal.set_defaults(func=_cmd_calibrate)
+
+    p_seeds = psub.add_parser("seeds", help="把口头禅素材打包成 seeds.bin")
+    p_seeds.add_argument("persona_id")
+    p_seeds.add_argument("--material", required=True, help="四行格式素材文件")
+    p_seeds.add_argument("--out", help="输出路径（默认 .data/seeds.bin）")
+    p_seeds.add_argument("--yes", action="store_true", help="写入文件")
+    _add_user(p_seeds)
+    p_seeds.set_defaults(func=_cmd_seeds)
 
     p_check = psub.add_parser("check", help="人格体检（结构/隐私/加载/探针）")
     p_check.add_argument("persona_id")
