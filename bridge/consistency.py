@@ -54,9 +54,16 @@ class Result:
 
 
 def _worst(statuses: list[str]) -> str:
-    for level in ("fail", "warn", "skipped", "pass"):
+    """fail > warn > pass；只有当**所有**检查都被跳过时才整体判 skipped。
+
+    单项 skipped 不降级整体：`profile.json` 缺失属合法部署形态（纯 loader 路径），
+    把它当整体未验证会制造假警报。
+    """
+    for level in ("fail", "warn"):
         if level in statuses:
             return level
+    if statuses and all(s == "skipped" for s in statuses):
+        return "skipped"
     return "pass"
 
 

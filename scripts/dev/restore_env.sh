@@ -107,9 +107,29 @@ verify() {
   fi
 }
 
+restore_python_deps() {
+  # 沙箱根文件系统会重置，site-packages 一并丢失：gh 之外 python 依赖也要补。
+  local missing
+  missing="$(python3 -c 'import importlib.util
+mods = {"frontmatter": "python-frontmatter", "yaml": "pyyaml", "jsonschema": "jsonschema"}
+print(" ".join(pkg for mod, pkg in mods.items() if importlib.util.find_spec(mod) is None))')"
+  if [ -z "${missing}" ]; then
+    info "Python 依赖齐全（frontmatter / yaml / jsonschema）"
+    return 0
+  fi
+  info "补装 Python 依赖：${missing}"
+  # 默认 pypi 极慢，走阿里云镜像
+  if pip install -q ${missing} -i https://mirrors.aliyun.com/pypi/simple/ >/dev/null 2>&1; then
+    info "Python 依赖已装好"
+  else
+    info "WARN: pip 安装失败（可能无网络），vendor 相关校验会降级为 skipped"
+  fi
+}
+
 info "环境恢复开始（仓库：${ROOT}）"
 install_gh
 restore_credentials
 setup_git
+restore_python_deps
 verify
 info "完成。可运行 gh auth status / git push 校验。"

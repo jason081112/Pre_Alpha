@@ -26,6 +26,14 @@ from cli.profile2soul_cmd import (  # noqa: E402
 )
 
 FIXTURE = ROOT / "tests" / "fixtures" / "profiles" / "xiaolan.json"
+
+
+def _single(tmp: str) -> Path:
+    """只含 xiaolan 的输入目录 —— 其他 fixture 带告警会干扰退出码断言。"""
+    inbox = Path(tmp) / "inbox"
+    inbox.mkdir(exist_ok=True)
+    (inbox / "xiaolan.json").write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    return inbox
 LOADER_TITLES = {"性格", "说话风格", "背景故事", "行为规则"}
 
 
@@ -118,26 +126,27 @@ def test_unified_diff_shape() -> None:
 
 def test_cli_dry_run_does_not_write() -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        proc = _run(["profile2soul", str(FIXTURE.parent), "--out", tmp])
+        proc = _run(["profile2soul", str(_single(tmp)), "--out", str(Path(tmp) / "soul")])
         assert proc.returncode == 0, proc.stderr
         assert not list(Path(tmp).rglob("SOUL.md"))
 
 
 def test_cli_write_then_idempotent() -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        first = _run(["profile2soul", str(FIXTURE.parent), "--out", tmp, "--write"])
+        first = _run(["profile2soul", str(_single(tmp)), "--out", tmp, "--write"])
         assert first.returncode == 0, first.stderr
         dest = Path(tmp) / "xiaolan" / "SOUL.md"
         assert dest.exists()
 
-        second = _run(["profile2soul", str(FIXTURE.parent), "--out", tmp, "--check"])
+        second = _run(["profile2soul", str(_single(tmp)), "--out", tmp, "--check"])
         assert second.returncode == 0, second.stdout
         assert "无变化" in second.stdout
 
 
 def test_cli_check_fails_when_changed() -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        assert _run(["profile2soul", str(FIXTURE.parent), "--out", tmp, "--check"]).returncode == 1
+        assert _run(["profile2soul", str(_single(tmp)), "--out", tmp,
+                     "--check"]).returncode == 1
 
 
 def test_cli_rejects_missing_path() -> None:
@@ -159,7 +168,8 @@ def test_loader_accepts_output_when_vendor_present() -> None:
         return  # CI 无 vendor 时跳过；#41 会在 vendor 存在时做完整校验
 
     with tempfile.TemporaryDirectory() as tmp:
-        assert _run(["profile2soul", str(FIXTURE.parent), "--out", tmp, "--write"]).returncode == 0
+        assert _run(["profile2soul", str(_single(tmp)), "--out", tmp,
+                     "--write"]).returncode == 0
         sys.path.insert(0, str(vendor))
         try:
             from persona.loader import PersonaLoader  # type: ignore

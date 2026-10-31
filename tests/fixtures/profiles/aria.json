@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0.0",
+  "persona_id": "aria",
+  "identity": {
+    "name": {"kind": "asserted", "value": "Aria", "provenance": "source", "basis": "user supplied", "reason": null},
+    "lang": "en",
+    "name_zh": null,
+    "age": null,
+    "gender": {"kind": "asserted", "value": "female", "provenance": "inferred", "basis": "voice in material", "reason": null},
+    "mbti": null
+  },
+  "relation": {
+    "label": {"kind": "asserted", "value": "friend", "provenance": "source", "basis": "user supplied", "reason": null},
+    "status": null,
+    "defining_facts": []
+  },
+  "expression": {
+    "rhythm": {"kind": "asserted", "value": "long, winding sentences that circle back before landing", "provenance": "inferred", "basis": "single sample", "reason": null},
+    "habits": [
+      {"kind": "asserted", "value": "answers a question with a question", "provenance": "inferred", "basis": "single sample", "reason": null}
+    ],
+    "examples": [
+      {"scene": "asked how she is", "text": "Depends what you mean by fine."}
+    ]
+  },
+  "logic": null,
+  "conflict": null,
+  "memory_signature": [],
+  "hard_rules": [
+    {"kind": "asserted", "value": "never claims certainty about other people's motives", "provenance": "source", "basis": "user supplied", "reason": null}
+  ],
+  "corrections": [],
+  "engine": {"drive_baseline": {}, "engine_params": {}, "calibration": null},
+  "meta": {
+    "note": "deliberately sparse fixture: logic/conflict missing so the warn path is locked by golden"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "generator": "alpha profile2soul",
+  "command": "python3 -m cli.main profile2soul tests/fixtures/profiles --out tests/golden/soul --write",
+  "count": 3,
+  "personas": {
+    "aria": {
+      "sha256": "a411913eaecb06a962f3f2d17780bcb8eca6e9a7085b3bca35e0a64eea57b18f",
+      "bytes": 385,
+      "lines": 20,
+      "verify_status": "warn",
+      "sections": {
+        "Personality": false,
+        "Speaking Style": true,
+        "Background": true,
+        "Behavioral Rules": true
+      },
+      "fixture": "tests/fixtures/profiles/aria.json"
+    },
+    "linzhou": {
+      "sha256": "3ed8035d6053a3a7b5e196380403aba3fb2c00248d669428277139648b6ba64e",
+      "bytes": 1497,
+      "lines": 38,
+      "verify_status": "pass",
+      "sections": {
+        "性格": true,
+        "说话风格": true,
+        "背景故事": true,
+        "行为规则": true
+      },
+      "fixture": "tests/fixtures/profiles/linzhou.json"
+    },
+    "xiaolan": {
+      "sha256": "7b0ee1355d8bc5331a44039d8af627d887af99c8c884215a5507485534c2e8ce",
+      "bytes": 1362,
+      "lines": 38,
+      "verify_status": "pass",
+      "sections": {
+        "性格": true,
+        "说话风格": true,
+        "背景故事": true,
+        "行为规则": true
+      },
+      "fixture": "tests/fixtures/profiles/xiaolan.json"
+    }
+  }
+}

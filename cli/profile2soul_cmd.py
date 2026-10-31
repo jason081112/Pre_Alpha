@@ -105,6 +105,10 @@ def body_from_profile(profile: PersonProfile) -> tuple[dict[str, str], list[str]
     """PersonProfile → 4 个 H2 段的正文。缺失的段落跳过并记 warning，绝不编造。"""
     lang = "en" if str(getattr(profile.identity, "lang", "zh")).lower().startswith("en") else "zh"
     titles, labels = TITLES[lang], LABELS[lang]
+    # 分隔符随语言切换：中文用全角，英文用半角 —— 否则英文正文里会混进「：」「、」
+    COLON = "：" if lang == "zh" else ": "
+    LIST = "、" if lang == "zh" else ", "
+    SEMI = "；" if lang == "zh" else "; "
     body: dict[str, str] = {}
     warnings: list[str] = []
 
@@ -114,10 +118,10 @@ def body_from_profile(profile: PersonProfile) -> tuple[dict[str, str], list[str]
         for key in ("opens_up_when", "pulls_away_when", "defends_by", "shows_care_by"):
             text = _value(getattr(profile.logic, key))
             if text:
-                lines.append(f"- {labels[key]}：{text}")
+                lines.append(f"- {labels[key]}{COLON}{text}")
         priorities = _bullets(profile.logic.priorities)
         if priorities:
-            lines.append(f"- {labels['priorities']}：{'、'.join(priorities)}")
+            lines.append(f"- {labels['priorities']}{COLON}{LIST.join(priorities)}")
     if lines:
         body["personality"] = "\n".join(lines)
     else:
@@ -127,17 +131,17 @@ def body_from_profile(profile: PersonProfile) -> tuple[dict[str, str], list[str]
     lines = []
     rhythm = _value(profile.expression.rhythm)
     if rhythm:
-        lines.append(f"- {labels['rhythm']}：{rhythm}")
+        lines.append(f"- {labels['rhythm']}{COLON}{rhythm}")
     habits = _bullets(profile.expression.habits)
     if habits:
-        lines.append(f"- {labels['habits']}：{'、'.join(habits)}")
+        lines.append(f"- {labels['habits']}{COLON}{LIST.join(habits)}")
     if profile.expression.examples:
-        lines.append(f"- {labels['examples']}：")
+        lines.append(f"- {labels['examples']}{COLON}".rstrip())
         for ex in profile.expression.examples:
             scene = (ex.scene or "").strip()
             text = (ex.text or "").strip()
             if text:
-                lines.append(f"  - {scene}：“{text}”" if scene else f"  - “{text}”")
+                lines.append(f"  - {scene}{COLON}“{text}”" if scene else f"  - “{text}”")
     if lines:
         body["speaking_style"] = "\n".join(lines)
     else:
@@ -149,16 +153,16 @@ def body_from_profile(profile: PersonProfile) -> tuple[dict[str, str], list[str]
         label = _value(profile.relation.label)
         status = _value(profile.relation.status)
         if label:
-            text = f"- {labels['relation']}：{label}"
+            text = f"- {labels['relation']}{COLON}{label}"
             if status:
                 text += f"（{status}）"
             lines.append(text)
         facts = _bullets(profile.relation.defining_facts)
         if facts:
-            lines.append(f"- {labels['facts']}：{'；'.join(facts)}")
+            lines.append(f"- {labels['facts']}{COLON}{SEMI.join(facts)}")
     memory = _bullets(profile.memory_signature)
     if memory:
-        lines.append(f"- {labels['memory']}：{'；'.join(memory)}")
+        lines.append(f"- {labels['memory']}{COLON}{SEMI.join(memory)}")
     if lines:
         body["background"] = "\n".join(lines)
     else:
@@ -168,7 +172,7 @@ def body_from_profile(profile: PersonProfile) -> tuple[dict[str, str], list[str]
     lines = []
     rules = _bullets(profile.hard_rules)
     if rules:
-        lines.append(f"- {labels['hard_rules']}：{'；'.join(rules)}")
+        lines.append(f"- {labels['hard_rules']}{COLON}{SEMI.join(rules)}")
     if profile.conflict is not None:
         for key, label in (
             ("style", "conflict_style"),
@@ -177,10 +181,10 @@ def body_from_profile(profile: PersonProfile) -> tuple[dict[str, str], list[str]
         ):
             text = _value(getattr(profile.conflict, key))
             if text:
-                lines.append(f"- {labels[label]}：{text}")
+                lines.append(f"- {labels[label]}{COLON}{text}")
         bounds = _bullets(profile.conflict.boundaries)
         if bounds:
-            lines.append(f"- {labels['boundaries']}：{'；'.join(bounds)}")
+            lines.append(f"- {labels['boundaries']}{COLON}{SEMI.join(bounds)}")
     if lines:
         body["behavioral_rules"] = "\n".join(lines)
     else:

@@ -1,0 +1,70 @@
+{
+  "issues": [
+    43
+  ],
+  "date": "2026-10-31",
+  "scope_correction": "标题含 SHELL 快照，但 SHELL.md 不进 prompt（#40 not planned，TTS 搁置）→ 只锁 SOUL.md",
+  "fixtures": [
+    {
+      "id": "xiaolan",
+      "domain": "relationship",
+      "lang": "zh",
+      "material": "完整五层",
+      "verify": "pass"
+    },
+    {
+      "id": "linzhou",
+      "domain": "colleague",
+      "lang": "zh",
+      "material": "runs/gemma4-1/persona.md",
+      "verify": "pass"
+    },
+    {
+      "id": "aria",
+      "domain": "friend",
+      "lang": "en",
+      "material": "故意缺 logic",
+      "verify": "warn",
+      "why": "锁住退化路径：无 logic 时不得硬凑 Personality 段"
+    }
+  ],
+  "core_assertion": "test_regeneration_is_byte_identical —— 当场重新生成逐字节比对",
+  "manifest_fields": [
+    "sha256",
+    "bytes",
+    "lines",
+    "verify_status",
+    "sections",
+    "fixture"
+  ],
+  "update_flow": "python3 scripts/dev/update_golden.py [--check]；改生成器必须显式更新并提交 diff",
+  "fixes": [
+    {
+      "what": "英文正文混入全角标点",
+      "fix": "COLON/LIST/SEMI 随 lang 切换"
+    },
+    {
+      "what": "_worst 让单项 skipped 拖垮整体",
+      "fix": "fail>warn>pass，仅全 skipped 才整体 skipped"
+    },
+    {
+      "what": "环境重置丢 site-packages",
+      "fix": "restore_env.sh 新增 restore_python_deps（阿里云镜像）"
+    }
+  ],
+  "hashes": {
+    "tests/test_golden.py": "87d730530441adcd0b4c68f9b4f0f9977d05aa1dcefbf5811fabc03b725fa8f8",
+    "scripts/dev/update_golden.py": "95f1503c067d4fca5f7557b6f4a204fc3540671685571f38c76110b4048a8ae5",
+    "docs/p3-43-golden.md": "f88c22f8c14c8c45034c36b63e6bb52312e61c7cd5e2011a78d48d41b56e631b",
+    "tests/fixtures/profiles/xiaolan.json": "bdd32bdf6046417e86ae2773a198d2581e4c55e8d6182c48cf1c23c7c8a67615",
+    "tests/fixtures/profiles/linzhou.json": "b27e2c6bc976892185d76e13a3f3c42f73be12fb642587c884d262c688b80aa1",
+    "tests/fixtures/profiles/aria.json": "15b7ee7b38af1636f6f7e5a6aa0da58b20fefa2d32e8d1d3a4440ca5e75986e3",
+    "scripts/dev/restore_env.sh": "a13fec4c3d093784298ad396a6edc8d7ba42c4061931ca700b925845016d752a",
+    "tests/golden/manifest.json": "5e890527d58f6c042359fb9223f95918b8dccb2f5f950eb18aaae6324416c775"
+  },
+  "checks": {
+    "golden_unit": 11,
+    "pytest_total": 257,
+    "failed": 0
+  }
+}

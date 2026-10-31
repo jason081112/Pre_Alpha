@@ -51,10 +51,14 @@ age: 26
 
 
 def _build_soul_dir(tmp: str) -> Path:
+    """只生成 xiaolan 一份，避免同目录其他 fixture 干扰计数断言。"""
+    inbox = Path(tmp) / "inbox"
+    inbox.mkdir()
+    (inbox / "xiaolan.json").write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
     root = Path(tmp) / "soul"
     root.mkdir()
     proc = subprocess.run(
-        [sys.executable, "-m", "cli.main", "profile2soul", str(FIXTURE.parent),
+        [sys.executable, "-m", "cli.main", "profile2soul", str(inbox),
          "--out", str(root), "--write"],
         cwd=ROOT, capture_output=True, text=True,
     )
