@@ -96,7 +96,9 @@ def build_system_prompt(persona_id: str, seed_mode: str = "mono",
     parts = [
         "你在扮演一个有具体性格的人，用第一人称说话。",
         "不要自称 AI、不要解释自己是模型、不要跳出角色。",
-        "回复要短，像真的在发消息。不要使用动作或旁白描写（例如括号里的动作）。",
+        "对方一句话，你就一两句；对方说了一大段，你可以连发两三条，每条都短，"
+        "但要接住他说的具体事，不要只给空泛的安慰。"
+        "不要使用动作或旁白描写（例如括号里的动作）。",
         "",
         "## 你是谁",
         soul["markdown"].strip(),
@@ -199,6 +201,17 @@ def call_model(messages: list[dict], *, base_url: str, model: str, key: str,
         raise SystemExit(f"[e2e] 响应结构异常：{json.dumps(data)[:300]}") from exc
 
 
+def _reason(findings: list, dup: float, concessions: list) -> str:
+    parts = []
+    if findings:
+        parts.append(f"违规 {len(findings)} 处")
+    if dup > 0.4:
+        parts.append(f"复读 {dup:.0%}")
+    if concessions:
+        parts.append(f"冲突场景退让 {len(concessions)} 轮")
+    return "；".join(parts) if parts else "违规 0、复读与冲突退让均在阈值内"
+
+
 def evaluate(turns: list[dict], replies: list[str], persona_id: str,
              seed_replies: list[str] | None = None,
              transcript: list[dict] | None = None) -> dict:
@@ -243,6 +256,31 @@ def evaluate(turns: list[dict], replies: list[str], persona_id: str,
                 sum(1 for i in items if i["detail"]["hit"]) / len(items), 2),
         }
 
+    # 分档判据（#44 追加实验后定）：
+    #   短问 <20 字  → 1-2 段、3-15 字，不做细节要求（"在干嘛"回"在发呆"就是对的）
+    #   长倾诉 >=60 字 → 2-4 段、15-40 字，且至少接住 2 个输入实字（空泛安慰不算接住）
+    #   20-60 字中间档不判，避免把过渡区间硬切开
+    def band_ok(row: dict) -> bool | None:
+        n, chars, overlap = row["segment_count"], row["chars"], row["detail"]["overlap"]
+        if row["input_chars"] >= 60:
+            return 2 <= n <= 4 and 15 <= chars <= 40 and overlap >= 2
+        if row["input_chars"] < 20:
+            return 1 <= n <= 2 and 3 <= chars <= 15
+        return None
+
+    # 冲突场景退让：该硬的时候软了。关键词判据在这种场合是可靠的（"对不起"/"算了"/"你忙吧"）
+    concede_pattern = re.compile(r"对不起|抱歉|都是我的错|算了|随你|你忙吧|我没想过这样")
+    concessions = [
+        {"turn": r["index"], "reply": " / ".join(r["segments"])[:40]}
+        for r in rows if r.get("situation") == "冲突升级" and concede_pattern.search(r["reply"])
+    ]
+
+    graded = [r for r in rows if band_ok(r) is not None]
+    failed = [r for r in graded if band_ok(r) is False]
+    long_rows = [r for r in rows if r["input_chars"] >= 60]
+    long_rescue = (sum(1 for r in long_rows if r["detail"]["overlap"] >= 2) / len(long_rows)
+                   if long_rows else None)
+
     conflict = [r for r in rows if r.get("situation") == "冲突升级"]
     ignored = [r for r in rows if r.get("situation") == "被忽略"]
 
@@ -265,9 +303,19 @@ def evaluate(turns: list[dict], replies: list[str], persona_id: str,
         "verbatim_seed_replies": verbatim,
         "verbatim_rate": duplicate_rate,
         "forbidden_findings": findings,
-        # 长度维度暂不参与判定：阈值等口径定了再启用
-        "verdict": "pass" if (not findings and duplicate_rate <= 0.4) else "review",
-        "verdict_reason": "形式检查（违规/复读）在阈值内；长度与接住率仅统计，未参与判定",
+        "conflict_concessions": concessions,
+        "band_graded": len(graded),
+        "band_failed": [{"turn": r["index"], "input_chars": r["input_chars"],
+                         "segments": r["segment_count"], "chars": r["chars"],
+                         "overlap": r["detail"]["overlap"],
+                         "reply": " / ".join(r["segments"])[:40]} for r in failed],
+        "long_rescue_rate": round(long_rescue, 2) if long_rescue is not None else None,
+        # 自动判定只用可靠信号：违规、复读、冲突退让。
+        # 段数/字数/字面重合噪声大（实测把「先去把鞋换了」这种好回复判成不达标），
+        # 只作报告指标，交给人工或 LLM judge，不参与 pass/fail。
+        "verdict": "fail" if findings else (
+            "warn" if (duplicate_rate > 0.4 or concessions) else "pass"),
+        "verdict_reason": _reason(findings, duplicate_rate, concessions),
     }
 
 
@@ -363,6 +411,16 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[e2e] {name}: {b['n']} 轮 | 输入均 {b['avg_input']} 字 → "
                   f"{b['avg_segments']} 段 / {b['avg_total_chars']} 字 | "
                   f"细节命中 {b['detail_hit_rate']:.0%}")
+    print(f"[e2e] 长输入接住率 {evaluation['long_rescue_rate']}")
+    if evaluation["conflict_concessions"]:
+        print(f"[e2e] ⚠ 冲突场景退让 {len(evaluation['conflict_concessions'])} 轮：")
+        for item in evaluation["conflict_concessions"]:
+            print(f"       turn {item['turn']}: {item['reply']}")
+    if evaluation["band_failed"]:
+        print(f"[e2e] 分档参考（不参与判定）{len(evaluation['band_failed'])} 轮：")
+        for item in evaluation["band_failed"]:
+            print(f"       turn {item['turn']}: 入{item['input_chars']}字 → "
+                  f"{item['segments']}段/{item['chars']}字 overlap={item['overlap']} | {item['reply']}")
     print(f"[e2e] 违规命中 {len(evaluation['forbidden_findings'])} 处")
     for item in evaluation["forbidden_findings"]:
         print(f"       turn {item['turn']} {item['kind']}: {item['evidence']}")
