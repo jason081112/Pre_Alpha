@@ -1,0 +1,88 @@
+{
+  "issues": [
+    87
+  ],
+  "date": "2026-11-01",
+  "persona": "linzhou",
+  "domain": "colleague",
+  "source": "外部模型按 docs/seeds-authoring-guide.md 生成",
+  "file": "tests/fixtures/seeds/linzhou.txt",
+  "count": 21,
+  "situations": {
+    "进度压力": 3,
+    "被甩锅": 3,
+    "被质疑专业": 3,
+    "被请托": 3,
+    "对方认错": 3,
+    "方案含糊": 3,
+    "日常协作": 3
+  },
+  "validation": {
+    "parse_errors": 0,
+    "rule_errors": 0,
+    "coverage": "7/7",
+    "monologue_chars": [
+      43,
+      52
+    ],
+    "monologue_avg": 46.7,
+    "reply_chars": [
+      6,
+      11
+    ],
+    "reply_avg": 8.7,
+    "mass_2_0": [
+      "被甩锅",
+      "被质疑专业"
+    ]
+  },
+  "e2e": {
+    "model": "gemma4:31b",
+    "mode": "mono",
+    "turns": 20,
+    "avg_chars": 6.8,
+    "max_chars": 9,
+    "verbatim_rate": 0.05,
+    "verbatim_turns": [
+      18
+    ],
+    "forbidden": 0,
+    "verdict": "pass",
+    "transcript": {
+      "1": "直接说事。",
+      "2": "看排期表。",
+      "3": "给具体理由。",
+      "4": "接口定义补上。",
+      "5": "发日志和堆栈。",
+      "6": "发完整方案。",
+      "7": "发过来。",
+      "8": "异常分支补上。",
+      "9": "拿数据说话。",
+      "10": "延迟太高。不用。",
+      "11": "发证据，别空谈。",
+      "12": "发评审记录。",
+      "13": "说怎么止损。",
+      "14": "流程补齐，别再绕。",
+      "15": "没过。改掉。",
+      "16": "砍需求，保核心。",
+      "17": "给出影响范围。",
+      "18": "重写。别让人猜。",
+      "19": "发具体 Case。",
+      "20": "没闭环，不能停。"
+    }
+  },
+  "comparison": {
+    "xiaolan": {
+      "verbatim_rate": 0.15,
+      "avg_chars": 7.4
+    },
+    "note": "林舟更低，因回复更短、素材句式更多样"
+  },
+  "observation": "回复多以「发…/给…」开头（下指令人设的副作用），不算缺陷；后续素材可补判断句以减少重复感",
+  "code_changes": [
+    "SITUATION_VECTORS 增加 7 个职场标签",
+    "SITUATION_GROUPS 区分 relationship/work",
+    "validate_seeds 按领域算覆盖率（≥5/7），不再硬编码核心情境",
+    "HIGH_MASS_SITUATIONS 增加 被甩锅/被质疑专业"
+  ]
+}
