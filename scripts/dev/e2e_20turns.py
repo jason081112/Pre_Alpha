@@ -29,6 +29,7 @@ import os
 import re
 import statistics
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -66,7 +67,7 @@ def load_turns() -> list[dict]:
     return json.loads(TURNS.read_text(encoding="utf-8"))["turns"]
 
 
-def build_system_prompt(persona_id: str) -> tuple[str, dict]:
+def build_system_prompt(persona_id: str, seed_mode: str = "mono") -> tuple[str, dict]:
     """拼出真正会进 prompt 的内容。返回 (prompt, 组成信息)。"""
     from bridge.model import profile_from_dict
     from cli.profile2soul_cmd import body_from_profile, render_soul
@@ -86,33 +87,21 @@ def build_system_prompt(persona_id: str) -> tuple[str, dict]:
         soul["markdown"].strip(),
     ]
 
-    # 支持多份素材：<id>.txt（人工原文）与 <id>.*.txt（如 variants），按文件名排序合并。
-    # #44 首轮发现单点样本导致 45% 复读，这里让同一情境能有多条示范。
-    seed_files = sorted(SEEDS.glob(f"{persona_id}*.txt"))
-    seed_count = 0
-    seed_replies: list[str] = []
-    drafts_all = []
-    if seed_files:
-        from bridge.seeds import parse_seed_text
+    # seeds 段交给 bridge.fewshot 统一生成。默认 mono（只给内心，不给 reply 原句）：
+    # #44 实测 full 模式复读率 65%，mono 降到 15%（docs/exp-fewshot-modes.md）。
+    from bridge.fewshot import load_drafts, reply_stats, seed_block
 
-        for path in seed_files:
-            parsed, _ = parse_seed_text(path.read_text(encoding="utf-8"))
-            drafts_all.extend(parsed)
-    if drafts_all:
-        drafts = drafts_all[:MAX_SEED_EXAMPLES]
-        parts.append("")
-        parts.append(
-            "## 你以前的真实反应\n"
-            "这些只是语气样本：学句子的长短、停顿的位置、话说到哪儿就停。\n"
-            "**不要照抄里面的句子**，也不要把它们当成这类场景的标准答案。"
-        )
-        for index, draft in enumerate(drafts, start=1):
-            parts.append(f"--- 例 {index} [{draft.situation}] ---")
-            parts.append(f"对方：{draft.scene}")
-            parts.append(f"你心里：{draft.monologue}")
-            parts.append(f"你说出口：{draft.reply}")
-        seed_count = len(drafts)
-        seed_replies = [d.reply.strip() for d in drafts]
+    drafts = load_drafts(persona_id)
+    seed_count = 0
+    used: list = []
+    if drafts:
+        block, used = seed_block(seed_mode, drafts)
+        parts += ["", block]
+        seed_count = len(used)
+
+    # 复读检测始终对照**全量** reply（mono 模式没注入 reply，但模型可能自己"猜"回来）
+    seed_replies = [d.reply.strip() for d in drafts]
+    seed_stats = reply_stats(drafts) if drafts else {}
 
     memory_section = ""
     correction_section = ""
@@ -143,6 +132,9 @@ def build_system_prompt(persona_id: str) -> tuple[str, dict]:
         "soul_sections": sorted(body),
         "seed_replies": seed_replies,
         "seed_examples": seed_count,
+        "seed_mode": seed_mode,
+        "seeds_used": [d.situation for d in used],
+        "reply_stats": seed_stats,
         "memory_injected": bool(memory_section),
         "corrections_injected": bool(correction_section),
         "prompt_chars": len("\n".join(parts)),
@@ -159,14 +151,29 @@ def call_model(messages: list[dict], *, base_url: str, model: str, key: str,
         f"{base_url.rstrip('/')}/chat/completions", data=payload,
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
     )
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            data = json.loads(response.read().decode())
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode(errors="replace")[:300]
-        raise SystemExit(f"[e2e] 模型返回 HTTP {exc.code}: {body}") from exc
-    except Exception as exc:  # noqa: BLE001
-        raise SystemExit(f"[e2e] 调用模型失败：{exc}") from exc
+    # 网络抖动/限流很常见（实测 ollama cloud 偶发 SSL handshake timeout），
+    # 单次失败不该让 20 轮全废 —— 退避重试 3 次。
+    last_error: Exception | None = None
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                data = json.loads(response.read().decode())
+            break
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode(errors="replace")[:300]
+            if exc.code in (429, 500, 502, 503, 504) and attempt < 2:
+                time.sleep(4 * (attempt + 1))
+                last_error = exc
+                continue
+            raise SystemExit(f"[e2e] 模型返回 HTTP {exc.code}: {body}") from exc
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+            if attempt < 2:
+                time.sleep(4 * (attempt + 1))
+                continue
+            raise SystemExit(f"[e2e] 调用模型失败（已重试 3 次）：{exc}") from exc
+    else:
+        raise SystemExit(f"[e2e] 调用模型失败（已重试 3 次）：{last_error}")
     try:
         return data["choices"][0]["message"]["content"].strip()
     except (KeyError, IndexError) as exc:
@@ -241,6 +248,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", help="结果写入 JSON 路径")
     parser.add_argument("--turns", help="对话题本路径（默认 20 轮）")
     parser.add_argument("--limit", type=int, help="只跑前 N 轮（先小样本验证）")
+    parser.add_argument("--seed-mode", default="mono", choices=["full", "mono", "mono_retrieval"],
+                        help="few-shot 注入方式，默认 mono（见 docs/exp-fewshot-modes.md）")
     args = parser.parse_args(argv)
 
     base_url = os.getenv("ALPHA_E2E_BASE_URL")
@@ -258,13 +267,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.limit:
         turns = turns[: args.limit]
 
-    system_prompt, composition = build_system_prompt(args.persona)
+    system_prompt, composition = build_system_prompt(args.persona, args.seed_mode)
     persona_name = args.persona
     messages = [
         {"role": "system", "content": system_prompt},
     ]
 
-    print(f"[e2e] persona={persona_name} model={model} turns={len(turns)}")
+    print(f"[e2e] persona={persona_name} model={model} turns={len(turns)} "
+          f"seed_mode={args.seed_mode}")
     print(f"[e2e] prompt 组成: {composition}")
 
     replies: list[str] = []
