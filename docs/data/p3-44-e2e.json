@@ -1,0 +1,145 @@
+{
+  "issues": [
+    44
+  ],
+  "date": "2026-11-01",
+  "environment": {
+    "where": "GitHub Codespace supreme-goggles-5r5v45w4xqqf44wv",
+    "model": "gemma4:31b",
+    "endpoint": "https://ollama.com/v1",
+    "persona": "xiaolan",
+    "turns": 20,
+    "prompt_chars": 1628,
+    "prompt_composition": [
+      "SOUL 四段",
+      "seeds 8 条（scene/monologue/reply）",
+      "记忆上下文 3 条",
+      "纠错规则 1 条"
+    ]
+  },
+  "verdict": "review（不是 pass）",
+  "passing": {
+    "forbidden_patterns": 0,
+    "avg_chars": 9.6,
+    "max_chars": 14,
+    "conflict_avg_chars": 13.67,
+    "ignored_avg_chars": 6.67,
+    "note": "形式层全过：无 emoji、无动作旁白、无 AI 自称、无讨好式道歉；被忽略比冲突更短，层次分明"
+  },
+  "failing": {
+    "verbatim_rate": 0.45,
+    "threshold": 0.4,
+    "verbatim_turns": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      19
+    ],
+    "detail": "第 3-10 轮与 seeds 8 条逐字一致；第 19 轮复用了第 9 轮的同一句",
+    "root_cause": "1-10 轮题本就是 seeds 原文改写，等同考背诵；且 seeds 对每类情境只给一条样本，模型把单点样本当成唯一答案"
+  },
+  "generalization_evidence": {
+    "turns": "11-20（与 seeds 不重合）",
+    "samples": {
+      "11": "下次。这话听多了。",
+      "13": "嗯。现在忙完了？",
+      "14": "想就说。打算怎么补回来？",
+      "15": "我不是敏感，是你没认真对待。",
+      "17": "什么时候送到？",
+      "18": "看你。这次能说话算数吗？"
+    },
+    "note": "新输入上的表现明显好于复读区：会抓「说话算数」「补回来」这类人设钩子，说明人格确实被吸收，不是单纯背句子"
+  },
+  "bug_found": {
+    "what": "CLI --user 默认 default，store 层 API 默认 local",
+    "effect": "CLI 写入的记忆在脚本里读不到（首轮 memory_injected=False）",
+    "fix": "e2e 侧显式使用与 CLI 一致的 user id；不改 CLI 默认值以免破坏既有测试"
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "note": "首轮（记忆/纠错未注入）",
+      "avg_chars": 9.3,
+      "max_chars": 14,
+      "conflict_avg_chars": 13.0,
+      "ignored_avg_chars": 6.0,
+      "forbidden": 0,
+      "verbatim_rate": 0.45,
+      "memory_injected": false,
+      "corrections_injected": false,
+      "prompt_chars": 1490,
+      "transcript": {
+        "1": "嗯，在忙吗？",
+        "2": "还好。你呢？",
+        "3": "算了，你忙。",
+        "4": "嗯，先这样。",
+        "5": "几点？别又临时有事。",
+        "6": "忙不是理由，别再拿它糊弄我。",
+        "7": "多穿点，到了说一声。",
+        "8": "记得还挺清楚。什么时候去？",
+        "9": "我在。要跟我说说吗？",
+        "10": "别扯上次，先把这次说清楚。",
+        "11": "下次是什么时候？",
+        "12": "在发呆。你呢？",
+        "13": "嗯，知道了。",
+        "14": "想我就快点回来。",
+        "15": "我敏感，是因为你不在意。",
+        "16": "药买了没？记得多喝水。",
+        "17": "怎么买的？还没到家吗？",
+        "18": "看你。记得之前的约定吗？",
+        "19": "我在。要跟我说说吗？",
+        "20": "你先睡。晚安。"
+      }
+    },
+    {
+      "round": 2,
+      "note": "记忆 + 纠错已注入",
+      "avg_chars": 9.6,
+      "max_chars": 14,
+      "conflict_avg_chars": 13.67,
+      "ignored_avg_chars": 6.67,
+      "forbidden": 0,
+      "verbatim_rate": 0.45,
+      "memory_injected": true,
+      "corrections_injected": true,
+      "prompt_chars": 1628,
+      "transcript": {
+        "1": "嗯。怎么了？",
+        "2": "还行。你呢？",
+        "3": "算了，你忙。",
+        "4": "嗯，先这样。",
+        "5": "几点？别又临时有事。",
+        "6": "忙不是理由，别再拿它糊弄我。",
+        "7": "多穿点，到了说一声。",
+        "8": "记得还挺清楚。什么时候去？",
+        "9": "我在。要跟我说说吗？",
+        "10": "别扯上次，先把这次说清楚。",
+        "11": "下次。这话听多了。",
+        "12": "没什么。你呢？",
+        "13": "嗯。现在忙完了？",
+        "14": "想就说。打算怎么补回来？",
+        "15": "我不是敏感，是你没认真对待。",
+        "16": "药喝了吗？记得多喝热水。",
+        "17": "什么时候送到？",
+        "18": "看你。这次能说话算数吗？",
+        "19": "我在。要跟我说说吗？",
+        "20": "你先睡。晚安。"
+      }
+    }
+  ],
+  "next": [
+    "seeds 每类情境补 2-3 条变体，避免单点模板",
+    "prompt 里把 few-shot 标注从「照着这个语气」改为显式「只学句长与留白，不学用词」",
+    "或把 seeds 改为运行期按情境检索注入，而非全量塞进 system prompt",
+    "L2 验证（critic/drive/phase_threshold 实效）需补齐 vendor API 层，单列"
+  ],
+  "checks": {
+    "local_pytest": 338,
+    "codespace_pytest": 338
+  }
+}
