@@ -52,6 +52,15 @@ FORBIDDEN_PATTERNS = {
 }
 
 
+def _user_id() -> str:
+    """与 CLI 的 --user 默认值保持一致：CLI 写入的记忆/纠错只有同一 user 才读得到。
+
+    CLI 侧默认是 "default"（#85 时期定下的），store 层 API 签名默认是 "local"。
+    两者不一致曾导致「CLI 写入 3 条事实，e2e 读到 0 条」。
+    """
+    return os.getenv("ALPHA_USER") or "default"
+
+
 def load_turns() -> list[dict]:
     return json.loads(TURNS.read_text(encoding="utf-8"))["turns"]
 
@@ -100,7 +109,8 @@ def build_system_prompt(persona_id: str) -> tuple[str, dict]:
         from shell.memory import MemoryStore
 
         store = MemoryStore(os.getenv("ALPHA_MEMORY_DB") or str(ROOT / ".data" / "memory.db"))
-        memory_section = store.build_context(persona_id, lang=profile.identity.lang)
+        memory_section = store.build_context(persona_id, lang=profile.identity.lang,
+                                             user_id=_user_id())
     except Exception:  # noqa: BLE001 - 记忆缺失不阻断验收
         memory_section = ""
     try:
@@ -108,7 +118,8 @@ def build_system_prompt(persona_id: str) -> tuple[str, dict]:
 
         store = CorrectionStore(
             os.getenv("ALPHA_CORRECTIONS_DB") or str(ROOT / ".data" / "corrections.db"))
-        correction_section = store.render_section(persona_id, lang=profile.identity.lang)
+        correction_section = store.render_section(persona_id, lang=profile.identity.lang,
+                                                  user_id=_user_id())
     except Exception:  # noqa: BLE001
         correction_section = ""
 
