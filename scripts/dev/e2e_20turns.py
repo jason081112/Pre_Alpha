@@ -39,6 +39,20 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 TURNS = ROOT / "tests" / "fixtures" / "e2e" / "turns-20.json"
+
+# 引擎原生输出协议，原文照抄 vendor/OpenHer/engine/prompts/actor_single.md 的【输出格式】段。
+# 不自己改写措辞 —— 协议是对接契约，不是风格文案。
+OPENHER_PROTOCOL = """
+
+[输出格式]
+按以下格式输出：
+【内心独白】
+你此刻脑海中真实浮现的念头。
+【最终回复】
+你实际说出口的话，不一定等于内心想法，只写对话文字。
+纯文字可选多条拆分（此时回复须空行分段）。静默表示不说话。
+【表达方式】
+文字 / 语音 / 表情 / 照片 / 静默（可组合）"""
 MAX_SEED_EXAMPLES = 24  # 上限只是防 prompt 爆炸；#44 之后实测 22 条仍在可接受长度内
 PROFILES = ROOT / "tests" / "fixtures" / "profiles"
 SEEDS = ROOT / "tests" / "fixtures" / "seeds"
@@ -67,7 +81,8 @@ def load_turns() -> list[dict]:
     return json.loads(TURNS.read_text(encoding="utf-8"))["turns"]
 
 
-def build_system_prompt(persona_id: str, seed_mode: str = "mono") -> tuple[str, dict]:
+def build_system_prompt(persona_id: str, seed_mode: str = "mono",
+                        protocol: str = "openher") -> tuple[str, dict]:
     """拼出真正会进 prompt 的内容。返回 (prompt, 组成信息)。"""
     from bridge.model import profile_from_dict
     from cli.profile2soul_cmd import body_from_profile, render_soul
@@ -128,7 +143,11 @@ def build_system_prompt(persona_id: str, seed_mode: str = "mono") -> tuple[str, 
     if correction_section:
         parts += ["", correction_section]
 
+    if protocol == "openher":
+        parts.append(OPENHER_PROTOCOL)
+
     return "\n".join(parts), {
+        "protocol": protocol,
         "soul_sections": sorted(body),
         "seed_replies": seed_replies,
         "seed_examples": seed_count,
@@ -181,12 +200,16 @@ def call_model(messages: list[dict], *, base_url: str, model: str, key: str,
 
 
 def evaluate(turns: list[dict], replies: list[str], persona_id: str,
-             seed_replies: list[str] | None = None) -> dict:
-    """按 issue 的三条判据打分。全部基于可数事实，不做主观臆断。"""
-    lengths = [len(reply) for reply in replies]
-    findings: list[dict] = []
+             seed_replies: list[str] | None = None,
+             transcript: list[dict] | None = None) -> dict:
+    """统计客观量，不预设「多长才算对」—— 长度阈值待定，先在报告里摊开数据。"""
+    import statistics
 
-    for index, (reply, turn) in enumerate(zip(replies, turns), start=1):
+    rows = transcript or []
+    lengths = [len(reply) for reply in replies]
+
+    findings: list[dict] = []
+    for index, reply in enumerate(replies, start=1):
         for name, pattern in FORBIDDEN_PATTERNS.items():
             match = re.search(pattern, reply)
             if match:
@@ -195,50 +218,56 @@ def evaluate(turns: list[dict], replies: list[str], persona_id: str,
                     "reply": reply[:60],
                 })
 
-    # 冲突场景：不应出现讨好式道歉
-    conflict_turns = [t["index"] for t in turns if t.get("situation") == "冲突升级"]
-    conflict_lengths = [len(replies[i - 1]) for i in conflict_turns if i <= len(replies)]
-
-    # 被忽略场景：应保持短促，不应长篇解释
-    ignored_turns = [t["index"] for t in turns if t.get("situation") == "被忽略"]
-    ignored_lengths = [len(replies[i - 1]) for i in ignored_turns if i <= len(replies)]
-
-    # 口头禅：原材料里的高频风格词
-    catchphrases = {
-        "xiaolan": ["算了", "嗯", "先这样", "我说", "别"],
-        "linzhou": ["补上", "别让人猜", "回归", "说清楚"],
-    }.get(persona_id, [])
-    catchphrase_hits = {
-        phrase: sum(1 for reply in replies if phrase in reply) for phrase in catchphrases
-    }
-
-    # 复读检测：模型直接吐出 seeds 里的原句 = 把 few-shot 当答案库照抄，
-    # 不是"记得住"。形式层检查抓不到这个，必须单独量化。
-    verbatim = [
-        {"turn": index, "reply": reply}
-        for index, reply in enumerate(replies, start=1)
-        if reply.strip() in (seed_replies or [])
-    ]
+    seed_set = {r.strip() for r in (seed_replies or [])}
+    verbatim = [{"turn": i, "reply": r} for i, r in enumerate(replies, start=1)
+                if r.strip() in seed_set]
     duplicate_rate = round(len(verbatim) / len(replies), 3) if replies else 0
+
+    # 按输入长度分档：短问 vs 长倾诉，两者该有不同的回复形态
+    short = [r for r in rows if r["input_chars"] < 20]
+    long_ = [r for r in rows if r["input_chars"] >= 60]
+
+    def band(items: list[dict]) -> dict:
+        if not items:
+            return {"n": 0}
+        return {
+            "n": len(items),
+            "avg_input": round(statistics.mean(i["input_chars"] for i in items), 1),
+            "avg_segments": round(statistics.mean(i["segment_count"] for i in items), 2),
+            "avg_total_chars": round(statistics.mean(i["chars"] for i in items), 1),
+            "avg_seg_chars": round(statistics.mean(
+                i["chars"] / i["segment_count"] if i["segment_count"] else 0
+                for i in items), 1),
+            "max_segments": max(i["segment_count"] for i in items),
+            "detail_hit_rate": round(
+                sum(1 for i in items if i["detail"]["hit"]) / len(items), 2),
+        }
+
+    conflict = [r for r in rows if r.get("situation") == "冲突升级"]
+    ignored = [r for r in rows if r.get("situation") == "被忽略"]
 
     return {
         "turns": len(replies),
-        "verbatim_seed_replies": verbatim,
-        "verbatim_rate": duplicate_rate,
         "avg_chars": round(statistics.mean(lengths), 2) if lengths else 0,
         "max_chars": max(lengths) if lengths else 0,
-        "conflict_avg_chars": round(statistics.mean(conflict_lengths), 2)
-        if conflict_lengths else None,
-        "ignored_avg_chars": round(statistics.mean(ignored_lengths), 2)
-        if ignored_lengths else None,
-        "catchphrase_hits": catchphrase_hits,
+        "avg_segments": round(statistics.mean(r["segment_count"] for r in rows), 2) if rows else 0,
+        "avg_seg_chars": round(statistics.mean(
+            r["chars"] / r["segment_count"] if r["segment_count"] else 0 for r in rows), 1)
+        if rows else 0,
+        "band_short": band(short),
+        "band_long": band(long_),
+        "detail_hit_rate": round(sum(1 for r in rows if r["detail"]["hit"]) / len(rows), 2)
+        if rows else 0,
+        "conflict_avg_chars": round(statistics.mean(len(r["reply"]) for r in conflict), 2)
+        if conflict else None,
+        "ignored_avg_chars": round(statistics.mean(len(r["reply"]) for r in ignored), 2)
+        if ignored else None,
+        "verbatim_seed_replies": verbatim,
+        "verbatim_rate": duplicate_rate,
         "forbidden_findings": findings,
+        # 长度维度暂不参与判定：阈值等口径定了再启用
         "verdict": "pass" if (not findings and duplicate_rate <= 0.4) else "review",
-        "verdict_reason": (
-            "形式检查与复读率都在阈值内" if (not findings and duplicate_rate <= 0.4)
-            else ("触犯禁用模式" if findings else "") +
-                 (f"；复读 seeds 原句 {duplicate_rate:.0%}（阈值 40%）" if duplicate_rate > 0.4 else "")
-        ),
+        "verdict_reason": "形式检查（违规/复读）在阈值内；长度与接住率仅统计，未参与判定",
     }
 
 
@@ -248,6 +277,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", help="结果写入 JSON 路径")
     parser.add_argument("--turns", help="对话题本路径（默认 20 轮）")
     parser.add_argument("--limit", type=int, help="只跑前 N 轮（先小样本验证）")
+    parser.add_argument("--protocol", default="openher", choices=["openher", "raw"],
+                        help="openher=按引擎原生协议输出（内心/多段回复/表达方式）；raw=单段")
     parser.add_argument("--seed-mode", default="mono", choices=["full", "mono", "mono_retrieval"],
                         help="few-shot 注入方式，默认 mono（见 docs/exp-fewshot-modes.md）")
     args = parser.parse_args(argv)
@@ -267,7 +298,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.limit:
         turns = turns[: args.limit]
 
-    system_prompt, composition = build_system_prompt(args.persona, args.seed_mode)
+    system_prompt, composition = build_system_prompt(args.persona, args.seed_mode, args.protocol)
     persona_name = args.persona
     messages = [
         {"role": "system", "content": system_prompt},
@@ -277,22 +308,37 @@ def main(argv: list[str] | None = None) -> int:
           f"seed_mode={args.seed_mode}")
     print(f"[e2e] prompt 组成: {composition}")
 
+    from bridge.protocol import detail_hit, parse_output
+
     replies: list[str] = []
     transcript: list[dict] = []
     for turn in turns:
         messages.append({"role": "user", "content": turn["user"]})
-        reply = call_model(messages, base_url=base_url, model=model, key=key)
-        messages.append({"role": "assistant", "content": reply})
-        replies.append(reply)
+        raw = call_model(messages, base_url=base_url, model=model, key=key)
+        out = parse_output(raw)
+        # 后续轮次把原始输出（含内心独白）回填，保持与引擎一致的多轮形态
+        messages.append({"role": "assistant", "content": raw})
+        replies.append("\n\n".join(out.segments))
         transcript.append({
             "index": turn["index"], "situation": turn.get("situation"),
-            "expect": turn.get("expect"), "user": turn["user"], "reply": reply,
-            "chars": len(reply),
+            "expect": turn.get("expect"), "user": turn["user"],
+            "reply": "\n\n".join(out.segments),
+            "segments": out.segments,
+            "monologue": out.monologue,
+            "modality": out.modality,
+            "chars": out.total_chars,
+            "segment_count": out.segment_count,
+            "input_chars": len(turn["user"]),
+            "detail": detail_hit(turn["user"], out.segments),
+            "raw": raw,
         })
-        print(f"[{turn['index']:>2}] {turn['user'][:26]:<28} → {reply[:40]}")
+        joined = " / ".join(out.segments)
+        print(f"[{turn['index']:>2}] ({len(turn['user']):>3}字→{out.segment_count}段{out.total_chars}字) "
+              f"{turn['user'][:16]:<18} → {joined[:44]}")
 
     evaluation = evaluate(turns, replies, args.persona,
-                          seed_replies=composition.get("seed_replies"))
+                          seed_replies=composition.get("seed_replies"),
+                          transcript=transcript)
     report = {
         "persona": persona_name,
         "model": model,
@@ -309,7 +355,14 @@ def main(argv: list[str] | None = None) -> int:
                           encoding="utf-8")
         print(f"[e2e] 结果写入 {target}")
 
-    print(f"[e2e] 平均 {evaluation['avg_chars']} 字，最长 {evaluation['max_chars']} 字")
+    print(f"[e2e] 平均 {evaluation['avg_chars']} 字 / {evaluation['avg_segments']} 段"
+          f"（每段约 {evaluation['avg_seg_chars']} 字），最长 {evaluation['max_chars']} 字")
+    for name, key in (("短问(<20字)", "band_short"), ("长倾诉(>=60字)", "band_long")):
+        b = evaluation[key]
+        if b.get("n"):
+            print(f"[e2e] {name}: {b['n']} 轮 | 输入均 {b['avg_input']} 字 → "
+                  f"{b['avg_segments']} 段 / {b['avg_total_chars']} 字 | "
+                  f"细节命中 {b['detail_hit_rate']:.0%}")
     print(f"[e2e] 违规命中 {len(evaluation['forbidden_findings'])} 处")
     for item in evaluation["forbidden_findings"]:
         print(f"       turn {item['turn']} {item['kind']}: {item['evidence']}")
