@@ -78,6 +78,7 @@ def build_system_prompt(persona_id: str) -> tuple[str, dict]:
 
     seed_file = SEEDS / f"{persona_id}.txt"
     seed_count = 0
+    seed_replies: list[str] = []
     if seed_file.is_file():
         from bridge.seeds import parse_seed_text
 
@@ -91,6 +92,7 @@ def build_system_prompt(persona_id: str) -> tuple[str, dict]:
                 parts.append(f"你心里：{draft.monologue}")
                 parts.append(f"你说出口：{draft.reply}")
             seed_count = len(drafts[:8])
+            seed_replies = [d.reply.strip() for d in drafts[:8]]
 
     memory_section = ""
     correction_section = ""
@@ -117,6 +119,7 @@ def build_system_prompt(persona_id: str) -> tuple[str, dict]:
 
     return "\n".join(parts), {
         "soul_sections": sorted(body),
+        "seed_replies": seed_replies,
         "seed_examples": seed_count,
         "memory_injected": bool(memory_section),
         "corrections_injected": bool(correction_section),
@@ -148,7 +151,8 @@ def call_model(messages: list[dict], *, base_url: str, model: str, key: str,
         raise SystemExit(f"[e2e] 响应结构异常：{json.dumps(data)[:300]}") from exc
 
 
-def evaluate(turns: list[dict], replies: list[str], persona_id: str) -> dict:
+def evaluate(turns: list[dict], replies: list[str], persona_id: str,
+             seed_replies: list[str] | None = None) -> dict:
     """按 issue 的三条判据打分。全部基于可数事实，不做主观臆断。"""
     lengths = [len(reply) for reply in replies]
     findings: list[dict] = []
@@ -179,8 +183,19 @@ def evaluate(turns: list[dict], replies: list[str], persona_id: str) -> dict:
         phrase: sum(1 for reply in replies if phrase in reply) for phrase in catchphrases
     }
 
+    # 复读检测：模型直接吐出 seeds 里的原句 = 把 few-shot 当答案库照抄，
+    # 不是"记得住"。形式层检查抓不到这个，必须单独量化。
+    verbatim = [
+        {"turn": index, "reply": reply}
+        for index, reply in enumerate(replies, start=1)
+        if reply.strip() in (seed_replies or [])
+    ]
+    duplicate_rate = round(len(verbatim) / len(replies), 3) if replies else 0
+
     return {
         "turns": len(replies),
+        "verbatim_seed_replies": verbatim,
+        "verbatim_rate": duplicate_rate,
         "avg_chars": round(statistics.mean(lengths), 2) if lengths else 0,
         "max_chars": max(lengths) if lengths else 0,
         "conflict_avg_chars": round(statistics.mean(conflict_lengths), 2)
@@ -189,7 +204,12 @@ def evaluate(turns: list[dict], replies: list[str], persona_id: str) -> dict:
         if ignored_lengths else None,
         "catchphrase_hits": catchphrase_hits,
         "forbidden_findings": findings,
-        "verdict": "pass" if not findings else "review",
+        "verdict": "pass" if (not findings and duplicate_rate <= 0.4) else "review",
+        "verdict_reason": (
+            "形式检查与复读率都在阈值内" if (not findings and duplicate_rate <= 0.4)
+            else ("触犯禁用模式" if findings else "") +
+                 (f"；复读 seeds 原句 {duplicate_rate:.0%}（阈值 40%）" if duplicate_rate > 0.4 else "")
+        ),
     }
 
 
@@ -239,7 +259,8 @@ def main(argv: list[str] | None = None) -> int:
         })
         print(f"[{turn['index']:>2}] {turn['user'][:26]:<28} → {reply[:40]}")
 
-    evaluation = evaluate(turns, replies, args.persona)
+    evaluation = evaluate(turns, replies, args.persona,
+                          seed_replies=composition.get("seed_replies"))
     report = {
         "persona": persona_name,
         "model": model,

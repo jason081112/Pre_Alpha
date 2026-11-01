@@ -696,12 +696,14 @@ def _cmd_delete(args: argparse.Namespace) -> int:
 
 def _add_user(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--user", default=argparse.SUPPRESS,
-                        help="用户 id（默认取 ALPHA_USER 或 default）")
+                        help="用户 id（默认取 ALPHA_USER 或 local）")
 
 
 def add_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:  # type: ignore[name-defined]
     persona = sub.add_parser("persona", help="创建/编辑人格（#85）")
-    persona.add_argument("--user", default=os.getenv("ALPHA_USER", "default"), help="用户 id")
+    # 默认值必须与 store 层一致（shell/memory.py、shell/corrections.py 都用 "local"）。
+    # 早前这里是 "default"，导致 CLI 写进去的记忆在代码里按 "local" 读不出来。
+    persona.add_argument("--user", default=os.getenv("ALPHA_USER", "local"), help="用户 id")
     psub = persona.add_subparsers(dest="persona_command")
 
     p_new = psub.add_parser("new", help="创建人格")
