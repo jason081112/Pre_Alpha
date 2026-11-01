@@ -130,6 +130,87 @@
         "19": "我在。要跟我说说吗？",
         "20": "你先睡。晚安。"
       }
+    },
+    {
+      "round": 3,
+      "note": "补 seeds 变体（8 → 22 条），并改 few-shot 措辞为「只学句长与留白，不照抄」",
+      "avg_chars": 8.25,
+      "max_chars": 14,
+      "conflict_avg_chars": 11.67,
+      "ignored_avg_chars": 6,
+      "forbidden": 0,
+      "verbatim_rate": 0.65,
+      "verbatim_turns": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        13,
+        15,
+        18,
+        19
+      ],
+      "memory_injected": true,
+      "corrections_injected": true,
+      "prompt_chars": 2964,
+      "seed_examples": 22,
+      "transcript": {
+        "1": "怎么了？",
+        "2": "还行。你呢？",
+        "3": "算了，你忙。",
+        "4": "嗯，先这样。",
+        "5": "几点？别又临时有事。",
+        "6": "忙不是理由，别再拿它糊弄我。",
+        "7": "多穿点，到了说一声。",
+        "8": "记得还挺清楚。什么时候去？",
+        "9": "我在。要跟我说说吗？",
+        "10": "别扯上次，先把这次说清楚。",
+        "11": "那你定个时间。",
+        "12": "在发呆。你呢？",
+        "13": "嗯，忙你的。",
+        "14": "想就说。",
+        "15": "我想的都是真的。",
+        "16": "药吃了没？多喝水。",
+        "17": "在哪儿？快拿过来。",
+        "18": "你定，我不挑。",
+        "19": "说，我在听。",
+        "20": "知道了。你也早点睡。"
+      },
+      "situation_diversity": {
+        "日常闲聊": {
+          "turns": 5,
+          "distinct": 5
+        },
+        "被忽略": {
+          "turns": 3,
+          "distinct": 3
+        },
+        "对方道歉": {
+          "turns": 3,
+          "distinct": 3
+        },
+        "冲突升级": {
+          "turns": 3,
+          "distinct": 3
+        },
+        "表达关心": {
+          "turns": 2,
+          "distinct": 2
+        },
+        "亲密靠近": {
+          "turns": 2,
+          "distinct": 2
+        },
+        "深夜低落": {
+          "turns": 2,
+          "distinct": 2
+        }
+      }
     }
   ],
   "next": [
@@ -141,5 +222,17 @@
   "checks": {
     "local_pytest": 338,
     "codespace_pytest": 338
+  },
+  "experiment_conclusion": {
+    "diversity": "解决：每类情境都不再复用同一句（深夜低落 2 轮 2 种、被忽略 3 轮 3 种）",
+    "verbatim": "加剧：45% → 65%，池子从 8 条扩到 22 条，模型有更多原句可取",
+    "insight": "加素材解决「台词单一」，但会加剧「照抄」—— 两个问题方向相反，靠堆素材无法同时解",
+    "root_cause": "few-shot 全量塞进 system prompt：给的示例越多，模型越把它当答案库",
+    "next": "改为检索式注入（每轮只喂最相关的 2-3 条），既保留池子多样性，又不一次性暴露全部原句"
+  },
+  "env_finding": {
+    "what": "SQLite 在 /sandbox/workspace 下无法写（disk I/O error），/tmp 正常",
+    "impact": "验收时把 ALPHA_MEMORY_DB / ALPHA_CORRECTIONS_DB 指向 /tmp",
+    "note": "若生产部署在类似 FUSE/overlay 上，需要把 .data 放到本地盘或换存储"
   }
 }

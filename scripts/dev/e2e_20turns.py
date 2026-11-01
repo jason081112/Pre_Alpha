@@ -38,6 +38,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 TURNS = ROOT / "tests" / "fixtures" / "e2e" / "turns-20.json"
+MAX_SEED_EXAMPLES = 24  # 上限只是防 prompt 爆炸；#44 之后实测 22 条仍在可接受长度内
 PROFILES = ROOT / "tests" / "fixtures" / "profiles"
 SEEDS = ROOT / "tests" / "fixtures" / "seeds"
 
@@ -85,23 +86,33 @@ def build_system_prompt(persona_id: str) -> tuple[str, dict]:
         soul["markdown"].strip(),
     ]
 
-    seed_file = SEEDS / f"{persona_id}.txt"
+    # 支持多份素材：<id>.txt（人工原文）与 <id>.*.txt（如 variants），按文件名排序合并。
+    # #44 首轮发现单点样本导致 45% 复读，这里让同一情境能有多条示范。
+    seed_files = sorted(SEEDS.glob(f"{persona_id}*.txt"))
     seed_count = 0
     seed_replies: list[str] = []
-    if seed_file.is_file():
+    drafts_all = []
+    if seed_files:
         from bridge.seeds import parse_seed_text
 
-        drafts, _ = parse_seed_text(seed_file.read_text(encoding="utf-8"))
-        if drafts:
-            parts.append("")
-            parts.append("## 你以前的真实反应（照着这个语气说话，不要照抄内容）")
-            for index, draft in enumerate(drafts[:8], start=1):
-                parts.append(f"--- 例 {index} [{draft.situation}] ---")
-                parts.append(f"对方：{draft.scene}")
-                parts.append(f"你心里：{draft.monologue}")
-                parts.append(f"你说出口：{draft.reply}")
-            seed_count = len(drafts[:8])
-            seed_replies = [d.reply.strip() for d in drafts[:8]]
+        for path in seed_files:
+            parsed, _ = parse_seed_text(path.read_text(encoding="utf-8"))
+            drafts_all.extend(parsed)
+    if drafts_all:
+        drafts = drafts_all[:MAX_SEED_EXAMPLES]
+        parts.append("")
+        parts.append(
+            "## 你以前的真实反应\n"
+            "这些只是语气样本：学句子的长短、停顿的位置、话说到哪儿就停。\n"
+            "**不要照抄里面的句子**，也不要把它们当成这类场景的标准答案。"
+        )
+        for index, draft in enumerate(drafts, start=1):
+            parts.append(f"--- 例 {index} [{draft.situation}] ---")
+            parts.append(f"对方：{draft.scene}")
+            parts.append(f"你心里：{draft.monologue}")
+            parts.append(f"你说出口：{draft.reply}")
+        seed_count = len(drafts)
+        seed_replies = [d.reply.strip() for d in drafts]
 
     memory_section = ""
     correction_section = ""
