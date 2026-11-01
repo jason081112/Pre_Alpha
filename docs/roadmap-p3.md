@@ -25,6 +25,11 @@
   #40 SHELL.md 生成器 —— 建议关闭，见下
 ```
 
+## 验收口径
+
+所有「像不像」「话说多长」的结论都必须按 `docs/e2e-protocol.md` 产出（原生多段协议 +
+mono 注入 + 混合长度题本）。单段协议的历史数据已标注作废。
+
 ## 已定结论：#40 应关闭
 
 复核 `docs/p0-01-chat-agent-callchain.md:147`：**`SHELL.md` 不进对话 prompt**，只用作 TTS 的

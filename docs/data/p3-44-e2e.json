@@ -234,5 +234,22 @@
     "what": "SQLite 在 /sandbox/workspace 下无法写（disk I/O error），/tmp 正常",
     "impact": "验收时把 ALPHA_MEMORY_DB / ALPHA_CORRECTIONS_DB 指向 /tmp",
     "note": "若生产部署在类似 FUSE/overlay 上，需要把 .data 放到本地盘或换存储"
+  },
+  "deprecated": {
+    "date": "2026-11-01",
+    "reason": "长度类数据基于单段协议（只让模型回一句话），剥夺了引擎原生的多段拆分能力",
+    "scope": [
+      "rounds[*].avg_chars",
+      "rounds[*].conflict_avg_chars",
+      "rounds[*].ignored_avg_chars",
+      "rounds[*].max_chars",
+      "rounds[*].transcript（单段形态）"
+    ],
+    "still_valid": [
+      "verbatim_rate（复读）",
+      "forbidden_findings",
+      "usable/人格内容判断"
+    ],
+    "superseded_by": "docs/e2e-protocol.md（真实协议下：13 字 / 2.08 段）"
   }
 }
