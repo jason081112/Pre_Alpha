@@ -284,11 +284,16 @@ def _cmd_edit(args: argparse.Namespace) -> int:
 
 def _cmd_seeds(args: argparse.Namespace) -> int:
     from bridge.model import profile_from_dict
-    from bridge.seeds import build_from_file, persona_lang, read_seeds_bin, write_seeds_bin
+    from bridge.seeds import build_from_files, persona_lang, read_seeds_bin, write_seeds_bin
 
-    material = Path(args.material)
-    if not material.is_file():
-        print(f"[alpha] 找不到素材文件 {material}", file=sys.stderr)
+    # 一个人格的素材常拆成多份（原文 / 变体 / 多段示范），默认把 <id>*.txt 全部合并
+    if args.material:
+        materials = [Path(args.material)]
+    else:
+        materials = sorted((ROOT / "tests" / "fixtures" / "seeds").glob(f"{args.persona_id}*.txt"))
+    missing = [str(m) for m in materials if not m.is_file()]
+    if not materials or missing:
+        print(f"[alpha] 找不到素材文件: {missing or '未指定'}", file=sys.stderr)
         return 2
 
     lang = "zh"
@@ -298,14 +303,16 @@ def _cmd_seeds(args: argparse.Namespace) -> int:
     except PersonaError:
         print(f"[alpha] 提示：没有找到已保存的 {args.persona_id}，按 lang=zh 处理")
 
-    seeds, errors, drafts = build_from_file(material, persona_id=args.persona_id, lang=lang)
+    seeds, errors, drafts = build_from_files(materials, persona_id=args.persona_id,
+                                             lang=lang, domain=args.domain)
     if errors:
         print("[alpha] 素材校验未通过：", file=sys.stderr)
         for line in errors:
             print(f"  - {line}", file=sys.stderr)
         return 2
 
-    print(f"[alpha] {args.persona_id}: {len(seeds)} 条 seed（lang={lang}）")
+    print(f"[alpha] {args.persona_id}: {len(seeds)} 条 seed（lang={lang}，"
+          f"来源 {len(materials)} 份：{', '.join(m.name for m in materials)}）")
     print(f"{'#':<3}{'情境':<10}{'mass':<6}{'心里':<6}{'回复':<6}摘要")
     for index, (draft, seed) in enumerate(zip(drafts, seeds), start=1):
         print(f"{index:<3}{draft.situation:<10}{seed['mass']:<6}"
@@ -744,7 +751,9 @@ def add_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:  # t
 
     p_seeds = psub.add_parser("seeds", help="把口头禅素材打包成 seeds.bin")
     p_seeds.add_argument("persona_id")
-    p_seeds.add_argument("--material", required=True, help="四行格式素材文件")
+    p_seeds.add_argument("--material", help="四行格式素材文件（省略则自动合并 <id>*.txt）")
+    p_seeds.add_argument("--domain", choices=["relationship", "work"],
+                         help="领域（省略则按情境标签自动推断）")
     p_seeds.add_argument("--out", help="输出路径（默认 .data/seeds.bin）")
     p_seeds.add_argument("--yes", action="store_true", help="写入文件")
     _add_user(p_seeds)

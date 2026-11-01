@@ -72,7 +72,7 @@ HIGH_MASS_SITUATIONS = {"被忽略", "冲突升级", "被甩锅", "被质疑专�
 
 MONOLOGUE_MIN, MONOLOGUE_MAX = 15, 80
 REPLY_MAX = 40
-SCENE_MAX = 60
+SCENE_MAX = 120  # 长倾诉场景（对方发一大段话）本身就是长句，60 字会误杀
 
 FORBIDDEN_PATTERNS = {
     "action_paren": re.compile(r"[（(][^）)]{1,20}[）)]"),
@@ -202,12 +202,31 @@ def write_seeds_bin(path: Path, persona_id: str, seeds: list[dict], *, merge: bo
     return {"persona_id": persona_id, "added": len(seeds), "replaced": previous, "personas": len(data)}
 
 
-def build_from_file(material: Path, *, persona_id: str, lang: str = "zh") -> tuple[list[dict], list[str], list[SeedDraft]]:
-    drafts, parse_errors = parse_seed_text(material.read_text(encoding="utf-8"))
-    errors = parse_errors + validate_seeds(drafts)
+def build_from_files(materials: list[Path], *, persona_id: str,
+                    lang: str = "zh", domain: str | None = None
+                    ) -> tuple[list[dict], list[str], list[SeedDraft]]:
+    """合并多份素材文件后统一校验。
+
+    一个人格的素材会拆成多份（人工原文 / 变体 / 多段示范），单份文件往往覆盖不全，
+    所以覆盖率只对**合并后**的全集判定。
+    """
+    drafts: list[SeedDraft] = []
+    parse_errors: list[str] = []
+    for material in materials:
+        parsed, errs = parse_seed_text(material.read_text(encoding="utf-8"))
+        drafts.extend(parsed)
+        parse_errors.extend(f"{material.name}: {e}" for e in errs)
+
+    errors = parse_errors + validate_seeds(drafts, domain=domain)
     if errors:
         return [], errors, drafts
     return to_openher_seeds(drafts, lang=lang), [], drafts
+
+
+def build_from_file(material: Path, *, persona_id: str, lang: str = "zh",
+                    domain: str | None = None) -> tuple[list[dict], list[str], list[SeedDraft]]:
+    """单文件入口，保留兼容。"""
+    return build_from_files([material], persona_id=persona_id, lang=lang, domain=domain)
 
 
 def persona_lang(profile: PersonProfile) -> str:
@@ -218,5 +237,5 @@ def persona_lang(profile: PersonProfile) -> str:
 __all__ = [
     "CONTEXT_KEYS", "SITUATION_VECTORS", "HIGH_MASS_SITUATIONS",
     "SeedDraft", "parse_seed_text", "validate_seeds", "to_openher_seeds",
-    "read_seeds_bin", "write_seeds_bin", "build_from_file", "persona_lang",
+    "read_seeds_bin", "write_seeds_bin", "build_from_file", "build_from_files", "persona_lang",
 ]

@@ -48,13 +48,30 @@ def load_drafts(persona_id: str, seeds_dir: Path | None = None) -> list:
     return drafts
 
 
+def split_reply(reply: str) -> list[str]:
+    """素材里的多段回复用 ` / ` 分隔（打包时不转成换行，保持人可读）。"""
+    return [p.strip() for p in reply.split(" / ") if p.strip()] or [reply.strip()]
+
+
 def reply_stats(drafts: list) -> dict:
-    lengths = [len(d.reply) for d in drafts]
+    """按**段**统计，不是按整条统计 —— 多段素材（`a / b / c`）否则会被算成超长单条。"""
+    per_seg: list[int] = []
+    seg_counts: list[int] = []
+    totals: list[int] = []
+    for d in drafts:
+        parts = split_reply(d.reply)
+        lengths = [len(x) for x in parts]
+        per_seg.extend(lengths)
+        seg_counts.append(len(parts))
+        totals.append(sum(lengths))
     return {
         "count": len(drafts),
-        "avg": round(statistics.mean(lengths), 1) if lengths else 0,
-        "max": max(lengths) if lengths else 0,
-        "min": min(lengths) if lengths else 0,
+        "seg_avg": round(statistics.mean(per_seg), 1) if per_seg else 0,
+        "seg_max": max(per_seg) if per_seg else 0,
+        "seg_min": min(per_seg) if per_seg else 0,
+        "seg_count_avg": round(statistics.mean(seg_counts), 2) if seg_counts else 0,
+        "seg_count_max": max(seg_counts) if seg_counts else 0,
+        "total_avg": round(statistics.mean(totals), 1) if totals else 0,
     }
 
 
@@ -89,7 +106,8 @@ def seed_block(mode: str, drafts: list, *, user_input: str = "") -> tuple[str, l
             "下面是你在类似场景里**心里怎么想的**。学的是思维方式和句子的长短。",
             "",
             f"注意：心里可以想 {MONOLOGUE_LEN[0]}–{MONOLOGUE_LEN[1]} 字，"
-            f"但**说出口的话平均只有 {stats['avg']:.0f} 字、最长不超过 {stats['max']} 字**。",
+            f"但**说出口的话每条只有 {stats['seg_avg']:.0f} 字左右、最长不超过 {stats['seg_max']} 字**，"
+            f"而且可以连发 {stats['seg_count_avg']:.0f}–{stats['seg_count_max']} 条。",
             "绝大多数时候，说出口的比心里想的短一半以上，甚至只剩一句结论。",
             "**不要照抄下面的任何句子** —— 它们描述的是内心，不是你要说的话。",
         ]
@@ -138,5 +156,6 @@ def reply_leak_warnings(drafts: list) -> list[str]:
 
 __all__ = [
     "MODES", "DEFAULT_MODE", "MONOLOGUE_LEN", "SITUATION_CUES",
-    "load_drafts", "reply_stats", "detect_situation", "seed_block", "reply_leak_warnings",
+    "load_drafts", "reply_stats", "split_reply", "detect_situation",
+    "seed_block", "reply_leak_warnings",
 ]
