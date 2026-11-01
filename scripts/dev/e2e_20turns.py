@@ -81,8 +81,20 @@ def load_turns() -> list[dict]:
     return json.loads(TURNS.read_text(encoding="utf-8"))["turns"]
 
 
+def _strip_soul_examples(markdown: str) -> str:
+    """去掉 SOUL「说话风格」里的“例句”块（#88 实验用）。
+
+    expression.examples 与 seeds 是同一批素材，会被注入两遍；SOUL 在 prompt 更靠前，
+    模型更容易直接复述。这里提供开关做对照实验，不默认改变产品行为。
+    """
+    import re as _re
+
+    return _re.sub(r"\n?- 例句：.*?(?=\n## |\Z)", "", markdown, flags=_re.S)
+
+
 def build_system_prompt(persona_id: str, seed_mode: str = "mono",
-                        protocol: str = "openher") -> tuple[str, dict]:
+                        protocol: str = "openher",
+                        soul_examples: str = "with") -> tuple[str, dict]:
     """拼出真正会进 prompt 的内容。返回 (prompt, 组成信息)。"""
     from bridge.model import profile_from_dict
     from cli.profile2soul_cmd import body_from_profile, render_soul
@@ -91,6 +103,8 @@ def build_system_prompt(persona_id: str, seed_mode: str = "mono",
     profile_data = json.loads(profile_path.read_text(encoding="utf-8"))
     profile = profile_from_dict(profile_data)
     soul = render_soul(profile)
+    if soul_examples == "without":
+        soul = dict(soul, markdown=_strip_soul_examples(soul["markdown"]))
     body, _ = body_from_profile(profile)
 
     parts = [
@@ -150,6 +164,7 @@ def build_system_prompt(persona_id: str, seed_mode: str = "mono",
 
     return "\n".join(parts), {
         "protocol": protocol,
+        "soul_examples": soul_examples,
         "soul_sections": sorted(body),
         "seed_replies": seed_replies,
         "seed_examples": seed_count,
@@ -325,6 +340,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", help="结果写入 JSON 路径")
     parser.add_argument("--turns", help="对话题本路径（默认 20 轮）")
     parser.add_argument("--limit", type=int, help="只跑前 N 轮（先小样本验证）")
+    parser.add_argument("--soul-examples", default="with", choices=["with", "without"],
+                        help="#88 实验：SOUL 例句是否保留（without 时去掉“例句”块）")
     parser.add_argument("--protocol", default="openher", choices=["openher", "raw"],
                         help="openher=按引擎原生协议输出（内心/多段回复/表达方式）；raw=单段")
     parser.add_argument("--seed-mode", default="mono", choices=["full", "mono", "mono_retrieval"],
@@ -346,7 +363,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.limit:
         turns = turns[: args.limit]
 
-    system_prompt, composition = build_system_prompt(args.persona, args.seed_mode, args.protocol)
+    system_prompt, composition = build_system_prompt(args.persona, args.seed_mode,
+                                                     args.protocol, args.soul_examples)
     persona_name = args.persona
     messages = [
         {"role": "system", "content": system_prompt},
