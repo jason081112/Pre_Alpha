@@ -126,11 +126,31 @@ def test_reject_unknown_situation() -> None:
     assert any("情境" in e for e in errors)
 
 
-def test_require_core_situations() -> None:
+def test_require_coverage() -> None:
+    """单一情境不足 —— 按领域算覆盖率，不再硬编码某个标签。"""
     drafts = [SeedDraft(scene="s", monologue="这是一段足够长的内心独白内容用于测试长度限制",
                         reply="嗯", situation="日常闲聊")]
     errors = validate_seeds(drafts)
-    assert any("缺少「被忽略」" in e for e in errors)
+    assert any("只覆盖" in e and "至少" in e for e in errors)
+
+
+def test_work_domain_validates_independently() -> None:
+    """职场向素材不该被「必须含被忽略」卡住（#87）。"""
+    from bridge.seeds import SITUATION_GROUPS
+
+    drafts = [
+        SeedDraft(scene=f"场景{i}", monologue="这是一段足够长的内心独白内容用于测试长度限制",
+                  reply="说清楚。", situation=s)
+        for i, s in enumerate(SITUATION_GROUPS["work"])
+    ]
+    assert validate_seeds(drafts) == []
+
+
+def test_work_domain_needs_coverage_too() -> None:
+    drafts = [SeedDraft(scene="s", monologue="这是一段足够长的内心独白内容用于测试长度限制",
+                        reply="补上。", situation="被甩锅")]
+    errors = validate_seeds(drafts)
+    assert any("work" in e for e in errors)
 
 
 def test_parse_reports_missing_field() -> None:

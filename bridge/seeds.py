@@ -51,10 +51,24 @@ SITUATION_VECTORS: dict[str, list[float]] = {
     "亲密靠近": [0.0, 0.7, 0.8, 0.5, 0.9, 0.6, 0.2, 0.5],
     "冲突升级": [0.8, -0.7, 0.3, 0.3, 0.5, 0.5, 0.1, 0.5],
     "深夜低落": [0.2, -0.3, 0.4, 0.6, 0.6, 0.6, 0.1, 0.9],
+    # 职场向（colleague）：同一套 8 维坐标，只是情境含义不同（#87）
+    "进度压力": [0.4, -0.3, 0.6, 0.2, 0.3, 0.7, 0.2, 0.4],
+    "被甩锅": [0.8, -0.6, 0.7, 0.1, 0.3, 0.6, 0.1, 0.5],
+    "被质疑专业": [0.7, -0.4, 0.8, 0.2, 0.4, 0.8, 0.2, 0.5],
+    "被请托": [0.2, 0.0, 0.7, 0.3, 0.4, 0.6, 0.3, 0.6],
+    "对方认错": [0.2, -0.1, 0.6, 0.5, 0.4, 0.7, 0.1, 0.5],
+    "方案含糊": [0.5, -0.3, 0.6, 0.1, 0.3, 0.7, 0.2, 0.4],
+    "日常协作": [0.0, 0.2, 0.5, 0.1, 0.3, 0.3, 0.2, 0.4],
+}
+
+# 情境按领域分组：同一套坐标，不同角色的必备覆盖集不同（#87）
+SITUATION_GROUPS: dict[str, tuple[str, ...]] = {
+    "relationship": ("日常闲聊", "被忽略", "对方道歉", "表达关心", "亲密靠近", "冲突升级", "深夜低落"),
+    "work": ("进度压力", "被甩锅", "被质疑专业", "被请托", "对方认错", "方案含糊", "日常协作"),
 }
 
 # 需要更高召回权重的场景（冲突/被冷落是人格的核心反应区）
-HIGH_MASS_SITUATIONS = {"被忽略", "冲突升级"}
+HIGH_MASS_SITUATIONS = {"被忽略", "冲突升级", "被甩锅", "被质疑专业"}
 
 MONOLOGUE_MIN, MONOLOGUE_MAX = 15, 80
 REPLY_MAX = 40
@@ -107,8 +121,20 @@ def parse_seed_text(text: str) -> tuple[list[SeedDraft], list[str]]:
     return drafts, errors
 
 
-def validate_seeds(drafts: list[SeedDraft]) -> list[str]:
-    """逐条校验；返回错误列表（中文，便于直接回给用户）。"""
+def _infer_domain(drafts: list[SeedDraft]) -> str:
+    """按情境标签判断素材属于哪个领域（关系向 / 职场向）。"""
+    counts = {name: sum(1 for d in drafts if d.situation in group)
+              for name, group in SITUATION_GROUPS.items()}
+    return max(counts, key=lambda k: counts[k]) if drafts else "relationship"
+
+
+def validate_seeds(drafts: list[SeedDraft], *, domain: str | None = None,
+                   min_coverage: int = 5) -> list[str]:
+    """逐条校验；返回错误列表（中文，便于直接回给用户）。
+
+    `domain` 不给时按情境标签自动推断；覆盖要求是「该领域至少 `min_coverage` 类」，
+    不再硬编码「必须含被忽略/冲突升级」—— 那只是关系向的核心区，职场向不适用（#87）。
+    """
     errors: list[str] = []
     for index, draft in enumerate(drafts, start=1):
         prefix = f"第 {index} 条"
@@ -129,9 +155,15 @@ def validate_seeds(drafts: list[SeedDraft]) -> list[str]:
             if hit:
                 errors.append(f"{prefix}：含禁止内容 {label}（{hit.group(0)[:12]}）")
     situations = {d.situation for d in drafts}
-    for required in ("被忽略", "冲突升级"):
-        if required not in situations:
-            errors.append(f"整体：缺少「{required}」情境，核心反应区召不回来")
+    resolved = domain or _infer_domain(drafts)
+    group = SITUATION_GROUPS.get(resolved, ())
+    covered = [s for s in group if s in situations]
+    if len(covered) < min_coverage:
+        missing = [s for s in group if s not in situations]
+        errors.append(
+            f"整体：{resolved} 领域只覆盖 {len(covered)}/{len(group)} 类"
+            f"（至少要 {min_coverage} 类），缺：{'、'.join(missing)}"
+        )
     return errors
 
 
