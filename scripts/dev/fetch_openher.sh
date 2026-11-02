@@ -209,6 +209,7 @@ main() {
   if [[ ${FORCE_MINIMAL} -eq 0 ]]; then
     apply_sparse "${DEST}"
     if checkout_pinned "${DEST}" && verify "${DEST}"; then
+      apply_provider_config "${DEST}"
       info "OpenHer ready (sparse): ${DEST}"
       print_summary
       return 0
@@ -218,8 +219,23 @@ main() {
 
   minimal_fetch "${DEST}"
   verify "${DEST}"
+  apply_provider_config "${DEST}"
   info "OpenHer ready (minimal): ${DEST}"
   print_summary
+}
+
+
+apply_provider_config() {
+  local dest="$1"
+  local script="${ROOT}/scripts/dev/apply_provider_config.py"
+  local cfg="${ROOT}/config/provider.yaml"
+  [[ -f "${script}" && -f "${cfg}" && -f "${dest}/providers/api.yaml" ]] || return 0
+  info "应用 provider 配置（config/provider.yaml → providers/api.yaml）"
+  if python3 "${script}" --target "${dest}/providers/api.yaml" >/dev/null 2>&1; then
+    info "  ok"
+  else
+    echo "  WARN: provider 配置应用失败；启动时可能报 API key not found" >&2
+  fi
 }
 
 print_summary() {

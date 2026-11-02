@@ -1,0 +1,20 @@
+# 生效的 LLM provider 配置（入库，**不含任何密钥**）
+#
+# 密钥从环境变量读取，变量名写在 api_key_env。例如：
+#   export OPENAI_API_KEY=<key>
+#
+# 该文件由 scripts/dev/apply_provider_config.py 写入
+# vendor/OpenHer/providers/api.yaml（vendor 已 gitignore，不入库）。
+# 换 provider 只改这里，不要再手改 vendor。
+
+provider: openai
+base_url: https://ollama.com/v1
+api_key_env: OPENAI_API_KEY
+default_model: gemma4:31b
+
+# 可选：回退链（上游 engine 支持时生效，当前仅记录）
+# fallbacks:
+#   - provider: deepseek
+#     base_url: https://api.deepseek.com/v1
+#     api_key_env: DEEPSEEK_API_KEY
+#     default_model: deepseek-chat
