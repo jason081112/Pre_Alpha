@@ -122,12 +122,18 @@ import concurrent.futures, os, sys, time, urllib.parse, urllib.request
 # 只取引擎与人格契约直接依赖的源码。skill 资产、桌面端、素材、provider 各实现（体积大且
 # raw CDN 对其不稳定）全部跳过，只保留 provider 注册表本身。
 prefixes = ("agent/", "engine/", "memory/", "persona/")
+# 根目录的 main.py / run.sh 是 API 层入口，漏了它们 `import main` 直接失败（#91）。
+# setup.sh 与 wechat_adapter.py 虽然不是启动必需，但缺了会让脚本内部 import 报错。
 explicit = (
     "LICENSE", "README.md", "SKILL.md", "INSTALL.md", "requirements.txt",
+    "main.py", "run.sh", "setup.sh", "wechat_adapter.py",
+    "pytest.ini", "pyrightconfig.json",
     "providers/__init__.py", "providers/api.yaml", "providers/api_config.py",
     "providers/config.py",
 )
-skip_dirs = ("/idimage/", "docs/assets/", "desktop/", "agent/skills/")
+# agent/skills/ 不能再排除：main.py 直接 import TaskSkillEngine / ToolRegistry /
+# register_photo_tools 等（#91）。该目录 12 个文件，体积可接受。
+skip_dirs = ("/idimage/", "docs/assets/", "desktop/")
 
 paths = []
 for line in os.environ["TREE_LIST"].splitlines():
