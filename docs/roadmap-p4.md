@@ -2,14 +2,15 @@
 
 2026-11-02。P4 共 14 项：1 Done（#83）、2 In Progress（#85、#86）、11 Todo。
 
-## 前置阻塞（没有任何 issue 跟踪）
+## 前置阻塞（#91）
 
 **`vendor/OpenHer/main.py` 不存在。**
 
 当前 vendor 只有 `agent/ engine/ memory/ persona/ providers/ skills/`，没有 API 层。
 而 P4 第一项 #45 是「梳理 main.py 的 REST/WebSocket 路由清单」——**要梳理的东西还没拉下来**。
 
-`scripts/dev/fetch_openher.sh`（233 行）是干这件事的，此前没调通。
+`scripts/dev/fetch_openher.sh` 的 minimal 模式漏拉了这个文件 —— 已建 **#91** 跟踪，
+诊断清楚：`explicit` 清单不含根文件，`skip_dirs` 又把 `main.py` 依赖的 `agent/skills/` 整个跳过。
 
 **这一项不解决，P4 一半任务（#45 #46 #72 #80 #82 #86 探针）都验不了。**
 
@@ -17,7 +18,7 @@
 
 ```text
 ┌──────────────────────────────────────────┐
-│ ① 前置（无 issue 跟踪）                   │
+│ ① 前置（#91）                            │
 │ 补齐 vendor/OpenHer/main.py + run.sh      │
 │ 现状：vendor 只有 agent/engine/memory/... │
 │ 工具：scripts/dev/fetch_openher.sh（未通） │
