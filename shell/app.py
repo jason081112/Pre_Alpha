@@ -62,6 +62,7 @@ from shell.openai_api import (  # noqa: E402
 )
 from shell.openai_format import error_body, is_openai_path  # noqa: E402
 from shell.providers import Registry, Route, RouteError  # noqa: E402
+from shell.seams import check_seams  # noqa: E402
 from shell.routing import (  # noqa: E402
     AllProvidersFailed,
     RouteNotConfigured,
@@ -100,6 +101,40 @@ routing_client = RoutingLLMClient(
 )
 
 app = upstream.app
+
+# ── 上游危险端点闸门（#93 / ADR-0002）──────────────────────────────
+# app = upstream.app 意味着上游全部路由对外可达。以下端点默认封禁：
+#   /api/demo/inject —— 可向任意 client_id 的 WS 推 send_chat，
+#                       等于绕过认证冒充用户发言。
+# 直接从路由表摘除而不是用中间件拦截：摘掉即 404，没有绕过路径。
+_ENABLE_DEMO_INJECT = os.getenv("ALPHA_ENABLE_DEMO_INJECT", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+_DENY_PATHS = () if _ENABLE_DEMO_INJECT else ("/api/demo/inject",)
+
+# 接缝自检：默认严格（缺即拒绝启动）；ALPHA_SEAM_STRICT=0 降级为告警。
+SEAM_STRICT = os.getenv("ALPHA_SEAM_STRICT", "1").strip().lower() not in {
+    "0",
+    "false",
+    "no",
+    "off",
+}
+
+
+def _strip_dangerous_routes(application) -> list[str]:
+    removed: list[str] = []
+    for route in list(application.router.routes):
+        if getattr(route, "path", None) in _DENY_PATHS:
+            application.router.routes.remove(route)
+            removed.append(route.path)
+    return removed
+
+
+_STRIPPED = _strip_dangerous_routes(app)
+
 app.include_router(build_router(registry, store, custom_store, limits=limits))
 app.include_router(build_auth_router(auth_service))
 app.include_router(build_page_router())
@@ -453,6 +488,31 @@ async def _install_routing_client() -> None:
         upstream.chat_log_store, ScopedChatLog
     ):
         upstream.chat_log_store = ScopedChatLog(upstream.chat_log_store)
+
+    # ── 接缝自检（#93 / ADR-0002）────────────────────────────
+    # 5 个注入点任一失效都会「能起能聊但是不对」，必须启动时就报。
+    scoped_log = (
+        upstream.chat_log_store
+        if isinstance(upstream.chat_log_store, ScopedChatLog)
+        else None
+    )
+    report = check_seams(
+        upstream,
+        get_or_create_session=_alpha_get_or_create_session,
+        persist_agent=_alpha_persist_agent,
+        llm_client=routing_client,
+        chat_log_store=scoped_log,
+    )
+    print("✓ 接缝自检:")
+    for line in report.lines():
+        print(line)
+    if not report.ok:
+        if SEAM_STRICT:
+            raise RuntimeError(report.fail_message())
+        print("⚠️  接缝不完整：ALPHA_SEAM_STRICT=0，继续启动（功能可能静默降级）")
+
+    if _STRIPPED:
+        print(f"✓ 已封禁上游端点: {', '.join(_STRIPPED)}")
     print(
         f"✓ Alpha 路由已接管: {len(list(registry.specs()))} 个 provider, "
         f"dev_route={DEV_ROUTE or '未设置'}"

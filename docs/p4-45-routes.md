@@ -145,7 +145,9 @@ Server → Client: {"type": "chat_end", "dominant_drive": "🔗 联结", ...}
 两条上游设计**必须保留**：
 
 1. **打字防抖**（2s 宽限 / 3s 兜底）—— 连发消息合并成一轮，否则她的回复会错位
-2. **流式分块** `chat_chunk` —— 上游没有 SSE，代理层要支持 WS 透传而非转成一次性响应
+2. **流式** —— **修正**：WS 上的 `chat_chunk` 是死代码（`output_router.py` 收了 `ws_send`
+   却从不调用），真正的流式在 `shell/` 的 `/v1/chat/completions` SSE。
+   本文档第九章「流式分块，上游没有 SSE」的结论是反的，以这里为准（详见 `p4-93-seams.md` §3.1）
 
 不嵌入引擎的理由：上游还在迭代，嵌入后每次升级都要重新对一遍；而且认证与引擎会挤进
 同一个进程的全局单例（`active_sessions`、`persona_loader`）。
