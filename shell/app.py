@@ -73,6 +73,7 @@ from shell.routing import (  # noqa: E402
     routing_context,
 )
 from shell.store import RoutingStore  # noqa: E402
+from shell.ws_stream import build_stream_ws_router  # noqa: E402
 
 DATA_DIR = Path(os.getenv("ALPHA_DATA_DIR", str(ROOT / ".data")))
 DB_PATH = Path(os.getenv("ALPHA_ROUTING_DB", str(DATA_DIR / "routing.db")))
@@ -347,6 +348,9 @@ app.include_router(
 )
 install_openai_error_handlers(app)
 
+# 真流式 WS（#94）：上游 /ws/chat 拿不到中间内容，这条走 shell 自己的解析器
+app.include_router(build_stream_ws_router(upstream))
+
 
 def _user_of(scope: dict) -> str:
     for key, value in scope.get("headers") or []:
@@ -364,6 +368,10 @@ def _route_chain(user: str) -> tuple[Route, ...]:
     return (DEV_ROUTE,) if DEV_ROUTE is not None else ()
 
 
+# 需要注入路由上下文的 WS 端点（上游 /ws/chat 与 #94 的流式端点）
+_WS_ROUTES = ("/ws/chat", "/ws/chat/stream")
+
+
 class AlphaMiddleware:
     """按请求解析路由，注入 contextvar；为 /api/chat 补充可观测字段。"""
 
@@ -379,7 +387,7 @@ class AlphaMiddleware:
         fallback = record.fallback if record else ()
 
         if kind == "websocket":
-            if path == "/ws/chat":
+            if path in _WS_ROUTES:
                 with routing_context(route, fallback, user=user):
                     await self.app(scope, receive, send)
             else:

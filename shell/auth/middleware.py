@@ -31,6 +31,7 @@ _PROTECTED_EXACT = {
     "/api/tts",
     "/api/image",
     "/ws/chat",
+    "/ws/chat/stream",
     "/v1/chat/completions",
 }
 _PROTECTED_PREFIXES = (
@@ -175,6 +176,9 @@ class AuthMiddleware:
     @staticmethod
     async def _reject(scope: dict, send) -> None:
         if scope["type"] == "websocket":
+            # ASGI 规范：握手未 accept 直接 close 会被服务器翻成 HTTP 403，
+            # 客户端拿不到 close code。先 accept 再 close(1008)，原因才可见。
+            await send({"type": "websocket.accept"})
             await send(
                 {
                     "type": "websocket.close",
