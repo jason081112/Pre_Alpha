@@ -126,23 +126,28 @@ Server → Client: {"type": "chat_end", "dominant_drive": "🔗 联结", ...}
 | 模态开关（一期只开文本） | #52 |
 | 主动消息接入会话存储 | #48 |
 
-## 七、需要先定的架构问题
+## 七、架构决策（已定）
 
-两套端点**功能重叠但不互通**：
+见 `docs/adr/0002-shell-as-product-layer.md`：
 
-- 走 `main.py` → 能对话，但没有认证、没有多用户
-- 走 `shell/` → 有认证有隔离，但引擎跑在 `main.py` 的进程内
+**`shell/` 是唯一对外入口；`main.py` 作为内部服务保持上游原样。**
 
-P4 之前应该定：**对外只暴露 `shell/`，由它内部代理到 `main.py`**，还是把引擎嵌进 `shell/`。
-
-倾向前者（代理）：`main.py` 保持上游原样，升级不用改；`shell/` 作为产品层做认证、隔离、
-限流、OpenAI 兼容。这也符合 P1 已经做出来的东西。
-
-## 复现
-
-```bash
-cd vendor/OpenHer
-OPENAI_API_KEY=<key> python3 -m uvicorn main:app --port 8000
-curl localhost:8000/api/status
-curl localhost:8000/openapi.json | python3 -m json.tool | head -40
+```text
+浏览器 / CLI / OpenAI SDK
+        │ HTTPS + WebSocket
+        ▼
+   shell/（认证 · 隔离 · 限流 · 人格 CRUD · 代理）
+        │ 内部调用
+        ▼
+   vendor/OpenHer/main.py（上游，不改）
 ```
+
+两条上游设计**必须保留**：
+
+1. **打字防抖**（2s 宽限 / 3s 兜底）—— 连发消息合并成一轮，否则她的回复会错位
+2. **流式分块** `chat_chunk` —— 上游没有 SSE，代理层要支持 WS 透传而非转成一次性响应
+
+不嵌入引擎的理由：上游还在迭代，嵌入后每次升级都要重新对一遍；而且认证与引擎会挤进
+同一个进程的全局单例（`active_sessions`、`persona_loader`）。
+
+代理的代价（多一跳）在毫秒级，相对模型推理的秒级可忽略。
