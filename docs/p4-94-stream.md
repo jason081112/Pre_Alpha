@@ -57,8 +57,13 @@ Server → {"type":"chat_start","session_id":"...","user_content":"..."}
 Server → {"type":"chunk","content":"我在","index":0}
 Server → {"type":"chunk","content":"。","index":1}
 Server → {"type":"chat_end","session_id":"...","reply":"我在。","modality":"文字",
-          "segments":null,"chunks":3,"first_chunk_ms":183,"elapsed_ms":1204,
+          "segments":["我在。"],"engine_segments":null,"chunks":3,
+          "first_chunk_ms":183,"elapsed_ms":1204,
           "persona":"Luna","dominant_drive":"..."}
+```
+
+> 多段逐条推送（`segment` / `index` / `segment_end`）在 #96 加入，
+> 见 `docs/p4-96-segments.md`。此处的报文是单段形态。
 Server → {"type":"error","content":"..."}
 ```
 

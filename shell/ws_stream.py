@@ -22,15 +22,21 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from typing import Any, Callable
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from .auth.scope import current_auth_user
-from .stream_parse import ReplyExtractor
+from .stream_parse import ReplyExtractor, SegmentEvent, Segmenter
 
 __all__ = ["build_stream_ws_router"]
+
+# 段间停顿（毫秒）。上游原本固定 300ms；这里可调，上限 2000 避免断太久。
+SEGMENT_PAUSE_MS = max(
+    0, min(2000, int(os.getenv("ALPHA_SEGMENT_PAUSE_MS", "300") or 300))
+)
 
 DEBOUNCE_FALLBACK_SEC = 3.0
 DEBOUNCE_GRACE_SEC = 2.0
@@ -86,9 +92,44 @@ def build_stream_ws_router(
                 return
 
             extractor = ReplyExtractor()
+            segmenter = Segmenter()
             started = time.monotonic()
             first_chunk_ms: int | None = None
-            index = 0
+            total_chunks = 0
+            pause_ms = SEGMENT_PAUSE_MS
+            pending_restart = False
+
+            async def handle(ev) -> None:
+                """chunk → 直接推；segment_end → 停一下并挂起「重开打字」。"""
+                nonlocal first_chunk_ms, total_chunks, pending_restart
+                if ev.kind == "chunk":
+                    if pending_restart:
+                        # 上一段刚结束，这一段开始 —— 重新拉起点「对方正在输入」
+                        await send({"type": "chat_start", "session_id": session_id})
+                        pending_restart = False
+                    if first_chunk_ms is None:
+                        first_chunk_ms = int((time.monotonic() - started) * 1000)
+                    total_chunks += 1
+                    await send(
+                        {
+                            "type": "chunk",
+                            "content": ev.text,
+                            "index": ev.index,
+                            "segment": ev.segment,
+                        }
+                    )
+                else:
+                    await send(
+                        {
+                            "type": "segment_end",
+                            "segment": ev.segment,
+                            "reply": ev.text,
+                            "pause_ms": pause_ms,
+                        }
+                    )
+                    # 段间停顿 —— 「连发微信」的感觉就来自这里（上游原本也是 300ms）
+                    await asyncio.sleep(pause_ms / 1000.0)
+                    pending_restart = True
 
             try:
                 async for chunk in agent.chat_stream(text):
@@ -105,17 +146,15 @@ def build_stream_ws_router(
                     piece = extractor.feed(chunk)
                     if not piece:
                         continue
-                    if first_chunk_ms is None:
-                        first_chunk_ms = int((time.monotonic() - started) * 1000)
-                    await send({"type": "chunk", "content": piece, "index": index})
-                    index += 1
+                    for ev in segmenter.feed(piece):
+                        await handle(ev)
 
                 tail = extractor.finish()
                 if tail:
-                    if first_chunk_ms is None:
-                        first_chunk_ms = int((time.monotonic() - started) * 1000)
-                    await send({"type": "chunk", "content": tail, "index": index})
-                    index += 1
+                    for ev in segmenter.feed(tail):
+                        await handle(ev)
+                for ev in segmenter.finish():
+                    await handle(ev)
             except Exception as exc:  # noqa: BLE001
                 await send(
                     {
@@ -133,19 +172,24 @@ def build_stream_ws_router(
             modality = parsed["modality"]
 
             # 模型没守协议（整段无标记）时，流式一个字都没发 → 兜底整段补发
-            if index == 0 and reply:
-                await send({"type": "chunk", "content": reply, "index": 0})
-                index = 1
-                first_chunk_ms = int((time.monotonic() - started) * 1000)
+            if total_chunks == 0 and reply:
+                pending_restart = False
+                await handle(
+                    SegmentEvent(kind="chunk", segment=0, text=reply, index=0)
+                )
+                await handle(
+                    SegmentEvent(kind="segment_end", segment=0, text=reply, index=1)
+                )
 
             status: dict = {}
             try:
                 status = agent.get_status()
             except Exception:  # noqa: BLE001
                 status = {}
-            segments = status.pop("segments", None)
+            engine_segments = status.pop("segments", None)
             status.pop("image_path", None)
             status.pop("audio_path", None)
+            pushed = segmenter.segments or ([reply] if reply else [])
 
             await send(
                 {
@@ -153,8 +197,9 @@ def build_stream_ws_router(
                     "session_id": session_id,
                     "reply": reply,
                     "modality": modality,
-                    "segments": segments,
-                    "chunks": index,
+                    "segments": pushed,
+                    "engine_segments": engine_segments,
+                    "chunks": total_chunks,
                     "first_chunk_ms": first_chunk_ms,
                     "elapsed_ms": int((time.monotonic() - started) * 1000),
                     **status,

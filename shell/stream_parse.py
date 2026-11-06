@@ -149,3 +149,115 @@ class ReplyExtractor:
     @property
     def raw(self) -> str:
         return "".join(self.raw_parts)
+
+
+# ── 分段（#96）─────────────────────────────────────────────────────
+# 引擎协议要求「回复须空行分段」，一段 = 一个气泡。上游 render 时逐段发、段间停 300ms，
+# 才有「连发微信」的感觉；#94 为了单条不空等把多段合并成一次给，丢了那个节奏。
+# 这里在流式过程中按空行切段，切出一段就推一段。
+
+SEGMENT_BREAKS = ("\r\n\r\n", "\n\n")
+
+
+def _find_break(buf: str) -> tuple[int, int] | None:
+    best: tuple[int, int] | None = None
+    for brk in SEGMENT_BREAKS:
+        idx = buf.find(brk)
+        if idx == -1:
+            continue
+        if best is None or idx < best[0]:
+            best = (idx, len(brk))
+    return best
+
+
+def _tail_keep(buf: str) -> int:
+    """尾部可能是分段符的前缀（如单个 \n），留着等下一块。"""
+    for n in (2, 1):
+        if len(buf) >= n and any(b.startswith(buf[-n:]) for b in SEGMENT_BREAKS):
+            return n
+    return 0
+
+
+@dataclass
+class SegmentEvent:
+    kind: str          # "chunk" | "segment_end"
+    segment: int
+    text: str = ""     # kind=chunk 时是本片文本；segment_end 时为整段全文
+    index: int = 0     # 段内序号（chunk 用）
+
+
+@dataclass
+class Segmenter:
+    """把正文流按空行切成若干段，边切边发。
+
+    用法：
+        for ev in seg.feed(piece):
+            if ev.kind == "chunk":  send chunk(ev.text, index=ev.index, segment=ev.segment)
+            else:                   send segment_end(ev.segment, ev.text); sleep(pause)
+        for ev in seg.finish(): ...
+    """
+
+    buf: str = ""
+    segment: int = 0
+    index: int = 0
+    parts: list[list[str]] = field(default_factory=lambda: [[]])
+
+    def feed(self, text: str) -> list[SegmentEvent]:
+        if not text:
+            return []
+        self.buf += text
+        out: list[SegmentEvent] = []
+
+        while True:
+            hit = _find_break(self.buf)
+            if hit is None:
+                break
+            idx, ln = hit
+            body, self.buf = self.buf[:idx], self.buf[idx + ln :]
+            out.extend(self._emit(body))
+            out.extend(self._close_segment_if_any())
+
+        keep = _tail_keep(self.buf)
+        if keep:
+            body, self.buf = self.buf[:-keep], self.buf[-keep:]
+        else:
+            body, self.buf = self.buf, ""
+        out.extend(self._emit(body))
+        return out
+
+    def finish(self) -> list[SegmentEvent]:
+        out: list[SegmentEvent] = []
+        out.extend(self._emit(self.buf))
+        self.buf = ""
+        out.extend(self._close_segment_if_any())
+        return out
+
+    def _emit(self, body: str) -> list[SegmentEvent]:
+        if not body:
+            return []
+        self.parts[self.segment].append(body)
+        ev = SegmentEvent(kind="chunk", segment=self.segment, text=body, index=self.index)
+        self.index += 1
+        return [ev]
+
+    def _close_segment_if_any(self) -> list[SegmentEvent]:
+        """当前段有内容才收尾；空段（连续空行）直接丢弃，不产生空气泡。"""
+        content = "".join(self.parts[self.segment])
+        if not content.strip():
+            self.parts[self.segment] = []
+            self.index = 0
+            return []
+        ev = SegmentEvent(
+            kind="segment_end",
+            segment=self.segment,
+            text=content,
+            index=self.index,
+        )
+        self.segment += 1
+        self.index = 0
+        self.parts.append([])
+        return [ev]
+
+    @property
+    def segments(self) -> list[str]:
+        return ["".join(p).strip() for p in self.parts if "".join(p).strip()]
