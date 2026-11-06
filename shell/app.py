@@ -84,6 +84,7 @@ from shell.routing import (  # noqa: E402
     routing_context,
 )
 from shell.store import RoutingStore  # noqa: E402
+from shell.ui import build_ui_router  # noqa: E402
 from shell.ws_stream import build_stream_ws_router  # noqa: E402
 
 DATA_DIR = Path(os.getenv("ALPHA_DATA_DIR", str(ROOT / ".data")))
@@ -146,6 +147,19 @@ def _strip_dangerous_routes(application) -> list[str]:
 
 
 _STRIPPED = _strip_dangerous_routes(app)
+
+
+def _strip_upstream_pages(application, paths: tuple[str, ...]) -> list[str]:
+    """首页交给 shell 的聊天页（#46）；上游自带前端不再对外。"""
+    removed: list[str] = []
+    for route in list(application.router.routes):
+        if getattr(route, "path", None) in paths:
+            application.router.routes.remove(route)
+            removed.append(route.path)
+    return removed
+
+
+_STRIPPED_PAGES = _strip_upstream_pages(app, ("/",))
 
 app.include_router(build_router(registry, store, custom_store, limits=limits))
 app.include_router(build_auth_router(auth_service))
@@ -362,6 +376,9 @@ install_openai_error_handlers(app)
 # 真流式 WS（#94）：上游 /ws/chat 拿不到中间内容，这条走 shell 自己的解析器
 app.include_router(build_stream_ws_router(upstream))
 
+# 聊天页（#46）：单文件 HTML，接 /ws/chat/stream
+app.include_router(build_ui_router())
+
 
 def _user_of(scope: dict) -> str:
     for key, value in scope.get("headers") or []:
@@ -532,6 +549,8 @@ async def _install_routing_client() -> None:
 
     if _STRIPPED:
         print(f"✓ 已封禁上游端点: {', '.join(_STRIPPED)}")
+    if _STRIPPED_PAGES:
+        print(f"✓ 首页已接管: {', '.join(_STRIPPED_PAGES)} → shell/ui.py")
     if _KEY_PLACEHOLDER:
         print(
             "⚠️  未检测到 OPENAI_API_KEY：已注入启动占位符，服务可起但**调用模型会失败**。\n"
