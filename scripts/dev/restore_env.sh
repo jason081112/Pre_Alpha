@@ -2,12 +2,17 @@
 # SPDX-FileCopyrightText: 2026 jason081112
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# 恢复本机开发环境：gh CLI + GitHub 凭据 + git 身份 + credential helper。
+# 恢复本机开发环境：gh CLI + GitHub 凭据 + git 身份 + credential helper
+#                  + Python 依赖（服务端/引擎/流水线）+ 密钥（可选）。
 #
 # 适用场景：容器/Codespace 的根文件系统被重建，/root 下的 gh 与 ~/.config/gh 丢失，
 # 而持久盘（如 /sandbox/workspace）里的仓库与备份仍在。
 #
-# 凭据备份是 gh 的 hosts.yml（含 token）。脚本只读取它，不会打印 token 内容。
+# 凭据备份是 gh 的 hosts.yml（含 token）；密钥备份是 .secrets/alpha.env。
+# 脚本只读取它们，不打印任何值。
+#
+# 一条命令从零恢复到能跑：
+#   bash scripts/dev/restore_env.sh
 #
 # Usage:
 #   scripts/dev/restore_env.sh
@@ -28,7 +33,7 @@ while [[ $# -gt 0 ]]; do
     --no-install) INSTALL=0 ;;
     --git-name) GIT_NAME="${2:-}"; shift ;;
     --git-email) GIT_EMAIL="${2:-}"; shift ;;
-    -h|--help) sed -n '2,20p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    -h|--help) sed -n '2,24p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "ERROR: unknown option $1" >&2; exit 2 ;;
   esac
   shift
@@ -108,13 +113,38 @@ verify() {
 }
 
 restore_python_deps() {
-  # 沙箱根文件系统会重置，site-packages 一并丢失：gh 之外 python 依赖也要补。
+  # 沙箱根文件系统会重置，site-packages 一并丢失。覆盖三组：
+  #   服务端   fastapi / uvicorn / httpx / websockets / dotenv / cryptography
+  #   引擎     openai / anthropic / aiosqlite / apscheduler / Pillow / edge-tts
+  #   流水线   frontmatter / yaml / jsonschema / pytest
+  # 只装缺的；全在则秒过。
   local missing
-  missing="$(python3 -c 'import importlib.util
-mods = {"frontmatter": "python-frontmatter", "yaml": "pyyaml", "jsonschema": "jsonschema"}
-print(" ".join(pkg for mod, pkg in mods.items() if importlib.util.find_spec(mod) is None))')"
+  missing="$(python3 - <<'PY'
+import importlib.util
+
+mods = {
+    "frontmatter": "python-frontmatter",
+    "yaml": "pyyaml",
+    "jsonschema": "jsonschema",
+    "fastapi": "fastapi",
+    "uvicorn": "uvicorn",
+    "httpx": "httpx",
+    "websockets": "websockets",
+    "dotenv": "python-dotenv",
+    "openai": "openai",
+    "anthropic": "anthropic",
+    "aiosqlite": "aiosqlite",
+    "apscheduler": "apscheduler",
+    "PIL": "pillow",
+    "edge_tts": "edge-tts",
+    "cryptography": "cryptography",
+    "pytest": "pytest",
+}
+print(" ".join(pkg for mod, pkg in mods.items() if importlib.util.find_spec(mod) is None))
+PY
+)"
   if [ -z "${missing}" ]; then
-    info "Python 依赖齐全（frontmatter / yaml / jsonschema）"
+    info "Python 依赖齐全（服务端 + 引擎 + 流水线，共 16 个模块）"
     return 0
   fi
   info "补装 Python 依赖：${missing}"
@@ -122,8 +152,31 @@ print(" ".join(pkg for mod, pkg in mods.items() if importlib.util.find_spec(mod)
   if pip install -q ${missing} -i https://mirrors.aliyun.com/pypi/simple/ >/dev/null 2>&1; then
     info "Python 依赖已装好"
   else
-    info "WARN: pip 安装失败（可能无网络），vendor 相关校验会降级为 skipped"
+    info "WARN: pip 安装失败（可能无网络），需要联网的操作会降级"
+    return 0
   fi
+}
+
+restore_secrets() {
+  # 密钥不入库：放在 <workspace>/.secrets/alpha.env（KEY=VALUE，chmod 600）。
+  # 找不到也不影响启动 —— shell/app.py 对上游 startup 做了启动解耦，
+  # 缺 key 时服务能起，只有真正调用模型才报错。
+  local candidates=(
+    "/sandbox/workspace/.secrets/alpha.env"
+    "${HOME}/.alpha/env"
+  )
+  local path
+  for path in "${candidates[@]}"; do
+    if [[ -f "${path}" ]]; then
+      set -a
+      # shellcheck disable=SC1090
+      . "${path}"
+      set +a
+      info "已加载密钥：${path}（$(grep -c '=' "${path}" 2>/dev/null || echo 0) 项，值不打印）"
+      return 0
+    fi
+  done
+  info "未找到 .secrets/alpha.env —— 跳过（服务仍可启动，调用模型时才报缺 key）"
 }
 
 info "环境恢复开始（仓库：${ROOT}）"
@@ -131,5 +184,6 @@ install_gh
 restore_credentials
 setup_git
 restore_python_deps
+restore_secrets
 verify
 info "完成。可运行 gh auth status / git push 校验。"

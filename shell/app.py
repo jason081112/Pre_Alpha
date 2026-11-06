@@ -30,6 +30,17 @@ os.chdir(VENDOR)
 if str(VENDOR) not in sys.path:
     sys.path.insert(0, str(VENDOR))
 
+# ── 启动解耦（#92 尾巴）──────────────────────────────────────────
+# 上游 startup 会**无条件**创建一次默认 LLM 客户端（providers/registry.get_llm("openai")
+# 读 OPENAI_API_KEY），缺失直接 raise 退出。但那个客户端随即被 RoutingLLMClient 替换，
+# 这次创建只是流程占位 —— 不该因为没 key 就起不来。
+# 没有 key 时注入占位符：服务能起、能看状态；真正缺 key 会在第一次调用模型时报错。
+if not os.environ.get("OPENAI_API_KEY", "").strip():
+    os.environ["OPENAI_API_KEY"] = "alpha-placeholder-startup-only"
+    _KEY_PLACEHOLDER = True
+else:
+    _KEY_PLACEHOLDER = False
+
 import main as upstream  # noqa: E402  （必须在 chdir 之后）
 
 from fastapi.responses import JSONResponse  # noqa: E402
@@ -521,6 +532,12 @@ async def _install_routing_client() -> None:
 
     if _STRIPPED:
         print(f"✓ 已封禁上游端点: {', '.join(_STRIPPED)}")
+    if _KEY_PLACEHOLDER:
+        print(
+            "⚠️  未检测到 OPENAI_API_KEY：已注入启动占位符，服务可起但**调用模型会失败**。\n"
+            "   配置方式：export OPENAI_API_KEY=<key>（ollama cloud 也填这个名字），\n"
+            "   或运行 scripts/dev/restore_env.sh 从 .secrets/alpha.env 恢复。"
+        )
     print(
         f"✓ Alpha 路由已接管: {len(list(registry.specs()))} 个 provider, "
         f"dev_route={DEV_ROUTE or '未设置'}"
