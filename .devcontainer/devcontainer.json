@@ -1,0 +1,27 @@
+{
+  "name": "Pre_Alpha",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "containerEnv": {
+    "ALPHA_PORT": "8000",
+    "ALPHA_HOST": "0.0.0.0",
+    "ALPHA_DATA_DIR": "/tmp/alpha",
+    "ALPHA_REQUIRE_INVITE": "0"
+  },
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": {
+      "label": "Alpha",
+      "visibility": "public",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": "pip install --quiet fastapi 'uvicorn[standard]' httpx websockets python-dotenv python-frontmatter pyyaml jsonschema openai anthropic aiosqlite apscheduler pillow edge-tts cryptography",
+  "postStartCommand": "echo '启动：cd /workspaces/Pre_Alpha && python3 -m shell.app'",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python3"
+      }
+    }
+  }
+}
