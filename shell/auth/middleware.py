@@ -37,6 +37,7 @@ _PROTECTED_EXACT = {
 _PROTECTED_PREFIXES = (
     "/api/me/",
     "/api/chat/history/",
+    "/api/export/",
     "/api/session/",
     "/api/routes/",
     "/v1/",

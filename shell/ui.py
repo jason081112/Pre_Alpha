@@ -218,6 +218,7 @@ footer {
   <header>
     <span class="name" id="personaName">聊天</span>
     <select id="personaSelect" aria-label="选择人格"></select>
+    <button type="button" id="exportBtn" title="导出这段对话">导出</button>
     <button type="button" id="dbgBtn" title="导出事件日志">日志</button>
     <button type="button" id="logoutBtn">退出</button>
   </header>
@@ -627,6 +628,33 @@ footer {
   textEl.addEventListener("input", function () {
     textEl.style.height = "auto";
     textEl.style.height = Math.min(textEl.scrollHeight, 120) + "px";
+  });
+
+  /* ── 导出对话（#50）── */
+  $("exportBtn").addEventListener("click", function () {
+    if (!state.personaId) return;
+    var url = "/api/export/chat/" + encodeURIComponent(state.personaId) +
+      "?client_id=" + encodeURIComponent(state.clientId) + "&format=md";
+    dbg("ui.export_chat", { persona: state.personaId, format: "md" });
+    fetch(url, { headers: authHeaders({}) })
+      .then(function (res) {
+        if (!res.ok) throw new Error("导出失败（" + res.status + "）");
+        var name = "alpha-" + state.personaId + ".md";
+        var cd = res.headers.get("content-disposition") || "";
+        var hit = /filename="([^"]+)"/.exec(cd);
+        if (hit) name = hit[1];
+        return res.blob().then(function (blob) {
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+          addSystem("已导出 " + name);
+        });
+      })
+      .catch(function (e) { addSystem(e.message || "导出失败"); });
   });
 
   /* ── 日志按钮 ── */

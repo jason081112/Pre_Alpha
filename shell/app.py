@@ -84,6 +84,7 @@ from shell.routing import (  # noqa: E402
     routing_context,
 )
 from shell.store import RoutingStore  # noqa: E402
+from shell.export_api import build_export_router  # noqa: E402
 from shell.ui import build_ui_router  # noqa: E402
 from shell.ws_stream import build_stream_ws_router  # noqa: E402
 
@@ -378,6 +379,9 @@ app.include_router(build_stream_ws_router(upstream))
 
 # 聊天页（#46）：单文件 HTML，接 /ws/chat/stream
 app.include_router(build_ui_router())
+
+# 对话导出（#50）：Markdown / JSON
+app.include_router(build_export_router(upstream))
 
 
 def _user_of(scope: dict) -> str:
