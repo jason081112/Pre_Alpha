@@ -249,7 +249,10 @@ footer {
     currentBubble: null,
     currentSegment: -1,
     seenChunks: 0,
-    unanswered: 0
+    unanswered: 0,
+    switching: false,
+    needResync: false,
+    lastMsgKey: ""
   };
 
   if (!state.clientId) {
@@ -438,13 +441,39 @@ footer {
   }
 
   $("personaSelect").addEventListener("change", function (ev) {
-    dbg("ui.switch_persona", { from: state.personaId, to: ev.target.value });
-    state.personaId = ev.target.value;
-    localStorage.setItem(PERSONA_KEY, state.personaId);
-    $("personaName").textContent = state.personaId;
-    resetConversation();
-    loadHistory();
+    switchPersona(ev.target.value);
   });
+
+  /* 切人格 = 换一段关系：
+     - 旧 WS 上可能还有上一轮的 chunk 在飞，直接重连把它掐掉
+     - 服务端 session 也要重建（否则上游会复用旧 agent，人格不换） */
+  function switchPersona(nextId) {
+    var prev = state.personaId;
+    if (nextId === prev) return;
+    dbg("ui.switch_persona", { from: prev, to: nextId });
+
+    state.personaId = nextId;
+    localStorage.setItem(PERSONA_KEY, nextId);
+    $("personaName").textContent = nextId;
+
+    state.switching = true;
+    state.needResync = false;
+    state.unanswered = 0;
+    state.lastMsgKey = "";
+    setTyping(false);
+
+    if (state.ws) {
+      try { state.ws.close(); } catch (e) {}
+      state.ws = null;
+    }
+    clearTimeout(state.reconnectTimer);
+
+    resetConversation();
+    loadHistory().then(function () {
+      state.switching = false;
+      connect();
+    });
+  }
 
   function resetConversation() {
     logEl.textContent = "";
@@ -454,9 +483,10 @@ footer {
   }
 
   /* ── 历史 ── */
-  function loadHistory() {
+  function loadHistory(opts) {
+    var silent = !!(opts && opts.silent);
     if (!state.personaId) return Promise.resolve();
-    resetConversation();
+    if (!silent) resetConversation();
     return api(
       "/api/chat/history/" + encodeURIComponent(state.personaId) +
       "?client_id=" + encodeURIComponent(state.clientId) + "&limit=60"
@@ -464,6 +494,13 @@ footer {
       .then(function (r) { return r.ok ? r.json() : { messages: [] }; })
       .then(function (data) {
         var msgs = data.messages || [];
+        var key = msgs.length
+          ? msgs[0].id + ":" + msgs[msgs.length - 1].id + ":" + msgs.length
+          : "empty";
+        if (silent && key === state.lastMsgKey) return false;  // 服务端没有新消息
+        state.lastMsgKey = key;
+
+        if (silent) resetConversation();   // 有变化才重绘
         if (!msgs.length) {
           addSystem("开始聊天吧");
           return;
@@ -471,8 +508,9 @@ footer {
         msgs.forEach(function (m) {
           addBubble(m.role === "user" ? "me" : "them", m.content);
         });
+        return true;
       })
-      .catch(function () { addSystem("历史加载失败"); });
+      .catch(function () { if (!silent) addSystem("历史加载失败"); return false; });
   }
 
   /* ── WebSocket ── */
@@ -482,14 +520,50 @@ footer {
       encodeURIComponent(state.token);
   }
 
+  /* 断线重连后对齐历史：服务端那一轮可能已经跑完并落了库，
+     但 chunk 都发在断掉的连接上，前端什么都没收到。
+     这里轮询几次历史，拿到就把界面补上。 */
+  function resyncAfterReconnect(pending) {
+    var tries = 0;
+    function attempt() {
+      loadHistory({ silent: true }).then(function (changed) {
+        if (changed) {
+          // 拿到了断线期间生成的回复
+          state.unanswered = 0;
+          setTyping(false);
+          addSystem("已重新连接");
+          return;
+        }
+        if (pending && tries < 5) {
+          tries += 1;
+          setTimeout(attempt, 4000);
+          return;
+        }
+        state.unanswered = 0;
+        setTyping(false);
+        addSystem("已重新连接");
+      });
+    }
+    attempt();
+  }
+
   function connect() {
     if (state.ws && state.ws.readyState <= 1) return;
     var ws = new WebSocket(wsUrl());
     state.ws = ws;
 
     ws.onopen = function () {
-      dbg("ws.open", { url: wsUrl().replace(/token=[^&]+/, "token=***") });
-      addSystem("已连接");
+      dbg("ws.open", {
+        url: wsUrl().replace(/token=[^&]+/, "token=***"),
+        resync: state.needResync,
+        unanswered: state.unanswered
+      });
+      if (state.needResync) {
+        state.needResync = false;
+        resyncAfterReconnect(state.unanswered > 0);
+      } else {
+        addSystem("已连接");
+      }
     };
 
     ws.onmessage = function (ev) {
@@ -506,8 +580,16 @@ footer {
         clearSession();
         return;
       }
+      if (state.switching) {
+        // 主动切换人格断开的，不重连也不提示
+        return;
+      }
       if (state.token) {
-        dbg("ws.reconnect_scheduled", { unanswered: state.unanswered, in_ms: 3000 });
+        // 还有没等到回复的消息 → 重连后要补历史，否则用户看着像「发了没人理」
+        if (state.unanswered > 0) state.needResync = true;
+        dbg("ws.reconnect_scheduled", {
+          unanswered: state.unanswered, in_ms: 3000, reason: "unclean close"
+        });
         addSystem("连接断开，3 秒后重连");
         clearTimeout(state.reconnectTimer);
         state.reconnectTimer = setTimeout(connect, 3000);

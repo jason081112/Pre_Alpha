@@ -60,6 +60,7 @@ def build_stream_ws_router(
         pending = asyncio.Event()
         typing_active = False
         session_id: str | None = None
+        session_persona: str | None = None
         agent = None
         closed = False
 
@@ -73,7 +74,7 @@ def build_stream_ws_router(
                 closed = True
 
         async def run_turn(msgs: list[dict]) -> None:
-            nonlocal session_id, agent
+            nonlocal session_id, session_persona, agent
             first = msgs[0]
             persona_id = str(first.get("persona_id") or "").strip()
             text = "\n".join(str(m.get("content") or "").strip() for m in msgs).strip()
@@ -82,6 +83,13 @@ def build_stream_ws_router(
             user_name = first.get("user_name")
             # client_id 决定历史命名空间；未带则按用户兜底，保证能落盘与恢复
             client_id = str(first.get("client_id") or f"ws:{user}").strip()[:128]
+
+            # 上游 get_or_create_session 只按 session_id 复用，**不校验 persona**：
+            # 同一连接里换了人格，会把旧 agent 原样返回（人格没变、历史串台）。
+            # 这里按人格重建会话，绕开那个行为。
+            if session_persona is not None and session_persona != persona_id:
+                session_id = None
+            session_persona = persona_id
 
             try:
                 session_id, agent = upstream.get_or_create_session(
@@ -289,11 +297,16 @@ def build_stream_ws_router(
             pass
         finally:
             closed = True
-            worker_task.cancel()
-            try:
-                await worker_task
-            except (asyncio.CancelledError, Exception):  # noqa: BLE001
-                pass
+            pending.set()  # 唤醒可能正卡在 wait 上的 worker，让它看到 closed 退出
+            if not worker_task.done():
+                # 关键：客户端断开时**不要立刻取消正在跑的一轮**。
+                # 那一轮还在等 LLM，取消掉就等于「消息发出去了，但什么都没发生」——
+                # 而 chat_log 也没写，前端重连后连历史都补不回来（#98 第 6 条）。
+                # 给它最多 90 秒收尾；期间的 send 已被 closed 短路，不会报错。
+                try:
+                    await asyncio.wait_for(asyncio.shield(worker_task), timeout=90)
+                except (asyncio.TimeoutError, asyncio.CancelledError, Exception):  # noqa: BLE001
+                    worker_task.cancel()
             try:
                 await ws.close()
             except Exception:  # noqa: BLE001
