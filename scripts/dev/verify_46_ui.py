@@ -128,6 +128,10 @@ def check_page(base: str) -> tuple[str, str]:
     ):
         record(f"9b 事件日志：{name}", token in html)
     record("10 页面用 /api/chat/history", "/api/chat/history/" in html)
+
+    # 打字指示器在气泡流里，不是底部一行小字（#98 第 2 条）
+    record("10b 指示器是气泡（bubble typing）", "bubble typing" in html)
+    record("10c 不再有底部条状指示器", 'id="typing"' not in html)
     return html, nonce
 
 

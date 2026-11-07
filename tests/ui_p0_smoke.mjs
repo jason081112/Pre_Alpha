@@ -28,9 +28,14 @@ function el(id) {
   const node = {
     id, hidden: false, value: "", style: {}, scrollTop: 0, scrollHeight: 100,
     children: [], className: "",
-    appendChild(c) { this.children.push(c); return c; },
+    appendChild(c) { c.parentNode = this; this.children.push(c); return c; },
+    removeChild(c) {
+      const i = this.children.indexOf(c);
+      if (i >= 0) this.children.splice(i, 1);
+      if (c) c.parentNode = null;
+    },
     addEventListener(t, fn) { listeners.set(id + ":" + t, fn); },
-    focus() {}, click() {}, removeChild() {},
+    focus() {}, click() {},
   };
   // 真浏览器的 textContent="" 会清空子节点，stub 也要照做，否则测不出「切人格清屏」
   let tc = "";
@@ -118,7 +123,25 @@ check("切人格后清屏（只剩系统提示）", logEl.children.length <= 1,
   `children=${logEl.children.length}`);
 check("新 WS 用的是 stream 地址", sockets.at(-1).url.includes("/ws/chat/stream"));
 
-// ── 2. 断线重连补历史 ──────────────────────────────────────────
+// ── 2. 打字指示器（#98 第 2 条）─────────────────────────────────
+const isTypingBubble = (node) =>
+  node.className === "row them" &&
+  node.children[0] &&
+  /typing/.test(node.children[0].className || "");
+
+els.get("text").value = "在吗";
+listeners.get("send:click")();
+await sleep(60);
+check("发送后出现打字气泡", logEl.children.some(isTypingBubble),
+  `children=${logEl.children.length}`);
+
+sockets.at(-1).onmessage({
+  data: JSON.stringify({ type: "chunk", content: "在", index: 0, segment: 0 }),
+});
+await sleep(60);
+check("收到首字后打字气泡消失", !logEl.children.some(isTypingBubble));
+
+// ── 3. 断线重连补历史 ──────────────────────────────────────────
 els.get("text").value = "断线测试";
 listeners.get("send:click")();
 await sleep(100);

@@ -146,23 +146,26 @@ header button { padding: 7px 10px; font-size: 13px; }
 .them .bubble { background: var(--bubble-them); border-bottom-left-radius: 5px; }
 .sys { color: var(--muted); font-size: 12px; text-align: center; width: 100%; }
 
-#typing {
-  padding: 0 14px 6px;
-  color: var(--muted);
-  font-size: 13px;
-  height: 22px;
+/* 正在输入：做成对话流里的一个空气泡，而不是底部一行小字 */
+.bubble.typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 13px 15px;
 }
-#typing .dot {
-  display: inline-block;
-  width: 4px; height: 4px;
-  margin-right: 3px;
+.bubble.typing i {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: currentColor;
-  animation: blink 1.2s infinite;
+  background: #c9d1e0;
+  animation: hop 1s infinite ease-in-out;
 }
-#typing .dot:nth-child(2) { animation-delay: .2s; }
-#typing .dot:nth-child(3) { animation-delay: .4s; }
-@keyframes blink { 0%, 60%, 100% { opacity: .25; } 30% { opacity: 1; } }
+.bubble.typing i:nth-child(2) { animation-delay: .15s; }
+.bubble.typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes hop {
+  0%, 60%, 100% { transform: translateY(0); opacity: .45; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
 
 footer {
   display: flex;
@@ -223,7 +226,6 @@ footer {
     <button type="button" id="logoutBtn">退出</button>
   </header>
   <div id="log"></div>
-  <div id="typing" hidden><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
   <footer>
     <textarea id="text" rows="1" placeholder="说点什么…"></textarea>
     <button type="button" id="send">发送</button>
@@ -321,11 +323,27 @@ footer {
 
   var $ = function (id) { return document.getElementById(id); };
   var logEl = $("log");
-  var typingEl = $("typing");
   var textEl = $("text");
+  var typingRow = null;
 
+  /* 正在输入 = 对话流里一个空气泡。放在底部一行字上，用户视线根本扫不到。 */
   function setTyping(on) {
-    typingEl.hidden = !on;
+    if (on) {
+      if (typingRow) return;
+      typingRow = document.createElement("div");
+      typingRow.className = "row them";
+      var b = document.createElement("div");
+      b.className = "bubble typing";
+      for (var i = 0; i < 3; i++) b.appendChild(document.createElement("i"));
+      typingRow.appendChild(b);
+      logEl.appendChild(typingRow);
+      scrollDown();
+      return;
+    }
+    if (typingRow) {
+      if (typingRow.parentNode) typingRow.parentNode.removeChild(typingRow);
+      typingRow = null;
+    }
   }
 
   function scrollDown() {
