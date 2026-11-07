@@ -183,6 +183,22 @@ footer {
 }
 #text:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 #send { background: var(--accent); border-color: transparent; color: #0b1020; font-weight: 650; }
+#dbgBtn { font-size: 12px; padding: 6px 9px; }
+#dbg {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  max-height: 38vh;
+  overflow: auto;
+  margin: 0;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, .94);
+  color: #9fe8b0;
+  font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+  border-top: 1px solid #2a3a2e;
+  z-index: 99;
+}
 </style>
 </head>
 <body>
@@ -202,6 +218,7 @@ footer {
   <header>
     <span class="name" id="personaName">聊天</span>
     <select id="personaSelect" aria-label="选择人格"></select>
+    <button type="button" id="dbgBtn" title="导出事件日志">日志</button>
     <button type="button" id="logoutBtn">退出</button>
   </header>
   <div id="log"></div>
@@ -211,6 +228,7 @@ footer {
     <button type="button" id="send">发送</button>
   </footer>
 </section>
+<pre id="dbg" hidden></pre>
 
 <script nonce="__CSP_NONCE__">
 (function () {
@@ -229,7 +247,8 @@ footer {
     reconnectTimer: null,
     currentBubble: null,
     currentSegment: -1,
-    seenChunks: 0
+    seenChunks: 0,
+    unanswered: 0
   };
 
   if (!state.clientId) {
@@ -237,6 +256,63 @@ footer {
       ? crypto.randomUUID()
       : "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
     localStorage.setItem(CLIENT_KEY, state.clientId);
+  }
+
+  /* ── 事件日志（#98）：把发生过的事记下来，出问题能回看 ── */
+  var DBG_KEY = "alpha.debug";
+  var DBG_MAX = 800;
+  var DBG_PANEL = /[?&]debug=1/.test(location.search);
+  var dbgBuf = [];
+  try { dbgBuf = JSON.parse(localStorage.getItem(DBG_KEY) || "[]"); } catch (e) { dbgBuf = []; }
+  if (!dbgBuf.length) dbgBuf = [];
+  var dbgDirty = false;
+  var dbgTimer = null;
+  var dbgEl = null;
+
+  function flushDbg() {
+    dbgTimer = null;
+    if (!dbgDirty) return;
+    dbgDirty = false;
+    try {
+      localStorage.setItem(DBG_KEY, JSON.stringify(dbgBuf));
+    } catch (e) {
+      // 配额满了：丢一半再来一次
+      dbgBuf = dbgBuf.slice(-Math.floor(DBG_MAX / 2));
+      try { localStorage.setItem(DBG_KEY, JSON.stringify(dbgBuf)); } catch (e2) {}
+    }
+  }
+
+  function dbg(k, d) {
+    dbgBuf.push({ t: Date.now(), k: k, d: d || null });
+    if (dbgBuf.length > DBG_MAX) dbgBuf.splice(0, dbgBuf.length - DBG_MAX);
+    dbgDirty = true;
+    if (!dbgTimer) dbgTimer = setTimeout(flushDbg, 800);
+    if (DBG_PANEL) renderDbg();
+  }
+
+  function renderDbg() {
+    if (!dbgEl) dbgEl = document.getElementById("dbg");
+    if (!dbgEl) return;
+    var tail = dbgBuf.slice(-14).map(function (e) {
+      var d = e.d ? JSON.stringify(e.d) : "";
+      if (d.length > 120) d = d.slice(0, 120) + "…";
+      return new Date(e.t).toTimeString().slice(0, 8) + "  " + e.k + "  " + d;
+    });
+    dbgEl.textContent = tail.join("\n");
+    dbgEl.scrollTop = dbgEl.scrollHeight;
+  }
+
+  function exportDbg() {
+    flushDbg();
+    var stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    var blob = new Blob([JSON.stringify(dbgBuf, null, 2)], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "alpha-debug-" + stamp + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
   }
 
   var $ = function (id) { return document.getElementById(id); };
@@ -286,6 +362,7 @@ footer {
       opts.body = JSON.stringify(opts.body);
     }
     return fetch(path, opts).then(function (res) {
+      dbg("http", { path: path.split("?")[0], status: res.status });
       if (res.status === 401) {
         clearSession();
         throw new Error("登录已过期");
@@ -321,6 +398,7 @@ footer {
         });
       })
       .then(function (data) {
+        dbg("auth.login", { ok: true });
         state.token = data.access_token;
         localStorage.setItem(TOKEN_KEY, state.token);
         return boot();
@@ -359,6 +437,7 @@ footer {
   }
 
   $("personaSelect").addEventListener("change", function (ev) {
+    dbg("ui.switch_persona", { from: state.personaId, to: ev.target.value });
     state.personaId = ev.target.value;
     localStorage.setItem(PERSONA_KEY, state.personaId);
     $("personaName").textContent = state.personaId;
@@ -408,16 +487,18 @@ footer {
     state.ws = ws;
 
     ws.onopen = function () {
+      dbg("ws.open", { url: wsUrl().replace(/token=[^&]+/, "token=***") });
       addSystem("已连接");
     };
 
     ws.onmessage = function (ev) {
       var msg;
-      try { msg = JSON.parse(ev.data); } catch (e) { return; }
+      try { msg = JSON.parse(ev.data); } catch (e) { dbg("recv.bad", { raw: String(ev.data).slice(0, 200) }); return; }
       handle(msg);
     };
 
     ws.onclose = function (ev) {
+      dbg("ws.close", { code: ev.code, reason: ev.reason, wasClean: ev.wasClean, buffered: state.unanswered });
       state.ws = null;
       setTyping(false);
       if (ev.code === 1008) {
@@ -425,13 +506,16 @@ footer {
         return;
       }
       if (state.token) {
+        dbg("ws.reconnect_scheduled", { unanswered: state.unanswered, in_ms: 3000 });
         addSystem("连接断开，3 秒后重连");
         clearTimeout(state.reconnectTimer);
         state.reconnectTimer = setTimeout(connect, 3000);
       }
     };
 
-    ws.onerror = function () { /* onclose 会接手 */ };
+    ws.onerror = function () {
+      dbg("ws.error", { readyState: ws.readyState });
+    };
   }
 
   function newBubble() {
@@ -447,6 +531,19 @@ footer {
   }
 
   function handle(msg) {
+    if (msg.type === "chunk") {
+      dbg("recv.chunk", { s: msg.segment, i: msg.index, n: (msg.content || "").length, c: msg.content });
+    } else if (msg.type === "chat_end") {
+      dbg("recv.chat_end", {
+        chunks: msg.chunks, segs: (msg.segments || []).length,
+        first_chunk_ms: msg.first_chunk_ms, elapsed_ms: msg.elapsed_ms,
+        reply: msg.reply
+      });
+    } else if (msg.type === "segment_end") {
+      dbg("recv.segment_end", { s: msg.segment, len: (msg.reply || "").length, pause_ms: msg.pause_ms });
+    } else {
+      dbg("recv." + msg.type, msg.content ? { content: msg.content } : null);
+    }
     switch (msg.type) {
       case "chat_start":
         setTyping(true);
@@ -471,6 +568,7 @@ footer {
         break;
 
       case "chat_end":
+        state.unanswered = Math.max(0, state.unanswered - 1);
         setTyping(false);
         state.currentBubble = null;
         state.currentSegment = -1;
@@ -503,6 +601,11 @@ footer {
     textEl.value = "";
     textEl.style.height = "auto";
     state.seenChunks = 0;
+    state.unanswered += 1;
+    dbg("send.chat", {
+      content: text, persona: state.personaId,
+      client_id: state.clientId, unanswered: state.unanswered
+    });
     state.ws.send(JSON.stringify({
       type: "chat",
       content: text,
@@ -524,6 +627,23 @@ footer {
   textEl.addEventListener("input", function () {
     textEl.style.height = "auto";
     textEl.style.height = Math.min(textEl.scrollHeight, 120) + "px";
+  });
+
+  /* ── 日志按钮 ── */
+  $("dbgBtn").addEventListener("click", function () {
+    exportDbg();
+    addSystem("日志已导出（" + dbgBuf.length + " 条）");
+  });
+
+  if (DBG_PANEL) {
+    var panel = $("dbg");
+    if (panel) { panel.hidden = false; renderDbg(); }
+  }
+  dbg("app.start", {
+    debug_panel: DBG_PANEL,
+    has_token: !!state.token,
+    persona: state.personaId || null,
+    client_id: state.clientId
   });
 
   /* ── 启动 ── */

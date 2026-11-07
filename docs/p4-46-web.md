@@ -63,6 +63,41 @@ base-uri 'none'; form-action 'self'; frame-ancestors 'none'
 
 **已知待办**：token 存 `localStorage`，XSS 可读。#82 会换成 HttpOnly cookie + CSRF。
 
+## 4b. 事件日志（#98）
+
+页面上发生过的事都记下来，出问题能回看——**默认开启**，不上报服务器。
+
+```json
+{"t": 1762500000123, "k": "ws.close", "d": {"code": 1006, "reason": "", "wasClean": false, "buffered": 1}}
+```
+
+| 事件 | 数据 |
+|---|---|
+| `app.start` | 是否带 token、当前人格、client_id |
+| `auth.login` | 成功与否 |
+| `ws.open` / `ws.close` / `ws.error` | code、reason、readyState、**未回复消息数** |
+| `ws.reconnect_scheduled` | 未回复消息数、重连延迟 |
+| `send.chat` | 原文、persona、client_id、累计未回复数 |
+| `recv.chunk` | segment、index、长度、内容 |
+| `recv.segment_end` / `recv.chat_end` | 段数、first_chunk_ms、elapsed_ms、全文 |
+| `recv.bad` | 无法解析的原始报文 |
+| `http` | 路径（去掉 query）、状态码 |
+| `ui.switch_persona` | from / to |
+
+存储：`localStorage["alpha.debug"]`，环形 800 条（约 13 轮对话），先丢最旧。
+
+导出：顶栏「日志」按钮 → 下载 `alpha-debug-<时间>.json`。
+
+实时面板：URL 加 `?debug=1`，底部显示最近 14 条。
+
+**为什么 `send.chat` 要记 `unanswered`**：#98 第 6 条「断线后消息没回应」，靠这个数能直接看出
+重连时是否还有未完成的一轮。
+
+**为什么 chunk 不抽样**：查「气泡粘连」必须看到每个 chunk 的 `segment`/`index`。
+
+验证：`node tests/ui_debug_smoke.mjs` —— 用最小 DOM stub 跑真实页面脚本，
+断言日志真的写进 localStorage（10/10），而不是只检查某个字符串出现在 HTML 里。
+
 ## 5. 不做的
 
 | 项 | 归谁 |

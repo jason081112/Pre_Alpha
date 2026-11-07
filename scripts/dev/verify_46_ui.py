@@ -116,6 +116,17 @@ def check_page(base: str) -> tuple[str, str]:
         record(f"8 DOM 含 {el}", el in html)
 
     record("9 页面连 /ws/chat/stream", "/ws/chat/stream" in html)
+
+    # 事件日志（#98）
+    for token, name in (
+        ("alpha.debug", "localStorage 键"),
+        ('id="dbgBtn"', "导出按钮"),
+        ('id="dbg"', "实时面板容器"),
+        ("debug=1", "面板开关"),
+        ("recv.chunk", "chunk 记录点"),
+        ("ws.close", "断连记录点"),
+    ):
+        record(f"9b 事件日志：{name}", token in html)
     record("10 页面用 /api/chat/history", "/api/chat/history/" in html)
     return html, nonce
 
