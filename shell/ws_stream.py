@@ -33,10 +33,32 @@ from .stream_parse import ReplyExtractor, SegmentEvent, Segmenter
 
 __all__ = ["build_stream_ws_router"]
 
-# 段间停顿（毫秒）。上游原本固定 300ms；这里可调，上限 2000 避免断太久。
-SEGMENT_PAUSE_MS = max(
-    0, min(2000, int(os.getenv("ALPHA_SEGMENT_PAUSE_MS", "300") or 300))
-)
+# 段间停顿（毫秒）。上游原本固定 300ms —— 每条间隔一模一样，机械感就是这么来的。
+# 真人连发间隔是浮动的：基础 450ms ± 120ms，长段再多 100ms（「她打了很久才发出来」）。
+# 设了 ALPHA_SEGMENT_PAUSE_MS 就用固定值（测试要可复现）。
+PAUSE_OVERRIDE_MS = os.getenv("ALPHA_SEGMENT_PAUSE_MS", "").strip()
+PAUSE_BASE_MS = 450
+PAUSE_JITTER_MS = 120
+PAUSE_MIN_MS = 250
+PAUSE_MAX_MS = 1500
+
+
+def segment_pause(segment_text: str) -> int:
+    """这一段落之后该停多久。
+
+    延迟的是「下一段第一个字」，影响它的是她打了多久，不是上一段多长 ——
+    所以不做精确映射，只给长段一个轻微加成。
+    """
+    if PAUSE_OVERRIDE_MS:
+        try:
+            return max(0, min(2000, int(PAUSE_OVERRIDE_MS)))
+        except ValueError:
+            pass
+    import random
+
+    base = PAUSE_BASE_MS + (100 if len(segment_text or "") > 30 else 0)
+    value = base + random.randint(-PAUSE_JITTER_MS, PAUSE_JITTER_MS)
+    return max(PAUSE_MIN_MS, min(PAUSE_MAX_MS, value))
 
 DEBOUNCE_FALLBACK_SEC = 3.0
 DEBOUNCE_GRACE_SEC = 2.0
@@ -104,7 +126,7 @@ def build_stream_ws_router(
             started = time.monotonic()
             first_chunk_ms: int | None = None
             total_chunks = 0
-            pause_ms = SEGMENT_PAUSE_MS
+            # 每段单独算，见 segment_pause()
             pending_restart = False
 
             async def handle(ev) -> None:
@@ -127,6 +149,7 @@ def build_stream_ws_router(
                         }
                     )
                 else:
+                    pause_ms = segment_pause(ev.text)
                     await send(
                         {
                             "type": "segment_end",
@@ -135,7 +158,7 @@ def build_stream_ws_router(
                             "pause_ms": pause_ms,
                         }
                     )
-                    # 段间停顿 —— 「连发微信」的感觉就来自这里（上游原本也是 300ms）
+                    # 段间停顿 —— 「连发微信」的感觉就来自这里
                     await asyncio.sleep(pause_ms / 1000.0)
                     pending_restart = True
 

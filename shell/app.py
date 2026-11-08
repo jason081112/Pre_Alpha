@@ -29,6 +29,10 @@ if not VENDOR.is_dir():
 os.chdir(VENDOR)
 if str(VENDOR) not in sys.path:
     sys.path.insert(0, str(VENDOR))
+# chdir 之后仓库根可能不在 sys.path 里（取决于怎么启动），
+# 而 shell.persona_repo 要 import bridge.*。缺了会报 ModuleNotFoundError: bridge。
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 # ── 启动解耦（#92 尾巴）──────────────────────────────────────────
 # 上游 startup 会**无条件**创建一次默认 LLM 客户端（providers/registry.get_llm("openai")

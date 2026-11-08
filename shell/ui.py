@@ -35,7 +35,7 @@ APP_HTML = r"""<!doctype html>
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html, body { height: 100%; }
+html, body { height: 100%; height: 100dvh; }
 body {
   margin: 0;
   background: var(--bg);
@@ -105,8 +105,7 @@ header {
   gap: 10px;
   padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
   border-bottom: 1px solid var(--line);
-  background: rgba(23, 26, 33, .92);
-  backdrop-filter: blur(8px);
+  background: #171a21;
 }
 header .name { font-weight: 600; flex: 1; }
 header select {
@@ -177,6 +176,8 @@ footer {
 #text {
   flex: 1;
   min-height: 42px;
+  font-size: 16px;
+  line-height: 1.4;
   max-height: 120px;
   padding: 11px 14px;
   border: 1px solid var(--line);
@@ -227,7 +228,7 @@ footer {
   </header>
   <div id="log"></div>
   <footer>
-    <textarea id="text" rows="1" placeholder="说点什么…"></textarea>
+    <textarea id="text" rows="1" placeholder="说点什么…" enterkeyhint="send"></textarea>
     <button type="button" id="send">发送</button>
   </footer>
 </section>
@@ -701,6 +702,7 @@ footer {
     addBubble("me", text);
     textEl.value = "";
     textEl.style.height = "auto";
+    lastHeight = 0;
     state.seenChunks = 0;
     state.unanswered += 1;
     dbg("send.chat", {
@@ -725,9 +727,22 @@ footer {
       send();
     }
   });
+  // 每次输入都读 scrollHeight 会强制同步布局，手机上就是那种「卡一下」。
+  // 折到 rAF 里，且高度没变就不写 style。
+  var heightPending = false;
+  var lastHeight = 0;
   textEl.addEventListener("input", function () {
-    textEl.style.height = "auto";
-    textEl.style.height = Math.min(textEl.scrollHeight, 120) + "px";
+    if (heightPending) return;
+    heightPending = true;
+    requestAnimationFrame(function () {
+      heightPending = false;
+      textEl.style.height = "auto";
+      var h = Math.min(textEl.scrollHeight, 120);
+      if (h !== lastHeight) {
+        lastHeight = h;
+        textEl.style.height = h + "px";
+      }
+    });
   });
 
   /* ── 导出对话（#50）── */

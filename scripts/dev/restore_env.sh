@@ -157,6 +157,29 @@ PY
   fi
 }
 
+restore_venv() {
+  # 坑（2026-11-08 踩过）：venv 绝不能放 /sandbox/workspace。
+  # 那是 overlay 文件系统，stat 极慢 —— import fastapi 会卡在
+  # _bootstrap_external._path_stat 上几分钟甚至不返回。
+  # 放 /tmp（容器内层，快），代价是重建后要重装，本函数负责这件事。
+  local venv="${ALPHA_VENV:-/tmp/venv}"
+  if [ -x "${venv}/bin/python" ] && "${venv}/bin/python" -c "import fastapi, httpx, websockets" >/dev/null 2>&1; then
+    info "venv 就绪：${venv}"
+    return 0
+  fi
+  info "创建 venv：${venv}（首次约 1–2 分钟）"
+  python3 -m venv "${venv}" >/dev/null 2>&1 || {
+    info "WARN: venv 创建失败，回退到系统 pip"
+    return 0
+  }
+  "${venv}/bin/pip" install -q \
+    fastapi "uvicorn[standard]" httpx websockets python-dotenv \
+    python-frontmatter pyyaml jsonschema openai anthropic aiosqlite \
+    apscheduler pillow edge-tts cryptography \
+    -i https://mirrors.aliyun.com/pypi/simple/ >/dev/null 2>&1 && \
+    info "venv 依赖已装好：${venv}"
+}
+
 restore_secrets() {
   # 密钥不入库：放在 <workspace>/.secrets/alpha.env（KEY=VALUE，chmod 600）。
   # 找不到也不影响启动 —— shell/app.py 对上游 startup 做了启动解耦，
@@ -184,6 +207,7 @@ install_gh
 restore_credentials
 setup_git
 restore_python_deps
+restore_venv
 restore_secrets
 verify
 info "完成。可运行 gh auth status / git push 校验。"
