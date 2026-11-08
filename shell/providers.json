@@ -5,50 +5,108 @@
       "upstream": "openai",
       "base_url": "https://ollama.com/v1",
       "api_key_env": "OPENAI_API_KEY",
-      "models": ["gemma4:31b", "glm-5.3", "glm-5.3-flash", "kimi-k3", "deepseek-v4.1-flash"],
-      "caps": ["zh", "chat"]
+      "models": [
+        "gemma4:31b",
+        "glm-5.3",
+        "glm-5.3-flash",
+        "kimi-k3",
+        "deepseek-v4.1-flash"
+      ],
+      "caps": [
+        "zh",
+        "chat"
+      ]
     },
     "openai": {
       "upstream": "openai",
       "base_url": "https://api.openai.com/v1",
       "api_key_env": "OPENAI_API_KEY",
-      "models": ["gpt-4o", "gpt-4o-mini"],
-      "caps": ["zh", "json", "tools"]
+      "models": [
+        "gpt-4o",
+        "gpt-4o-mini"
+      ],
+      "caps": [
+        "zh",
+        "json",
+        "tools"
+      ]
     },
     "deepseek": {
       "upstream": "openai",
       "base_url": "https://api.deepseek.com/v1",
       "api_key_env": "DEEPSEEK_API_KEY",
-      "models": ["deepseek-chat", "deepseek-reasoner"],
-      "caps": ["zh", "chat"]
+      "models": [
+        "deepseek-chat",
+        "deepseek-reasoner"
+      ],
+      "caps": [
+        "zh",
+        "chat"
+      ]
     },
     "moonshot": {
       "upstream": "moonshot",
       "base_url": "https://api.moonshot.cn/v1",
       "api_key_env": "MOONSHOT_API_KEY",
-      "models": ["moonshot-v1-auto"],
-      "caps": ["zh", "long"]
+      "models": [
+        "moonshot-v1-auto"
+      ],
+      "caps": [
+        "zh",
+        "long"
+      ]
     },
     "dashscope": {
       "upstream": "dashscope",
       "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
       "api_key_env": "DASHSCOPE_API_KEY",
-      "models": ["qwen-max", "qwen-plus"],
-      "caps": ["zh", "tools"]
+      "models": [
+        "qwen-max",
+        "qwen-plus"
+      ],
+      "caps": [
+        "zh",
+        "tools"
+      ]
     },
     "gemini": {
       "upstream": "gemini",
       "base_url": "",
       "api_key_env": "GEMINI_API_KEY",
-      "models": ["gemini-3.1-flash-lite-preview"],
-      "caps": ["zh", "long"]
+      "models": [
+        "gemini-3.1-flash-lite-preview"
+      ],
+      "caps": [
+        "zh",
+        "long"
+      ]
     },
     "claude": {
       "upstream": "claude",
       "base_url": "",
       "api_key_env": "ANTHROPIC_API_KEY",
-      "models": ["claude-haiku-4-5-20251001"],
-      "caps": ["zh", "tools"]
+      "models": [
+        "claude-haiku-4-5-20251001"
+      ],
+      "caps": [
+        "zh",
+        "tools"
+      ]
+    },
+    "zhipu": {
+      "upstream": "openai",
+      "base_url": "https://open.bigmodel.cn/api/paas/v4",
+      "api_key_env": "ZHIPU_API_KEY",
+      "models": [
+        "glm-4.7-flash",
+        "glm-4-flash",
+        "glm-4-plus"
+      ],
+      "caps": [
+        "zh",
+        "chat"
+      ],
+      "max_tokens": 3072
     }
   }
 }

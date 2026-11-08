@@ -255,7 +255,12 @@ class RoutingLLMClient:
         )
         client = self._clients.get(key)
         if client is None:
-            client = self._factory(spec, route, self.temperature, self.max_tokens)
+            client = self._factory(
+                spec,
+                route,
+                self.temperature,
+                spec.max_tokens or self.max_tokens,
+            )
             if len(self._clients) >= self._max_cached:
                 self._clients.pop(next(iter(self._clients)))
             self._clients[key] = client

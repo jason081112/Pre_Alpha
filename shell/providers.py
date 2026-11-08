@@ -55,6 +55,9 @@ class ProviderSpec:
     caps: tuple[str, ...]
     api_key: str = ""
     has_key: bool | None = None
+    # reasoning 模型（如 glm-4.7-flash）思维链会吃掉大半额度，
+    # 1024 不够用，content 只剩一个「…」。允许按 provider 覆盖。
+    max_tokens: int | None = None
 
     def available(self) -> bool:
         """当前进程是否具备调用条件（只看 Key 是否存在）。"""
@@ -99,6 +102,11 @@ class Registry:
                 upstream=item.get("upstream") or provider_id,
                 base_url=item.get("base_url") or "",
                 api_key_env=item.get("api_key_env") or "",
+                # 关键：把 key 解析到 spec 上。否则同一 upstream（都是 openai）的不同
+                # provider 会共用 OPENAI_API_KEY —— 智谱的请求拿着 ollama 的 key 去调，
+                # 直接 401。见 #99 实验踩到。
+                api_key=os.getenv(item.get("api_key_env") or "", "").strip(),
+                max_tokens=item.get("max_tokens"),
                 models=tuple(item.get("models") or ()),
                 caps=tuple(item.get("caps") or ()),
             )

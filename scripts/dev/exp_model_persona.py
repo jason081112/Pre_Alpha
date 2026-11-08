@@ -43,7 +43,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-DEFAULT_MODELS = ["gemma4:31b", "glm-5.3", "deepseek-v4.1-flash"]
+DEFAULT_MODELS = ["ollama-cloud/gemma4:31b", "zhipu/glm-4.7-flash"]
 DEFAULT_TURNS = [
     "好的 怎么感觉你一股人机感",
 ]
@@ -58,6 +58,11 @@ def free_port() -> int:
         return s.getsockname()[1]
 
 
+def normalize_route(model: str) -> str:
+    """`gemma4:31b` → `ollama-cloud/gemma4:31b`；已带 provider 的原样返回。"""
+    return model if "/" in model else f"ollama-cloud/{model}"
+
+
 def start_app(tmp: Path, model: str) -> tuple[subprocess.Popen, str]:
     port = free_port()
     env = {
@@ -68,7 +73,7 @@ def start_app(tmp: Path, model: str) -> tuple[subprocess.Popen, str]:
         "ALPHA_AUTH_DB": str(tmp / "a.db"),
         "ALPHA_LIMITS_DB": str(tmp / "l.db"),
         "ALPHA_AGENT_EXTRA_DB": str(tmp / "e.db"),
-        "ALPHA_DEV_ROUTE": f"ollama-cloud/{model}",
+        "ALPHA_DEV_ROUTE": model,
         "ALPHA_PORT": str(port),
         "ALPHA_HOST": "127.0.0.1",
         "PYTHONUNBUFFERED": "1",
@@ -110,8 +115,25 @@ def score(text: str) -> dict:
     }
 
 
+def post_chat(base: str, payload: dict, tries: int = 4) -> httpx.Response:
+    """429/5xx 重试。智谱免费档限流很严（一轮对话引擎要调 5+ 次），退避得够长。"""
+    delay = 15.0
+    resp = None
+    for i in range(tries):
+        resp = httpx.post(base + "/v1/chat/completions", json=payload, timeout=300.0)
+        if resp.status_code == 200:
+            return resp
+        if resp.status_code in (429, 500, 502, 503, 504) and i < tries - 1:
+            print(f"    {resp.status_code} 重试 {i + 1}/{tries - 1}（等 {delay:.0f}s）", flush=True)
+            time.sleep(delay)
+            delay *= 2
+            continue
+        return resp
+    return resp
+
+
 def run_model(model: str, persona: str, turns: list[str], repeat: int) -> list[dict]:
-    tmp = Path(f"/tmp/exp-{model.replace(':', '-')}")
+    tmp = Path(f"/tmp/exp-{model.replace(':', '-').replace('/', '-')}")
     tmp.mkdir(parents=True, exist_ok=True)
     results: list[dict] = []
     proc, base = start_app(tmp, model)
@@ -120,11 +142,7 @@ def run_model(model: str, persona: str, turns: list[str], repeat: int) -> list[d
             messages = []
             for t in turns:
                 messages.append({"role": "user", "content": t})
-                resp = httpx.post(
-                    base + "/v1/chat/completions",
-                    json={"model": persona, "messages": messages},
-                    timeout=240.0,
-                )
+                resp = post_chat(base, {"model": persona, "messages": messages})
                 if resp.status_code != 200:
                     results.append(
                         {"model": model, "round": r, "error": resp.text[:200]}
@@ -187,9 +205,10 @@ def main() -> int:
 
     all_rows: list[dict] = []
     for model in args.models:
-        print(f"→ {model} ...", flush=True)
+        route = normalize_route(model)
+        print(f"→ {route} ...", flush=True)
         try:
-            all_rows.extend(run_model(model, args.persona, args.ask, args.repeat))
+            all_rows.extend(run_model(route, args.persona, args.ask, args.repeat))
         except Exception as exc:  # noqa: BLE001
             print(f"  {model} 失败：{type(exc).__name__}: {exc}")
 
