@@ -43,7 +43,10 @@
   var root = document.getElementById("prealpha");
   if (!root) return;
 
-  var DATA_URL = "data/pre-alpha.json";
+  // 与个人主页共用同一份快照：同源，且由根站每 15 分钟更新一次。
+  // 本地预览或根站暂不可用时，退回仓库内的静态副本。
+  var DATA_URL = "https://jason081112.github.io/data/pre-alpha.json";
+  var LOCAL_DATA_URL = "data/pre-alpha.json";
 
   function el(tag, className, text) {
     var node = document.createElement(tag);
@@ -185,14 +188,21 @@
     root.appendChild(p);
   }
 
-  fetch(DATA_URL, { cache: "no-cache" })
-    .then(function (res) {
+  function load(url) {
+    return fetch(url, { cache: "no-cache" }).then(function (res) {
       if (!res.ok) throw new Error("HTTP " + res.status);
       return res.json();
+    });
+  }
+
+  load(DATA_URL)
+    .catch(function (err) {
+      console.warn("[prealpha] 根站快照不可用，改用本地副本:", err);
+      return load(LOCAL_DATA_URL);
     })
     .then(render)
     .catch(function (err) {
-      console.warn("[prealpha] 加载失败:", err);
+      console.error("[prealpha] 加载失败:", err);
       showFallback();
     });
 })();
