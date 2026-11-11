@@ -140,6 +140,7 @@ code {
 }
 .hl {
   position: relative;
+  isolation: isolate;
   white-space: nowrap;
   color: var(--accent);
 }
