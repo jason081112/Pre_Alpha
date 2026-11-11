@@ -1,0 +1,107 @@
+{
+  "generated_at": "2026-11-11T14:38:30Z",
+  "source": {
+    "repo": "https://github.com/jason081112/Pre_Alpha",
+    "issues": "https://github.com/jason081112/Pre_Alpha/issues",
+    "project": "https://github.com/users/jason081112/projects/1"
+  },
+  "overall": {
+    "total": 98,
+    "closed": 65,
+    "open": 33,
+    "percent": 66.3
+  },
+  "phases": [
+    {
+      "key": "P0",
+      "label": "P0 调研验证",
+      "total": 10,
+      "closed": 10,
+      "percent": 100.0
+    },
+    {
+      "key": "P1",
+      "label": "P1 后端跑通",
+      "total": 18,
+      "closed": 18,
+      "percent": 100.0
+    },
+    {
+      "key": "P2",
+      "label": "P2 蒸馏流水线",
+      "total": 10,
+      "closed": 10,
+      "percent": 100.0
+    },
+    {
+      "key": "P3",
+      "label": "P3 桥接层",
+      "total": 18,
+      "closed": 17,
+      "percent": 94.4
+    },
+    {
+      "key": "P4",
+      "label": "P4 交互层",
+      "total": 22,
+      "closed": 7,
+      "percent": 31.8
+    },
+    {
+      "key": "P5",
+      "label": "P5 隐私合规",
+      "total": 12,
+      "closed": 0,
+      "percent": 0.0
+    },
+    {
+      "key": "P6",
+      "label": "P6 工程基建",
+      "total": 8,
+      "closed": 3,
+      "percent": 37.5
+    }
+  ],
+  "status": {
+    "Todo": 31,
+    "In Progress": 2,
+    "Done": 65
+  },
+  "recent": [
+    {
+      "number": 98,
+      "title": "test: 实机测试问题清单（2026-11-08 Codespace / 手机浏览器 9 项）",
+      "state": "open",
+      "updated_at": "2026-11-08T03:37:10Z",
+      "url": "https://github.com/jason081112/Pre_Alpha/issues/98"
+    },
+    {
+      "number": 50,
+      "title": "会话历史落盘与导出（chat_log_store.py）",
+      "state": "closed",
+      "updated_at": "2026-11-07T16:21:25Z",
+      "url": "https://github.com/jason081112/Pre_Alpha/issues/50"
+    },
+    {
+      "number": 99,
+      "title": "exp: 模型 × 人格表现对照 —— 「傻」是模型问题还是人格问题",
+      "state": "open",
+      "updated_at": "2026-11-07T16:10:25Z",
+      "url": "https://github.com/jason081112/Pre_Alpha/issues/99"
+    },
+    {
+      "number": 97,
+      "title": "fix(routing): 新用户没有默认路由，登录后直接聊会报 route_not_configured",
+      "state": "open",
+      "updated_at": "2026-11-07T15:53:13Z",
+      "url": "https://github.com/jason081112/Pre_Alpha/issues/97"
+    },
+    {
+      "number": 46,
+      "title": "极简 Web 聊天页（单文件 HTML 连 :8000，替代 macOS 客户端）",
+      "state": "closed",
+      "updated_at": "2026-11-06T15:52:41Z",
+      "url": "https://github.com/jason081112/Pre_Alpha/issues/46"
+    }
+  ]
+}

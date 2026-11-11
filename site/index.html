@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1115">
+  <meta name="description" content="Pre_Alpha：把聊天记录蒸馏成一个人格，让它在云端活起来。隐私优先的陪伴 AI，Web/PWA 优先，原始聊天记录不上传。">
+  <title>Pre_Alpha · 把聊天记录蒸馏成一个人格</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">跳到正文</a>
+
+  <div class="page">
+    <header class="nav">
+      <a class="brand" href="#top" aria-label="Pre_Alpha 首页">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>Pre_Alpha</span>
+        <span class="brand-tag">WIP</span>
+      </a>
+      <nav class="nav-links" aria-label="主导航">
+        <a href="#flow">流程</a>
+        <a href="#progress">进度</a>
+        <a href="#story">手记</a>
+        <a href="#thanks">致谢</a>
+      </nav>
+      <a class="btn btn-ghost nav-github" href="https://github.com/jason081112/Pre_Alpha" target="_blank" rel="noopener">GitHub ↗</a>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="live-dot" aria-hidden="true"></span> PRIVACY-FIRST COMPANION AI</p>
+          <h1>把聊天记录，<br>蒸馏成一个<span class="hl">会记得你</span>的人。</h1>
+          <p class="lead">
+            不是再套一层聊天框。Pre_Alpha 把 Distilly 的文本人格，翻译成 OpenHer 引擎听得懂的驱力、种子与记忆，
+            再放进 Web/PWA 里和你说话。
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#flow">看它怎么工作</a>
+            <a class="btn btn-ghost" href="https://github.com/jason081112/Pre_Alpha" target="_blank" rel="noopener">读源码 ↗</a>
+          </div>
+          <ul class="hero-meta" aria-label="项目特征">
+            <li>Web / PWA 优先</li>
+            <li>OpenAI 兼容</li>
+            <li>原文不上传</li>
+          </ul>
+        </div>
+
+        <div class="phone" aria-label="聊天界面预览">
+          <div class="phone-bar">
+            <span class="avatar" aria-hidden="true">岚</span>
+            <div class="phone-title">
+              <strong>小岚</strong>
+              <span>云端引擎 · 在线</span>
+            </div>
+            <span class="phone-menu" aria-hidden="true">···</span>
+          </div>
+          <div class="chat">
+            <div class="row them"><div class="bubble">今天怎么这么晚才回来？</div></div>
+            <div class="row me"><div class="bubble">路上买了点东西，忘了看时间。</div></div>
+            <div class="row them"><div class="bubble">先去洗个热水澡。鞋换好，别又踢在门口。</div></div>
+            <div class="row them typing" aria-label="对方正在输入">
+              <div class="bubble typing"><i></i><i></i><i></i></div>
+            </div>
+          </div>
+          <div class="composer" aria-hidden="true">
+            <span>说点什么…</span>
+            <span class="send">↑</span>
+          </div>
+          <p class="phone-foot">界面预览 · 实际为可运行的 Web 聊天页</p>
+        </div>
+      </section>
+
+      <section class="section" id="flow">
+        <div class="section-head">
+          <p class="eyebrow">FLOWSTEP / 从记录到对话</p>
+          <h2>四步，让一个人格活起来</h2>
+          <p class="section-desc">
+            每一步都有明确的输入、输出和失败方式。不是魔法，是一条可以检查的流水线。
+          </p>
+        </div>
+
+        <div class="flowstep" data-flowstep>
+          <div class="flow-line" aria-hidden="true"><span class="flow-fill"></span></div>
+
+          <article class="fs-step" data-step="1">
+            <span class="fs-num">01</span>
+            <div class="fs-card">
+              <h3>导入记录</h3>
+              <p>你导出的微信 / QQ 文本、CSV、HTML 或 JSON，先在本地规范化。原文不离开设备。</p>
+              <span class="tag">TXT · CSV · HTML · JSON</span>
+            </div>
+          </article>
+
+          <article class="fs-step" data-step="2">
+            <span class="fs-num">02</span>
+            <div class="fs-card">
+              <h3>蒸馏人格</h3>
+              <p>Distilly 拆出六层：硬规则 → 身份 → 表达 → 决策 → 人际 → 纠错。推断必须带依据。</p>
+              <span class="tag">Distilly</span>
+            </div>
+          </article>
+
+          <article class="fs-step" data-step="3">
+            <span class="fs-num">03</span>
+            <div class="fs-card">
+              <h3>桥接</h3>
+              <p>profile2soul 把文本人格翻译成 SOUL.md、style seeds、五维驱力和长期记忆。</p>
+              <span class="tag">profile2soul</span>
+            </div>
+          </article>
+
+          <article class="fs-step" data-step="4">
+            <span class="fs-num">04</span>
+            <div class="fs-card">
+              <h3>开始对话</h3>
+              <p>OpenHer 在云端跑一轮，Web/PWA 实时流式显示；多段消息会像真人一样一条条发来。</p>
+              <span class="tag">OpenHer · WS</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="privacy-note">
+          <span aria-hidden="true">⌁</span>
+          <p><strong>边界：</strong>上传的是结构化人格，不是聊天原文。精修接口见到 <code>raw_text</code>、<code>messages</code>、<code>chat_log</code> 会直接拒绝。</p>
+        </div>
+      </section>
+
+      <section class="section" id="progress">
+        <div class="section-head">
+          <p class="eyebrow">PROGRESS / 开发进度</p>
+          <h2>现在走到哪了</h2>
+          <p class="section-desc">
+            数据取自仓库 issue 与 Project 看板，每 15 分钟自动同步。当前 65 / 98，P0–P2 已完成，P4 正在做。
+          </p>
+        </div>
+
+        <div id="prealpha" class="pa">
+          <p class="pa-fallback">加载进度数据…</p>
+        </div>
+
+        <p class="section-more">
+          <a href="https://github.com/users/jason081112/projects/1" target="_blank" rel="noopener">完整看板 →</a>
+          <a href="https://github.com/jason081112/Pre_Alpha/issues" target="_blank" rel="noopener">Issue 列表 →</a>
+        </p>
+      </section>
+
+      <section class="section" id="story">
+        <div class="section-head">
+          <p class="eyebrow">NOTES / 项目手记</p>
+          <h2>为什么做 Pre_Alpha</h2>
+        </div>
+
+        <!-- COPYWRITING:START
+             这里留给项目文案。把你写好的正文发我，我替换掉下面的占位内容；
+             也可以直接改这一段，保留 .story-card 结构即可。 -->
+        <div class="story-card" data-copy="story">
+          <span class="story-badge">文案待补</span>
+          <p class="story-placeholder">
+            这里会放一段真正想说的话：为什么做这件事、想做成什么样、以及关于「陪伴」的一点私心。
+          </p>
+          <p class="story-hint">占位区 · 等你的文案</p>
+        </div>
+        <!-- COPYWRITING:END -->
+      </section>
+
+      <section class="section" id="thanks">
+        <div class="section-head">
+          <p class="eyebrow">THANKS / 致谢</p>
+          <h2>站在这些项目上</h2>
+          <p class="section-desc">没有它们，Pre_Alpha 不会存在。许可证与版权归原作者所有。</p>
+        </div>
+
+        <div class="thanks-grid">
+          <a class="thanks-card" href="https://github.com/kellyvv/OpenHer" target="_blank" rel="noopener">
+            <span class="thanks-role">ENGINE</span>
+            <h3>OpenHer</h3>
+            <p>人格引擎：Genome / Drives / Metabolism / Style Memory。</p>
+            <span class="thanks-license">Apache-2.0 ↗</span>
+          </a>
+          <a class="thanks-card" href="https://github.com/titanwings/distilly" target="_blank" rel="noopener">
+            <span class="thanks-role">DISTILL</span>
+            <h3>Distilly</h3>
+            <p>聊天记录蒸馏流程与六层人格结构。</p>
+            <span class="thanks-license">MIT ↗</span>
+          </a>
+          <a class="thanks-card" href="https://github.com/EverMind-AI/EverOS" target="_blank" rel="noopener">
+            <span class="thanks-role">MEMORY</span>
+            <h3>EverOS</h3>
+            <p>可选长期记忆后端；默认走本地 SQLite FTS5。</p>
+            <span class="thanks-license">Apache-2.0 ↗</span>
+          </a>
+        </div>
+
+        <p class="thanks-foot">也谢谢每一个提 issue、跑测试、给建议的人。</p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div>
+        <strong>Pre_Alpha</strong>
+        <span>把聊天记录蒸馏成一个人格。</span>
+      </div>
+      <nav aria-label="页脚链接">
+        <a href="https://github.com/jason081112/Pre_Alpha" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/jason081112/Pre_Alpha/blob/main/LICENSING.md" target="_blank" rel="noopener">License</a>
+        <a href="https://github.com/jason081112/Pre_Alpha/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a>
+      </nav>
+      <p class="footer-note">Open core · 原文不上传 · 2026</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
