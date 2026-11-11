@@ -126,6 +126,7 @@ Pre_Alpha/
 ├── cli/             # alpha 命令行
 ├── tests/           # 零依赖测试 + 合成 golden
 ├── docs/            # 架构、ADR、各阶段实现与验收记录
+├── site/            # 项目主页（GitHub Pages，静态、无构建）
 ├── scripts/dev/     # 环境恢复、验证、实验脚本
 └── vendor/          # 上游 OpenHer / Distilly（不入库，按脚本拉取）
 ```
