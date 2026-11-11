@@ -11,6 +11,12 @@
 <body>
   <a class="skip" href="#main">跳到正文</a>
 
+  <a class="author-update" href="#story" aria-label="作者更新，跳转到文案区">
+    <span class="update-dot" aria-hidden="true"></span>
+    <span>作者更新</span>
+    <span class="update-arrow" aria-hidden="true">↓</span>
+  </a>
+
   <div class="aurora" aria-hidden="true">
     <span class="blob blob-violet"></span>
     <span class="blob blob-blue"></span>
@@ -50,17 +56,49 @@
         <h2 id="story-title">为什么做 Pre_Alpha</h2>
       </div>
 
-      <!-- COPYWRITING:START
-           把正文发我，我替换掉下面的占位内容；也可以直接改这一段，
-           保留 .story-card 结构即可。 -->
-      <div class="story-card glass" data-copy="story">
-        <span class="story-badge">文案待补</span>
-        <p class="story-placeholder">
-          这里会放一段真正想说的话：为什么做这件事、想做成什么样、以及关于「陪伴」的一点私心。
-        </p>
-        <p class="story-hint">占位区 · 等你的文案</p>
-      </div>
-      <!-- COPYWRITING:END -->
+      <article class="story-card glass essay" data-copy="story">
+        <span class="story-badge">AUTHOR'S NOTE · 2026.11.12</span>
+
+        <div class="essay-body">
+          <p class="essay-lead">从立项到今天，这个项目已经走了27天。AI与人的戮力狂奔，已经消耗了2.114亿token，进度推到66.3%。照这个速度，按原定计划，不出一周就可以收工。</p>
+
+          <p class="essay-beat">但是，我想停一停。</p>
+
+          <p>长期守在coding panel前的厌倦与力不从心，还有跑步时的异常心率，各种疑似房颤，早搏。我想应该到了暂时离场的时候了。</p>
+
+          <p>原先，这个项目是为了染上精神疾病的一位朋友。他的脑海里充斥着各种声音，以至于到了休学的境地。作为他最要好的朋友，得知消息的那天晚上，我能真切地感受到，有一种心酸与无力在泛滥。缓过神来，我想起了看过的一个项目，叫Openher。它源自weiclaw的作者，采用一系列向量，驱力，种子，来真实地模拟一个人的一颦一笑。刹那，我又想起前些时广受关注的同事.skill，它通过聊天记录，或是一个人其他的文字材料，来蒸馏以用于大语言模型。</p>
+
+          <p>不言而喻，Pre_alpha的雏形浮现了。而我的使命，就是为两个架构不同的项目，搭建桥梁，凝作一体。</p>
+
+          <p>因为朋友病情的诊断来的太突然，所以，我第一次尝试使用了AI coding。我搭建好0-6共七个phase，在github写好所有issues后，于10月15日，Pre_Alpha，正式立项。</p>
+
+          <p>AI coding的速度令人瞠目，在几天内就完成了phase0，1，2。但是到桥接层，速度慢了下来。复杂繁琐的工作才刚刚开始，一系列的上游研究与冒烟测试，伴随着国内网络环境的抖动，这过程实在是磨人心志。即使全部coding是llm在做，我确认一些必要权限以及shell指令，这本不需要我太多的投入。</p>
+
+          <p>但是，这恰恰说明，AI的工作，远没企及令我满意，符合我意志的时候。这也说明，我也同时投入了自我的思考，辩证，想让它臻于完美。</p>
+
+          <p>这一年，我们离生成式人工智能的真相，又贴近了几分。这一场渐进式披露的终点，是春和景明，还是下一场寰宇之殇的起点？我们无从而知。</p>
+
+          <p class="essay-beat">但我们唯一知道的，最懂得的，是自己。</p>
+
+          <p>或许我们中的大部分还未成年，或许有不自知者，或许还未懂得冷暖。但是，这个时代已经劈头盖脸地闯来，叩响每个人的命运之门。到了我们与它高度共振的时候了，到了我们有所作为的时候了。日复一日的学习生活，看得厌倦的往来过客，我想做些什么，来增色，来点缀。只有在这些中，我才觉得，自己，正在存在。</p>
+
+          <p>Pre_Alpha，是我技术积累的集中输出，是对朋友的一份慰藉，也是我站在时代巨门前的第一声啼鸣。</p>
+
+          <p>Pre_Alpha，应当如溪水般长流。毕竟前方还有200余天的混沌，当下，照顾好自己，关切好他人，投入未竟的学业，日积月累地拾级而上，或许，是对这个项目的最好交代，对自我的再一次重新锚定，竖起的不久远方的灯塔。</p>
+
+          <p>这一年，还算满意。26年迎新晚会的乐声与笑语，仿佛就在昨天一样，27年的脚步却又已近了。这其中，说不尽的苦涩，还是确幸，我都归档着，怀揣着。我可以自豪地放声：</p>
+        </div>
+
+        <div class="essay-terminal" role="group" aria-label="结尾">
+          <span class="term-line"><span class="term-prompt" aria-hidden="true">&gt;</span> Hello World.</span>
+          <span class="term-line"><span class="term-prompt" aria-hidden="true">&gt;</span> <span class="term-cn">我，来了。</span><span class="term-cursor" aria-hidden="true"></span></span>
+        </div>
+
+        <footer class="essay-sign">
+          <p class="essay-name">Jason Wang</p>
+          <p class="essay-date">2026年11月12日，00:31</p>
+        </footer>
+      </article>
     </section>
 
     <section class="section" id="thanks" aria-labelledby="thanks-title">
