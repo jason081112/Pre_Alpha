@@ -263,6 +263,20 @@ code {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
+.glass-pill-link {
+  display: inline-flex;
+  align-items: center;
+  border-color: rgba(34, 211, 238, .42);
+  background: rgba(34, 211, 238, .09);
+  color: var(--cyan);
+  transition: border-color .2s, background .2s, transform .2s;
+}
+.glass-pill-link:hover {
+  border-color: rgba(34, 211, 238, .8);
+  background: rgba(34, 211, 238, .15);
+  text-decoration: none;
+  transform: translateY(-1px);
+}
 
 /* ── 区块 ── */
 .section { padding: 74px 0; }

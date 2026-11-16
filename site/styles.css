@@ -170,6 +170,13 @@ code {
   color: var(--muted);
   font-size: 12px;
 }
+.hero-price {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.hero-price strong { color: var(--green); }
+.hero-price a { color: var(--accent); }
 
 /* ── chat mockup ── */
 .phone {
