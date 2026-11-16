@@ -61,6 +61,7 @@ from shell.auth.scope import (  # noqa: E402
 )
 from shell.auth.service import service_from_env  # noqa: E402
 from shell.auth.store import AuthStore  # noqa: E402
+from shell.content_safety import PromptSiftClient  # noqa: E402
 from shell.crypto import SecretBox  # noqa: E402
 from shell.custom import CustomProviderStore  # noqa: E402
 from shell.limits import (  # noqa: E402
@@ -112,6 +113,14 @@ agent_extra = AgentExtraStore(
 auth_store = AuthStore(AUTH_DB_PATH)
 auth_service = service_from_env(auth_store)
 limits = LimitsService(LIMITS_DB_PATH)
+try:
+    prompt_sift = PromptSiftClient.from_env()
+except Exception as exc:  # noqa: BLE001 - 配置错误必须显式失败
+    raise RuntimeError(f"Waffo Prompt Sift 配置错误: {exc}") from exc
+print(
+    "[safety] Waffo Prompt Sift: "
+    + ("enabled" if prompt_sift is not None else "off")
+)
 routing_client = RoutingLLMClient(
     registry=registry,
     custom_store=custom_store,
@@ -374,12 +383,13 @@ app.include_router(
         custom_store=custom_store,
         dev_route=DEV_ROUTE,
         limits=limits,
+        safety=prompt_sift,
     )
 )
 install_openai_error_handlers(app)
 
 # 真流式 WS（#94）：上游 /ws/chat 拿不到中间内容，这条走 shell 自己的解析器
-app.include_router(build_stream_ws_router(upstream))
+app.include_router(build_stream_ws_router(upstream, safety=prompt_sift))
 
 # 聊天页（#46）：单文件 HTML，接 /ws/chat/stream
 app.include_router(build_ui_router())

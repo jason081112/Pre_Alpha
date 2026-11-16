@@ -29,6 +29,7 @@ from typing import Any, Callable
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from .auth.scope import current_auth_user
+from .content_safety import PromptSiftClient, PromptSiftError, refusal_for
 from .stream_parse import ReplyExtractor, SegmentEvent, Segmenter
 
 __all__ = ["build_stream_ws_router"]
@@ -69,6 +70,7 @@ def build_stream_ws_router(
     upstream: Any,
     *,
     on_turn_done: Callable[[Any, str, str], None] | None = None,
+    safety: PromptSiftClient | None = None,
 ) -> APIRouter:
     router = APIRouter(tags=["stream"])
 
@@ -102,6 +104,29 @@ def build_stream_ws_router(
             text = "\n".join(str(m.get("content") or "").strip() for m in msgs).strip()
             if not persona_id or not text:
                 return
+
+            if safety is not None:
+                try:
+                    verdict = await safety.scan(text)
+                except PromptSiftError as exc:
+                    payload = {
+                        "type": "error",
+                        "content": exc.message,
+                        "code": exc.code,
+                    }
+                    if exc.retry_after is not None:
+                        payload["retry_after"] = exc.retry_after
+                    await send(payload)
+                    return
+                refusal = refusal_for(verdict)
+                if refusal is not None:
+                    _, message, code = refusal
+                    payload = {"type": "error", "content": message, "code": code}
+                    if verdict.request_id:
+                        payload["request_id"] = verdict.request_id
+                    await send(payload)
+                    return
+
             user_name = first.get("user_name")
             # client_id 决定历史命名空间；未带则按用户兜底，保证能落盘与恢复
             client_id = str(first.get("client_id") or f"ws:{user}").strip()[:128]

@@ -21,6 +21,7 @@ jobs:
           python tests/test_routing.py
           python tests/test_limits.py
           python tests/test_openai_compat.py
+          python tests/test_content_safety.py
           python tests/test_fixtures.py
           python tests/test_golden_skill.py
           python tests/test_persona_structure.py

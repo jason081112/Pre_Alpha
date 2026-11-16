@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .auth.scope import current_auth_user
+from .content_safety import PromptSiftClient, PromptSiftError, refusal_for
 from .custom import CustomProviderStore
 from .limits import LimitsService, RateLimitExceeded
 from .openai_format import (
@@ -113,6 +114,58 @@ def _rate_limit_response(exc: RateLimitExceeded) -> JSONResponse:
         error_type="rate_limit_error",
         code=exc.code,
         headers={"Retry-After": str(exc.retry_after)},
+    )
+
+
+def _safety_failure(exc: PromptSiftError) -> JSONResponse:
+    headers: dict[str, str] = {}
+    if exc.retry_after is not None:
+        headers["Retry-After"] = str(exc.retry_after)
+    if exc.request_id:
+        headers["X-Waffo-Request-Id"] = exc.request_id
+    if exc.status_code == 429:
+        error_type = "rate_limit_error"
+    elif exc.status_code >= 500:
+        error_type = "server_error"
+    else:
+        error_type = "invalid_request_error"
+    return _error_response(
+        exc.status_code,
+        exc.message,
+        error_type=error_type,
+        code=exc.code,
+        headers=headers,
+    )
+
+
+async def _check_prompt_safety(
+    safety: PromptSiftClient | None,
+    text: str,
+) -> JSONResponse | None:
+    """返回拒答响应；None 表示允许继续。"""
+    if safety is None:
+        return None
+    try:
+        result = await safety.scan(text)
+    except PromptSiftError as exc:
+        return _safety_failure(exc)
+
+    refusal = refusal_for(result)
+    if refusal is None:
+        return None
+    status_code, message, code = refusal
+    return _error_response(
+        status_code,
+        message,
+        error_type=(
+            "invalid_request_error" if status_code < 500 else "server_error"
+        ),
+        code=code,
+        headers=(
+            {"X-Waffo-Request-Id": result.request_id}
+            if result.request_id
+            else None
+        ),
     )
 
 
@@ -290,6 +343,7 @@ def build_openai_router(
     custom_store: CustomProviderStore | None,
     dev_route: Route | None,
     limits: LimitsService | None = None,
+    safety: PromptSiftClient | None = None,
 ) -> APIRouter:
     router = APIRouter(tags=["openai"])
 
@@ -335,6 +389,9 @@ def build_openai_router(
                     "服务端尚未加载任何人格",
                     code="personas_unavailable",
                 )
+            refused = await _check_prompt_safety(safety, user_text)
+            if refused is not None:
+                return refused
             alias = resolve_model_alias(
                 payload.model,
                 persona_ids=persona_ids,
