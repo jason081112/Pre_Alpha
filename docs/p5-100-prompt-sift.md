@@ -32,7 +32,7 @@ ALPHA_PROMPT_SIFT=auto
 
 WAFFO_MERCHANT_ID=...
 # 二选一：
-WAFFO_PRIVATE_KEY='-----BEGIN PRIVATE KEY-----\n...'
+WAFFO_PRIVATE_KEY='<PEM-encoded-private-key>'
 # 或
 WAFFO_PRIVATE_KEY_PATH=/secure/path/waffo-private-key.pem
 ```
