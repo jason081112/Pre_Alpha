@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#060711">
+  <meta name="description" content="Pre_Alpha 隐私政策：收集范围、原始聊天记录边界、使用目的、第三方共享、保留期限与用户权利。">
+  <title>隐私政策 · Pre_Alpha</title>
+  <link rel="stylesheet" href="legal.css">
+</head>
+<body>
+  <div class="aurora" aria-hidden="true"></div>
+
+  <header class="legal-nav">
+    <div class="legal-nav-inner">
+      <a class="legal-brand" href="../glass/">
+        <span class="legal-mark" aria-hidden="true"></span>
+        <span>Pre_Alpha</span>
+      </a>
+      <nav aria-label="法律页面">
+        <a href="terms.html">服务条款</a>
+        <a href="privacy.html" aria-current="page">隐私政策</a>
+        <a href="aup.html">可接受使用</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="legal-wrap">
+    <p class="eyebrow">LEGAL / PRIVACY POLICY</p>
+    <h1>隐私政策</h1>
+    <p class="meta">
+      <span>版本 1.0</span> · <span>生效日期：2026年11月16日</span> · <span>运营主体：Wang Xinyu</span>
+    </p>
+
+    <article class="legal-card">
+      <p>本政策说明 Pre_Alpha 如何收集、使用、存储、共享与保护你的个人信息，以及你可以如何行使权利。Pre_Alpha 是隐私优先的陪伴型 AI 服务；我们的基本原则是：<strong>原始聊天记录在本地处理，不主动上传；云端只接收运行人格与对话所必需的结构化数据。</strong></p>
+
+      <section id="controller">
+        <h2>1. 适用范围与控制者</h2>
+        <p>本政策适用于 Pre_Alpha 的公开网站、Web/PWA 聊天页、API、命令行工具及相关支持渠道。控制者为 <strong>Wang Xinyu</strong>（个人开发者），联系邮箱：<a href="mailto:prealpha@163.com">prealpha@163.com</a>。</p>
+        <p>本政策不适用于你通过链接访问的第三方网站或服务，包括模型供应商、支付处理方与代码托管平台；这些服务有自己的隐私政策。</p>
+      </section>
+
+      <section id="collect">
+        <h2>2. 我们收集哪些信息</h2>
+        <h3>2.1 账号与登录信息</h3>
+        <ul>
+          <li>电子邮箱、用户 ID、邀请码使用记录、账号创建与登录时间；</li>
+          <li>密码的不可逆哈希（使用 scrypt，不保存明文密码）；</li>
+          <li>会话令牌、刷新令牌及必要的安全校验信息。</li>
+        </ul>
+
+        <h3>2.2 人格与对话数据</h3>
+        <ul>
+          <li>你创建或上传的结构化人格材料，例如显示名称、性格描述、说话风格、背景故事、行为规则、示例语句、记忆条目与风格种子；</li>
+          <li>云端对话的消息内容、时间、角色、模型与供应商标识、用量与错误信息；</li>
+          <li>你主动保存的历史记录、导出文件与反馈内容。</li>
+        </ul>
+        <p>人格材料可能包含你或第三方的信息。请只提交你拥有合法处理依据的内容，并避免提交不必要的敏感信息。</p>
+
+        <h3>2.3 技术与使用信息</h3>
+        <ul>
+          <li>IP 地址、浏览器与设备类型、操作系统、请求时间、接口路径、状态码与延迟；</li>
+          <li>限流、风控、反滥用与安全审计所需的记录；</li>
+          <li>浏览器本地存储中的登录状态、界面设置，以及用于排查问题的本地事件日志。该日志默认留在你的浏览器中，只有你主动导出或提交时才会提供给我们。</li>
+        </ul>
+
+        <h3>2.4 支付与支持信息（未来付费时）</h3>
+        <ul>
+          <li>支付处理方返回的客户标识、订单号、订阅状态、金额、币种、交易时间与必要的账单信息；</li>
+          <li>你与支持邮箱往来的邮件、问题描述与附件。</li>
+        </ul>
+        <p>支付由 <strong>Waffo Pancake</strong> 处理。我们不会在服务器上保存你的完整银行卡号、有效期或安全码。</p>
+      </section>
+
+      <section id="raw-logs">
+        <h2>3. 原始聊天记录的边界</h2>
+        <p>Pre_Alpha 的本地工具在你自己的设备上读取你自行导出的聊天记录，并转换为结构化人格材料。<strong>我们不会主动收集、上传或留存你的原始聊天记录文件。</strong></p>
+        <p>以下情况需要区分：</p>
+        <ul>
+          <li>你只在本地运行蒸馏工具：原始记录与中间文件由你控制，我们看不到；</li>
+          <li>你把结构化人格同步到云端：我们接收人格字段与必要的元数据，而不是原始聊天文件；</li>
+          <li>你在云端聊天框中输入内容：该内容会作为对话消息被处理、发送给模型供应商，并可能按你的设置保存为历史；</li>
+          <li>你主动通过邮件或反馈提交截图、文本或文件：我们会在处理该请求所需范围内使用。</li>
+        </ul>
+        <p>请不要把你不希望被处理的原始记录直接粘贴到云端对话或支持邮件中。</p>
+      </section>
+
+      <section id="purposes">
+        <h2>4. 使用目的与法律依据</h2>
+        <p>我们仅在必要范围内处理个人信息，用于：</p>
+        <ul>
+          <li><strong>履行合同：</strong>创建账号、保存人格、运行对话、提供历史与导出、处理你的设置；</li>
+          <li><strong>合法利益：</strong>保障服务安全、防止滥用、排查故障、改进性能与用户体验；我们会平衡你的权益，不进行与这些目的不相称的处理；</li>
+          <li><strong>法律义务：</strong>履行税务、会计、内容安全、响应主管机关合法要求等义务；</li>
+          <li><strong>同意：</strong>在你明确同意的范围内处理敏感信息、发送非必要营销信息或进行其他需要同意的处理。当前测试阶段不发送营销邮件。</li>
+        </ul>
+        <p>如果我们需要将信息用于本政策未说明的新目的，会先告知你并在需要时取得同意。</p>
+      </section>
+
+      <section id="sharing">
+        <h2>5. 共享、委托处理与对外提供</h2>
+        <p>我们不会出售你的个人信息。为运行服务，我们可能向以下类别的接收方共享必要信息：</p>
+        <ul>
+          <li><strong>云托管与存储服务商：</strong>托管 API、数据库、日志与备份；</li>
+          <li><strong>模型供应商：</strong>处理你发起的对话消息与人格上下文。当前可能使用 Ollama Cloud、OpenAI 兼容服务，或你自行配置的 BYOK 供应商；实际模型以产品内展示与配置为准；</li>
+          <li><strong>内容安全与风控服务：</strong>在生成前后审核输入输出，降低违法与高风险内容；</li>
+          <li><strong>支付处理方：</strong>未来由 Waffo Pancake 处理付款、订阅、退款与对账；</li>
+          <li><strong>邮件与支持服务：</strong>处理你发往支持邮箱的请求；</li>
+          <li><strong>专业顾问与主管机关：</strong>在依法必要、保护用户或公众安全、响应有效法律程序时提供。</li>
+        </ul>
+        <p>如果发生合并、重组、资产转让或类似交易，个人信息可能作为资产的一部分被转移；我们会要求接收方继续受本政策约束，或在使用前另行告知并取得同意。</p>
+      </section>
+
+      <section id="cookies">
+        <h2>6. Cookie 与本地存储</h2>
+        <p>当前我们使用必要的浏览器存储来维持登录状态、保存界面偏好与本地调试信息。我们不使用广告追踪 Cookie，也不接入第三方广告画像。</p>
+        <p>你可以在浏览器设置中清除本地存储；清除后可能需要重新登录，部分界面偏好会重置。若未来引入非必要分析或营销工具，我们会更新本政策并提供相应选择。</p>
+      </section>
+
+      <section id="retention">
+        <h2>7. 保留期限</h2>
+        <ul>
+          <li><strong>账号信息：</strong>账号存续期间保留；注销后 30 天内删除或匿名化，法律要求保留的除外；</li>
+          <li><strong>云端人格与对话：</strong>保留至你删除相关人格、会话或注销账号；删除后 30 天内从在线系统移除；</li>
+          <li><strong>安全与访问日志：</strong>通常保留 90 天，用于排查故障、反滥用与安全审计；</li>
+          <li><strong>支付与交易记录：</strong>按税务、会计与消费者保护法律要求的期限保留；</li>
+          <li><strong>备份：</strong>备份中的残留会在备份轮换周期内逐步覆盖；我们不会将备份用于其他目的。</li>
+        </ul>
+        <p>如果法律要求或争议处理需要更长的保留期，我们会在该范围内延长，并在目的消失后删除或匿名化。</p>
+      </section>
+
+      <section id="security">
+        <h2>8. 安全措施</h2>
+        <p>我们采取与风险相适应的措施，包括：HTTPS/WSS 传输、密码 scrypt 哈希、访问控制与最小权限、敏感配置加密、异常监测与安全事件响应。尽管如此，任何互联网服务都无法保证绝对安全；请使用独立且强度足够的密码，并妥善保管登录凭证。</p>
+        <p>如果发生可能影响你权益的个人信息泄露，我们会按适用法律的要求及时通知你与主管机关，并说明已知的影响、已采取的措施与你可采取的防护建议。</p>
+      </section>
+
+      <section id="rights">
+        <h2>9. 你的权利</h2>
+        <p>在适用法律允许的范围内，你可以：</p>
+        <ul>
+          <li>查询、访问并获取你的个人信息副本；</li>
+          <li>更正不准确或不完整的信息；</li>
+          <li>删除账号、人格、对话或特定信息；</li>
+          <li>撤回同意（不影响撤回前处理的合法性）；</li>
+          <li>限制或反对某些处理；</li>
+          <li>获取可携带的结构化数据；</li>
+          <li>就我们的处理向监管机关投诉。</li>
+        </ul>
+        <p>请发送邮件至 <a href="mailto:prealpha@163.com">prealpha@163.com</a>，并说明请求内容与可验证的账号信息。我们通常会在 30 天内回复；复杂请求可能需要更长时间，我们会告知原因。为保护账号安全，我们可能要求你完成身份验证。</p>
+      </section>
+
+      <section id="minors">
+        <h2>10. 未成年人</h2>
+        <p>Pre_Alpha 仅面向年满 18 周岁的用户。我们不会有意收集未成年人的个人信息。如果你发现未成年人向我们提供了信息，请联系 <a href="mailto:prealpha@163.com">prealpha@163.com</a>，我们会在核实后删除相关账号与数据。</p>
+      </section>
+
+      <section id="cross-border">
+        <h2>11. 跨境传输</h2>
+        <p>我们的托管、模型与支付服务可能位于中华人民共和国境外。向你提供服务所必需的对话消息、技术日志或支付状态，可能被传输到境外处理。我们会按适用法律采取必要措施，例如选择具备相应保障的服务商、签订标准合同条款或取得单独同意；如法律要求安全评估或认证，我们会依法完成。</p>
+      </section>
+
+      <section id="changes">
+        <h2>12. 政策更新与联系</h2>
+        <p>我们可能更新本政策。对于重大变更，我们会至少提前 14 天通过站点公告、邮件或产品内提示通知你，并更新版本号与生效日期。若你不同意更新后的政策，可以停止使用并申请注销账号。</p>
+        <p>隐私问题、数据请求与投诉请联系：<a href="mailto:prealpha@163.com">prealpha@163.com</a>。我们会在合理期限内处理；你也可以向有管辖权的个人信息保护监管机关投诉。</p>
+      </section>
+    </article>
+
+    <footer class="legal-foot">
+      <span>© 2026 Wang Xinyu · Pre_Alpha</span>
+      <div>
+        <a href="terms.html">服务条款</a>
+        <a href="aup.html">可接受使用</a>
+        <a href="../glass/">返回项目主页</a>
+      </div>
+    </footer>
+  </main>
+</body>
+</html>

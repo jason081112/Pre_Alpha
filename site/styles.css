@@ -516,7 +516,7 @@ code {
 }
 .footer div { display: flex; gap: 10px; align-items: baseline; }
 .footer strong { color: var(--text); }
-.footer nav { display: flex; gap: 18px; }
+.footer nav { display: flex; flex-wrap: wrap; gap: 8px 18px; }
 .footer nav a { color: var(--muted); }
 .footer-note { margin: 0; }
 
