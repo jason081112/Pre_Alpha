@@ -265,3 +265,86 @@
   }
   .price-amount, .price-cta, .price-tag, .price-status { color: #111; }
 }
+
+/* ── 2026-11-24：内测卡 + 正式版计划价 ── */
+.price-grid.price-grid-beta {
+  grid-template-columns: minmax(0, 1fr);
+}
+.price-beta .price-desc { min-height: 0; }
+.price-beta .price-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 26px;
+}
+
+.pricing-h2-note {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 3px 9px;
+  border: 1px solid rgba(34, 211, 238, .28);
+  border-radius: 999px;
+  background: rgba(34, 211, 238, .08);
+  color: var(--cyan, #22d3ee);
+  font-family: var(--mono, monospace);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .06em;
+  vertical-align: middle;
+}
+.pricing-sub {
+  max-width: 46em;
+  margin: -8px 0 20px;
+  color: var(--muted, #9ca3b8);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.price-grid.price-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.price-grid-3 .price-card { padding: 24px 22px; }
+.price-grid-3 .price-amount { font-size: clamp(2.4rem, 5vw, 3.2rem); }
+.price-grid-3 .price-desc { min-height: 0; }
+.price-featured {
+  border-color: rgba(139, 92, 246, .46);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .06),
+    0 18px 50px rgba(91, 124, 250, .13);
+}
+
+.price-annual {
+  margin: -4px 0 14px;
+  color: var(--muted, #9ca3b8);
+  font-size: 12px;
+}
+
+.price-byok {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  margin-top: 16px;
+  padding: 22px 24px;
+  border: 1px solid var(--line, rgba(255, 255, 255, .1));
+  border-radius: 18px;
+  background: rgba(22, 24, 45, .4);
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+}
+.price-byok-copy { flex: 1 1 auto; min-width: 0; }
+.price-byok-copy h3 { margin: 8px 0 6px; font-size: 1.15rem; }
+.price-byok-copy p { margin: 0; color: var(--muted, #9ca3b8); font-size: 13px; line-height: 1.75; }
+.price-byok-price { flex: 0 0 220px; }
+.price-byok-price .price-amount { font-size: 2.6rem; }
+.price-byok-price .price-cta { margin-top: 8px; }
+
+@media (max-width: 760px) {
+  .price-grid.price-grid-3 { grid-template-columns: 1fr; }
+  .price-byok { flex-direction: column; align-items: stretch; }
+  .price-byok-price { flex-basis: auto; }
+}
+@media (max-width: 620px) {
+  .price-beta .price-list { grid-template-columns: 1fr; }
+  .price-grid-3 .price-card { padding: 22px 20px; }
+  .price-grid-3 .price-amount { font-size: 2.8rem; }
+}
