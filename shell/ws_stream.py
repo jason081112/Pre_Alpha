@@ -30,6 +30,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from .auth.scope import current_auth_user
 from .content_safety import PromptSiftClient, PromptSiftError, refusal_for
+from .persona_scope import allowlist as persona_allowlist, resolve_persona
 from .routing import RouteNotConfigured
 from .stream_parse import ReplyExtractor, SegmentEvent, Segmenter
 
@@ -103,6 +104,9 @@ def build_stream_ws_router(
             nonlocal session_id, session_persona, agent
             first = msgs[0]
             persona_id = str(first.get("persona_id") or "").strip()
+            # #99 单人格收窄：白名单外的人格回落到默认（xiaolan），不直接拒绝连接
+            if persona_id:
+                persona_id = resolve_persona(persona_id, persona_allowlist())
             text = "\n".join(str(m.get("content") or "").strip() for m in msgs).strip()
             if not persona_id or not text:
                 return

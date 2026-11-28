@@ -41,6 +41,7 @@ from .openai_format import (
     resolve_model_alias,
     stream_chunk_body,
 )
+from .persona_scope import DEFAULT_PERSONA, allowlist as allowed_personas, filter_personas
 from .providers import Registry, Route, RouteError
 from .routing import (
     AllProvidersFailed,
@@ -182,20 +183,24 @@ def _persona_ids(upstream: Any) -> list[str]:
     if loader is None:
         return []
     try:
-        return [str(item) for item in loader.list_ids()]
+        ids = [str(item) for item in loader.list_ids()]
     except Exception as exc:  # noqa: BLE001 - 上游加载失败时给统一错误
         print(f"  [openai] 读取人格失败: {type(exc).__name__}")
         return []
+    # #99 上线阶段只暴露 ALPHA_PERSONAS 里的人格（未设置则不限制）
+    return filter_personas(ids, allowed_personas())
 
 
 def _default_persona(persona_ids: list[str]) -> str:
     configured = (
         os.getenv("ALPHA_OPENAI_DEFAULT_PERSONA", "").strip()
         or os.getenv("ALPHA_PERSONA", "").strip()
-        or "luna"
+        or DEFAULT_PERSONA
     )
     if configured in persona_ids:
         return configured
+    if DEFAULT_PERSONA in persona_ids:
+        return DEFAULT_PERSONA
     if "luna" in persona_ids:
         return "luna"
     return persona_ids[0] if persona_ids else configured

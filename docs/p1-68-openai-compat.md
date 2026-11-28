@@ -79,8 +79,13 @@ user 消息不会重复传给引擎；服务端会按当前用户 + `client_id` 
 
 1. `ALPHA_OPENAI_DEFAULT_PERSONA`
 2. `ALPHA_PERSONA`
-3. `luna`
-4. 当前加载的第一个人格
+3. `xiaolan`
+4. `luna`
+5. 当前加载的第一个人格
+
+`ALPHA_PERSONAS` 设置后，`/v1/models` 和默认人格只在白名单内选择；
+请求白名单外的人格 ID（如 `luna`）会回落到默认人格，不会报错。
+上线阶段生产环境设为 `xiaolan`，其余内置人格暂时不暴露。
 
 显式 `provider/model` 必须在当前用户可用的 provider 注册表中，且 Key
 可用；自定义 provider 只允许当前用户自己的。未配置账号路由且没有显式
@@ -280,8 +285,9 @@ FastAPI /v1 router      # 解析 model、检查配额、复用 ChatAgent
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| `ALPHA_OPENAI_DEFAULT_PERSONA` | `luna` | 默认人格 ID |
+| `ALPHA_OPENAI_DEFAULT_PERSONA` | `xiaolan` | 默认人格 ID |
 | `ALPHA_PERSONA` | 空 | 默认人格的后备变量 |
+| `ALPHA_PERSONAS` | 空（不限制） | 暴露的人格白名单，逗号/分号分隔，如 `xiaolan` |
 | `ALPHA_ALLOW_PRIVATE_PROVIDERS` | 空 | 本机/局域网调试 provider 时设为 `1` |
 | `ALPHA_AUTH_DISABLED` | 空 | 仅开发；生产不要开启 |
 

@@ -1232,7 +1232,10 @@ input:focus, textarea:focus, select:focus {
         });
         if (!state.personaId || state.personas.indexOf(state.personaId) < 0) {
           state.personaId = state.personas[0] || "";
+          if (state.personaId) localStorage.setItem(PERSONA_KEY, state.personaId);
         }
+        // #99 单人格收窄：只有一个可选人格时不显示切换入口
+        sel.hidden = state.personas.length <= 1;
         sel.value = state.personaId;
         $("personaName").textContent = state.personaId || "聊天";
       });

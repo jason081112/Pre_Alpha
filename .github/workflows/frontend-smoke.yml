@@ -16,6 +16,8 @@ jobs:
         run: python3 scripts/dev/check_frontend_security.py
       - name: Privacy consent store (#76)
         run: python3 tests/test_consent.py
+      - name: Persona scope (#99)
+        run: python3 tests/test_persona_scope.py
       - name: P0 behaviors (persona switch / reconnect resync)
         run: node tests/ui_p0_smoke.mjs
       - name: Debug event log
