@@ -200,6 +200,19 @@ class ModerationStore:
             rows = self._conn.execute(sql, (*args, limit)).fetchall()
         return [dict(row) for row in rows]
 
+    def delete_user(self, user_id: str) -> dict:
+        """#75 注销：清掉该用户的举报、处置记录与封禁。"""
+        user_id = str(user_id or "").strip()
+        counts: dict[str, int] = {}
+        with self._lock:
+            for table in ("moderation_report", "moderation_action", "moderation_ban"):
+                cur = self._conn.execute(
+                    f"DELETE FROM {table} WHERE user_id = ?", (user_id,)
+                )
+                counts[table] = int(cur.rowcount or 0)
+            self._conn.commit()
+        return counts
+
     def close(self) -> None:
         with self._lock:
             self._conn.close()

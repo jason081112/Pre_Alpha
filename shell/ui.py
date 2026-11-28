@@ -449,6 +449,34 @@ header button { padding: 7px 10px; font-size: 13px; }
 .sys { color: var(--muted); font-size: 12px; text-align: center; width: 100%; }
 
 
+
+/* #75 注销：冷静期横幅 + 危险按钮 */
+.del-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: #ffd9a8;
+  background: rgba(255, 176, 82, .12);
+  border-bottom: 1px solid rgba(255, 176, 82, .28);
+}
+.del-banner[hidden] { display: none; }
+.del-banner span { flex: 1; min-width: 0; }
+.del-banner button {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 176, 82, .45);
+  background: transparent;
+  color: #ffd9a8;
+  font-size: 12px;
+}
+.btn-danger {
+  background: linear-gradient(100deg, #d1435b, #b3304a) !important;
+  box-shadow: 0 8px 24px rgba(209, 67, 91, .3) !important;
+}
+
 /* 页眉收纳：手机上只留名字 + 试用徽章 + 更多，其余进底部菜单 */
 header .icon-btn { flex: 0 0 auto; }
 #menuSheet {
@@ -919,6 +947,24 @@ input:focus, textarea:focus, select:focus {
   </form>
 </dialog>
 
+<dialog id="deleteDialog" aria-labelledby="deleteTitle">
+  <form class="card glass" id="deleteForm">
+    <h1 id="deleteTitle">注销账号</h1>
+    <p>提交后进入 <span id="deleteDays">7</span> 天冷静期，到期会删除：</p>
+    <ul class="consent-list">
+      <li>账号、登录凭证与隐私同意记录</li>
+      <li>全部聊天记录、人格记忆与状态</li>
+      <li>试用量、订阅记录、举报与处置记录</li>
+      <li>你配置的模型服务商与密钥</li>
+    </ul>
+    <p>如已订阅，请先邮件 <a href="mailto:prealpha@163.com">prealpha@163.com</a> 取消订阅；注销不会自动退款。冷静期内可随时撤销。</p>
+    <input id="deleteConfirm" type="text" placeholder="输入「删除」两个字确认" autocomplete="off">
+    <button type="submit" id="deleteSubmit" class="btn-primary btn-danger">确认注销</button>
+    <button type="button" class="ghost" id="deleteClose">取消</button>
+    <div class="err" id="deleteErr"></div>
+  </form>
+</dialog>
+
 <section id="consent" hidden>
   <div class="card glass consent-card">
     <h1>隐私说明</h1>
@@ -950,6 +996,11 @@ input:focus, textarea:focus, select:focus {
     </button>
   </header>
 
+  <div id="delBanner" class="del-banner" hidden>
+    <span id="delBannerText"></span>
+    <button type="button" id="delUndo">撤销</button>
+  </div>
+
   <div id="menuSheet" hidden>
     <div class="sheet-mask" data-menu-close></div>
     <div class="sheet-card" role="dialog" aria-label="更多操作">
@@ -968,6 +1019,10 @@ input:focus, textarea:focus, select:focus {
       <button type="button" id="dbgBtn" class="sheet-item" data-menu-close>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>
         <span>事件日志</span>
+      </button>
+      <button type="button" id="deleteBtn" class="sheet-item danger" data-menu-close>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+        <span>注销账号</span>
       </button>
       <button type="button" id="logoutBtn" class="sheet-item danger" data-menu-close>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
@@ -1383,6 +1438,93 @@ input:focus, textarea:focus, select:focus {
     if (state.ws) { try { state.ws.close(); } catch (e) {} state.ws = null; }
     showView("login");
   }
+
+  /* ── #75 账号注销 ── */
+  function loadDeleteStatus() {
+    if (!state.token) return Promise.resolve(null);
+    return api("/api/me/delete")
+      .then(function (res) { return res.json(); })
+      .then(function (d) {
+        state.deletion = d;
+        var banner = $("delBanner");
+        if (!banner) return d;
+        if (d && d.pending) {
+          var when = d.execute_at ? new Date(d.execute_at) : null;
+          var ok = when && !isNaN(when.getTime());
+          var days = 0;
+          if (ok) {
+            days = Math.max(0, Math.ceil((when.getTime() - Date.now()) / 86400000));
+          }
+          $("delBannerText").textContent = "账号将在 " +
+            (days || 1) + " 天后删除" +
+            (ok ? "（" + when.toLocaleDateString("zh-CN") + "）" : "") +
+            "，期间可以随时撤销。";
+          banner.hidden = false;
+        } else {
+          banner.hidden = true;
+        }
+        return d;
+      })
+      .catch(function (e) {
+        dbg("delete.load", { error: redact(e.message) });
+        return null;
+      });
+  }
+
+  var deleteDialog = $("deleteDialog");
+
+  $("deleteBtn").addEventListener("click", function () {
+    $("deleteErr").textContent = "";
+    $("deleteConfirm").value = "";
+    var d = state.deletion || {};
+    if (d.cooling_days) $("deleteDays").textContent = d.cooling_days;
+    deleteDialog.showModal();
+    $("deleteConfirm").focus();
+  });
+
+  $("deleteClose").addEventListener("click", function () { deleteDialog.close(); });
+
+  $("deleteForm").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var btn = $("deleteSubmit");
+    var err = $("deleteErr");
+    err.textContent = "";
+    btn.disabled = true;
+    api("/api/me/delete", { method: "POST", body: { confirm: $("deleteConfirm").value.trim() } })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          if (!res.ok) throw new Error(data.detail || ("申请失败 " + res.status));
+          return data;
+        });
+      })
+      .then(function (data) {
+        deleteDialog.close();
+        dbg("delete.requested", { at: data.execute_at });
+        loadDeleteStatus();
+        addSystem("已提交注销申请，冷静期内可随时撤销。");
+      })
+      .catch(function (e) { err.textContent = redact(e.message); })
+      .then(function () { btn.disabled = false; });
+  });
+
+  $("delUndo").addEventListener("click", function () {
+    var btn = $("delUndo");
+    btn.disabled = true;
+    api("/api/me/delete/cancel", { method: "POST" })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          if (!res.ok) throw new Error(data.detail || "撤销失败");
+          return data;
+        });
+      })
+      .then(function (data) {
+        dbg("delete.cancelled", data);
+        loadDeleteStatus();
+        addSystem("已撤销注销申请，账号保持正常。");
+      })
+      .catch(function (e) { addSystem(redact(e.message)); })
+      .then(function () { btn.disabled = false; });
+  });
 
   /* ── #102 订阅与试用 ── */
   function loadBilling() {
@@ -2792,8 +2934,9 @@ input:focus, textarea:focus, select:focus {
           .then(function () {
             if (/[?&]subscribe=1/.test(location.search)) showSubscribe();
             if (/[?&]billing=success/.test(location.search)) showPayConfirm();
-            return loadPersonas();
+            return loadDeleteStatus();
           })
+          .then(loadPersonas)
           .then(loadHistory)
           .then(function () {
             connect();

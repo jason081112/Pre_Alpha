@@ -446,6 +446,19 @@ class CustomProviderStore:
             self._conn.commit()
         return cur.rowcount > 0
 
+    def delete_user(self, user_id: str) -> dict:
+        """#75 注销：清掉该用户配置的服务商、密钥与操作审计。"""
+        user_id = str(user_id or "").strip()
+        counts: dict[str, int] = {}
+        with self._lock:
+            for table in ("user_provider", "provider_audit"):
+                cur = self._conn.execute(
+                    f"DELETE FROM {table} WHERE user_id = ?", (user_id,)
+                )
+                counts[table] = int(cur.rowcount or 0)
+            self._conn.commit()
+        return counts
+
     def list_audit(
         self, provider_id: str, user_id: str, limit: int = 50
     ) -> list[dict]:

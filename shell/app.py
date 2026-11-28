@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import sys
@@ -74,6 +75,12 @@ from shell.limits import (  # noqa: E402
 from shell.billing import BillingStore, build_billing_router  # noqa: E402
 from shell.limits_api import build_limits_admin_router  # noqa: E402
 from shell.moderation import ModerationStore, build_moderation_router  # noqa: E402
+from shell.account import (  # noqa: E402
+    DeletionStore,
+    build_account_router,
+    purge_user,
+    run_due,
+)
 from shell.persona_repo import PersonaRepository  # noqa: E402
 from shell.personas_api import build_personas_router  # noqa: E402
 from shell.openai_api import (  # noqa: E402
@@ -127,6 +134,12 @@ moderation = ModerationStore(
 billing = BillingStore(
     Path(os.getenv("ALPHA_BILLING_DB", str(DATA_DIR / "billing.db")))
 )
+# #75 账号注销：冷静期登记 + 到期级联清除 + 回执
+deletion = DeletionStore(
+    Path(os.getenv("ALPHA_DELETION_DB", str(DATA_DIR / "account.db")))
+)
+DELETE_COOLING_DAYS = float(os.getenv("ALPHA_DELETE_COOLING_DAYS", "7"))
+ENGINE_DATA = VENDOR / ".data"
 try:
     waffo = waffo_from_env()
 except Exception as exc:  # noqa: BLE001
@@ -258,6 +271,36 @@ persona_repo = PersonaRepository(
     PERSONA_ROOT, mirror_dir=PERSONA_MIRROR, on_change=_reload_persona
 )
 app.include_router(build_personas_router(persona_repo))
+
+
+def _purge_account(user_id: str) -> dict:
+    """#75：把一个用户在 8 个库 + 引擎数据 + 人格目录里的痕迹全清掉。"""
+    return purge_user(
+        user_id,
+        auth_store=auth_store,
+        limits=limits,
+        moderation=moderation,
+        billing=billing,
+        custom_store=custom_store,
+        agent_extra=agent_extra,
+        routes=store,
+        chat_db=ENGINE_DATA / "chat.db",
+        engine_db=ENGINE_DATA / "openher.db",
+        memory_db=ENGINE_DATA / "memory.db",
+        persona_root=PERSONA_ROOT,
+        backup_dir=os.getenv("ALPHA_BACKUP_DIR") or None,
+        backup_retention_days=int(os.getenv("ALPHA_BACKUP_RETENTION_DAYS", "30")),
+    )
+
+
+app.include_router(
+    build_account_router(
+        deletion,
+        _purge_account,
+        cooling_days=DELETE_COOLING_DAYS,
+        admin_token=os.getenv("ALPHA_ADMIN_TOKEN", ""),
+    )
+)
 
 # ── ChatAgent 补充状态：上游没有持久化关系 EMA / turn_count ──
 # 不改 vendor，只在运行时包装两个入口：
@@ -654,6 +697,26 @@ async def _install_routing_client() -> None:
     )
 
 
+@app.on_event("startup")
+async def _start_deletion_worker() -> None:
+    """#75：每小时检查一次到期注销；启动时先跑一遍。"""
+    async def loop() -> None:
+        while True:
+            try:
+                done = await asyncio.to_thread(run_due, deletion, _purge_account)
+                for item in done:
+                    uid = item.get("user_id", "")
+                    if item.get("error"):
+                        print(f"[deletion] {uid} 失败: {item['error']}")
+                    else:
+                        print(f"[deletion] {uid} 已清除")
+            except Exception as exc:  # noqa: BLE001
+                print(f"[deletion] 任务异常: {exc}")
+            await asyncio.sleep(3600)
+
+    asyncio.create_task(loop())
+
+
 @app.on_event("shutdown")
 async def _close_store() -> None:
     store.close()
@@ -661,6 +724,7 @@ async def _close_store() -> None:
     auth_store.close()
     limits.close()
     billing.close()
+    deletion.close()
 
 
 if __name__ == "__main__":

@@ -141,6 +141,15 @@ class AgentExtraStore:
                     setattr(agent, attr, value)
         return True
 
+    def delete_user(self, user_id: str) -> int:
+        """#75 注销：清掉这个用户的全部补充状态。"""
+        with self._lock:
+            cur = self._conn.execute(
+                "DELETE FROM agent_extra WHERE user_id = ?", (str(user_id),)
+            )
+            self._conn.commit()
+            return int(cur.rowcount or 0)
+
     def size(self, user_id: str, persona_id: str) -> int:
         with self._lock:
             row = self._conn.execute(

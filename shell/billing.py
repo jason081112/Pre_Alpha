@@ -297,6 +297,24 @@ class BillingStore:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def delete_user(self, user: str) -> dict:
+        """#75 注销：清掉试用计数/订阅行/结账记录与该用户相关的回调事件。"""
+        user = str(user or "").strip()
+        counts: dict[str, int] = {}
+        with self._lock:
+            for table in ("billing_trial", "billing_subscription", "billing_checkout"):
+                cur = self._conn.execute(
+                    f"DELETE FROM {table} WHERE user_id = ?", (user,)
+                )
+                counts[table] = int(cur.rowcount or 0)
+            cur = self._conn.execute(
+                "DELETE FROM billing_event WHERE payload LIKE ?",
+                (f"%{user}%",),
+            )
+            counts["billing_event"] = int(cur.rowcount or 0)
+            self._conn.commit()
+        return counts
+
     def close(self) -> None:
         with self._lock:
             self._conn.close()

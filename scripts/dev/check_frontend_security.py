@@ -106,6 +106,27 @@ def main() -> int:
     check("前端有同意界面", 'id="consent"' in ui and 'id="consentAgree"' in ui)
     check("前端处理 consent_required", 'consent_required' in ui)
 
+    # ── 账号注销（#75）───────────────────────────────────────
+    print("账号注销")
+    account = (ROOT / "shell" / "account.py").read_text(encoding="utf-8")
+    check("account.py 不含 future import（否则 FastAPI 请求体变 query）",
+          not re.search(r"^from __future__ import", account, re.M))
+    check("有注销申请/撤销/管理执行端点",
+          all(p in account for p in
+              ("/api/me/delete", "/api/me/delete/cancel", "/api/admin/deletions/run")))
+    check("管理执行要求 admin token",
+          "x-alpha-admin-token" in account and "ALPHA_ADMIN_TOKEN" in account)
+    check("确认字为「删除」且必须匹配", 'CONFIRM_WORD = "删除"' in account and "CONFIRM_WORD" in account)
+    check("级联清除覆盖聊天/引擎/记忆",
+          all(k in account for k in ("chat_messages", "chat_summary", "memories")))
+    check("清理审计表", "account_purge_log" in account)
+    check("app 挂载注销路由与到期任务",
+          "build_account_router" in APP.read_text(encoding="utf-8")
+          and "run_due" in APP.read_text(encoding="utf-8"))
+    check("前端有注销入口与冷静期撤回",
+          'id="deleteBtn"' in ui and 'id="deleteDialog"' in ui
+          and 'id="delUndo"' in ui and "/api/me/delete" in ui)
+
     print(f"\n{checks - len(failures)}/{checks} passed")
     return 1 if failures else 0
 

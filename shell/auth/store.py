@@ -365,6 +365,26 @@ class AuthStore:
             ).fetchall()
         return [{"version": r["version"], "agreed_at": r["agreed_at"]} for r in rows]
 
+    def delete_user(self, user_id: str) -> dict:
+        """#75 注销：删掉账号行与所有关联授权数据（token/身份/同意记录）。"""
+        user_id = str(user_id or "").strip()
+        if not user_id:
+            raise ValueError("user_id 不能为空")
+        counts: dict[str, int] = {}
+        with self._lock:
+            for table, col in (
+                ("auth_token", "user_id"),
+                ("auth_consent", "user_id"),
+                ("auth_identity", "user_id"),
+                ("auth_user", "id"),
+            ):
+                cur = self._conn.execute(
+                    f"DELETE FROM {table} WHERE {col} = ?", (user_id,)
+                )
+                counts[table] = int(cur.rowcount or 0)
+            self._conn.commit()
+        return counts
+
     # ── token ────────────────────────────────────────────
     def add_token(
         self,
