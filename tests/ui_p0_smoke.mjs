@@ -79,6 +79,10 @@ const fetchStub = (url) => {
     historyCalls += 1;
     return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve(historyPayload) });
   }
+  if (u.includes("/api/me/consent")) {
+    return Promise.resolve({ status: 200, ok: true,
+      json: () => Promise.resolve({ accepted: true, required_version: "1.2" }) });
+  }
   return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve({}) });
 };
 

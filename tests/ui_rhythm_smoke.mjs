@@ -91,6 +91,10 @@ function makeEnv(search) {
     if (u.includes("/api/chat/history")) {
       return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve({ messages: [] }) });
     }
+    if (u.includes("/api/me/consent")) {
+      return Promise.resolve({ status: 200, ok: true,
+        json: () => Promise.resolve({ accepted: true, required_version: "1.2" }) });
+    }
     return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve({}) });
   };
 

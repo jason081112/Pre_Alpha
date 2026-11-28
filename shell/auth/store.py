@@ -70,6 +70,15 @@ CREATE TABLE IF NOT EXISTS auth_invite (
     created_at   REAL NOT NULL,
     last_used_at REAL
 );
+
+-- #76 隐私政策同意记录：按 (用户, 政策, 版本) 留痕，可审计
+CREATE TABLE IF NOT EXISTS auth_consent (
+    user_id   TEXT NOT NULL,
+    kind      TEXT NOT NULL,
+    version   TEXT NOT NULL,
+    agreed_at REAL NOT NULL,
+    PRIMARY KEY (user_id, kind, version)
+);
 """
 
 
@@ -310,6 +319,51 @@ class AuthStore:
             )
             self._conn.commit()
         return cur.rowcount == 1
+
+    # ── 同意记录（#76）─────────────────────────────────────
+    def record_consent(
+        self,
+        user_id: str,
+        kind: str,
+        version: str,
+        now: float | None = None,
+    ) -> None:
+        """写入一次同意；同一版本重复同意刷新时间。"""
+        if not user_id or not kind or not version:
+            raise ValueError("consent 参数不完整")
+        now = time.time() if now is None else now
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO auth_consent (user_id, kind, version, agreed_at) "
+                "VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(user_id, kind, version) "
+                "DO UPDATE SET agreed_at = excluded.agreed_at",
+                (user_id, kind, version, now),
+            )
+            self._conn.commit()
+
+    def get_consent(self, user_id: str, kind: str) -> dict | None:
+        """最近一次同意（任意版本）；没有则 None。"""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT version, agreed_at FROM auth_consent "
+                "WHERE user_id = ? AND kind = ? "
+                "ORDER BY agreed_at DESC LIMIT 1",
+                (user_id, kind),
+            ).fetchone()
+        if row is None:
+            return None
+        return {"version": row["version"], "agreed_at": row["agreed_at"]}
+
+    def consent_history(self, user_id: str, kind: str) -> list[dict]:
+        """全部同意记录，供审计/追溯。"""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT version, agreed_at FROM auth_consent "
+                "WHERE user_id = ? AND kind = ? ORDER BY agreed_at DESC",
+                (user_id, kind),
+            ).fetchall()
+        return [{"version": r["version"], "agreed_at": r["agreed_at"]} for r in rows]
 
     # ── token ────────────────────────────────────────────
     def add_token(

@@ -72,6 +72,7 @@ def build_stream_ws_router(
     *,
     on_turn_done: Callable[[Any, str, str], None] | None = None,
     safety: PromptSiftClient | None = None,
+    consent_check: Callable[[str], bool] | None = None,
 ) -> APIRouter:
     router = APIRouter(tags=["stream"])
 
@@ -340,6 +341,16 @@ def build_stream_ws_router(
 
                 if mtype == "chat":
                     if not str(message.get("content") or "").strip():
+                        continue
+                    # #76：未同意当前版本隐私政策前不进入对话
+                    if consent_check is not None and not consent_check(user):
+                        await send(
+                            {
+                                "type": "error",
+                                "code": "consent_required",
+                                "content": "请先阅读并同意隐私政策",
+                            }
+                        )
                         continue
                     buffer.append(message)
                     pending.set()

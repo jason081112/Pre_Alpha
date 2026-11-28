@@ -173,6 +173,43 @@ section { position: relative; z-index: 1; }
   text-underline-offset: 3px;
 }
 
+/* ── #76 隐私同意 ── */
+#consent {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overflow-y: auto;
+}
+.consent-card { max-width: 420px; }
+.consent-list {
+  margin: 0 0 14px;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.consent-list li { margin-bottom: 6px; }
+.consent-list strong { color: var(--text); }
+.consent-list a, .consent-check a { color: var(--cyan); }
+.consent-check {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin: 14px 0 6px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.consent-check input {
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  padding: 0;
+  flex: 0 0 auto;
+  accent-color: var(--blue);
+}
+
 /* ── 注册弹窗 ── */
 #registerDialog {
   width: min(92vw, 360px);
@@ -611,11 +648,22 @@ input:focus, textarea:focus, select:focus {
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Alpha">
 <script nonce="__CSP_NONCE__">
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", function () {
-    navigator.serviceWorker.register("/sw.js").catch(function () {});
-  });
-}
+(function () {
+  "use strict";
+  var swUrl = "/sw.js";
+  if (window.trustedTypes && trustedTypes.createPolicy) {
+    try {
+      swUrl = trustedTypes.createPolicy("alpha-sw", {
+        createScriptURL: function (u) { return u; }
+      }).createScriptURL(swUrl);
+    } catch (e) {}
+  }
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register(swUrl).catch(function () {});
+    });
+  }
+})();
 </script>
 </head>
 <body>
@@ -649,6 +697,27 @@ if ("serviceWorker" in navigator) {
     <div class="err" id="registerErr"></div>
   </form>
 </dialog>
+
+<section id="consent" hidden>
+  <div class="card glass consent-card">
+    <h1>隐私说明</h1>
+    <p>开始对话前，请先了解你的数据怎么走。</p>
+    <ul class="consent-list">
+      <li><strong>存在哪</strong>：对话记录保存在你的账号与部署的数据目录，不训练、不出售。</li>
+      <li><strong>发给谁</strong>：本轮对话与人格设定所需的上下文会发给所选模型服务商（可能位于境外），不含你的账号凭证。</li>
+      <li><strong>不训练 / 不分享</strong>：不会用于训练模型，也不会分享给无关第三方。</li>
+      <li><strong>可导出 / 可删除</strong>：随时导出对话，随时删除账号与数据。</li>
+    </ul>
+    <p>当前 beta 免费。完整条款见《隐私政策》。</p>
+    <label class="consent-check">
+      <input id="consentAgree" type="checkbox">
+      <span>我已阅读并同意 <a href="/legal/privacy.html" target="_blank" rel="noopener">《隐私政策》</a>（版本 <span id="consentVersion">1.2</span>）</span>
+    </label>
+    <button type="button" id="consentBtn" class="btn-primary" disabled>开始使用</button>
+    <button type="button" class="linkbtn" id="consentLogout">退出登录</button>
+    <div class="err" id="consentErr"></div>
+  </div>
+</section>
 
 <section id="chat" hidden>
   <header>
@@ -760,6 +829,30 @@ if ("serviceWorker" in navigator) {
 (function () {
   "use strict";
 
+  /* ── #82 Trusted Types ──
+     CSP 已开启 require-trusted-types-for 'script'，innerHTML 等注入点
+     必须经过命名策略。当前页面只有静态 SVG 图标需要写 HTML。 */
+  var htmlPolicy = null;
+  if (window.trustedTypes && trustedTypes.createPolicy) {
+    try {
+      htmlPolicy = trustedTypes.createPolicy("alpha-html", {
+        createHTML: function (s) { return s; }
+      });
+    } catch (e) { htmlPolicy = null; }
+  }
+  function setHTML(el, markup) {
+    el.innerHTML = htmlPolicy ? htmlPolicy.createHTML(markup) : markup;
+  }
+
+  /* ── #82 错误脱敏 ──
+     界面、日志里不出现 Key / Bearer / query 里的凭证。 */
+  function redact(s) {
+    return String(s == null ? "" : s)
+      .replace(/Bearer\s+[^\s"']+/gi, "Bearer ***")
+      .replace(/([?&](?:token|key|api_key|code)=)[^&\s"']+/gi, "$1***")
+      .replace(/\b(sk|pk|ak)-[A-Za-z0-9_-]{6,}/g, "$1-***");
+  }
+
   var TOKEN_KEY = "alpha.token";
   var CLIENT_KEY = "alpha.client_id";
   var PERSONA_KEY = "alpha.persona_id";
@@ -777,7 +870,8 @@ if ("serviceWorker" in navigator) {
     unanswered: 0,
     switching: false,
     needResync: false,
-    lastMsgKey: ""
+    lastMsgKey: "",
+    consent: { accepted: false, required_version: "1.2" }
   };
 
   if (!state.clientId) {
@@ -908,7 +1002,7 @@ if ("serviceWorker" in navigator) {
   var typingRow = null;
 
   /* ── 视图切换：login / chat / byok / picker ── */
-  var VIEWS = ["login", "chat", "byok", "picker"];
+  var VIEWS = ["login", "consent", "chat", "byok", "picker"];
   function showView(name) {
     VIEWS.forEach(function (id) { $(id).hidden = id !== name; });
     if (name === "byok") loadByok();
@@ -994,6 +1088,56 @@ if ("serviceWorker" in navigator) {
     if (state.ws) { try { state.ws.close(); } catch (e) {} state.ws = null; }
     showView("login");
   }
+
+  /* ── #76 隐私同意 ── */
+  function loadConsent() {
+    return api("/api/me/consent")
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        state.consent = d || { accepted: false, required_version: "1.2" };
+        $("consentVersion").textContent = state.consent.required_version || "1.2";
+        $("consentAgree").checked = false;
+        $("consentBtn").disabled = true;
+        $("consentErr").textContent = "";
+        return state.consent;
+      });
+  }
+
+  $("consentAgree").addEventListener("change", function () {
+    $("consentBtn").disabled = !this.checked;
+  });
+
+  $("consentBtn").addEventListener("click", function () {
+    var btn = $("consentBtn");
+    var err = $("consentErr");
+    err.textContent = "";
+    if (!$("consentAgree").checked) {
+      err.textContent = "请先勾选同意";
+      return;
+    }
+    btn.disabled = true;
+    api("/api/me/consent", {
+      method: "POST",
+      body: { version: state.consent.required_version, accepted: true }
+    })
+      .then(function (r) {
+        return r.json().then(function (d) {
+          if (!r.ok) throw new Error(d.detail || "保存同意记录失败");
+          return d;
+        });
+      })
+      .then(function (d) {
+        dbg("consent.accepted", { version: d.accepted_version });
+        state.consent.accepted = true;
+        return boot();
+      })
+      .catch(function (e) {
+        err.textContent = redact(e.message || "保存失败");
+        btn.disabled = false;
+      });
+  });
+
+  $("consentLogout").addEventListener("click", function () { clearSession(); });
 
   /* ── 登录 ── */
   $("loginForm").addEventListener("submit", function (ev) {
@@ -1499,6 +1643,13 @@ if ("serviceWorker" in navigator) {
       case "error":
         flushRhythm();
         setTyping(false);
+        if (msg.code === "consent_required") {
+          // #76：服务端门禁兜底（例如政策版本更新后旧页面还在发消息）
+          loadConsent().then(function (c) {
+            if (!c.accepted) showView("consent");
+          });
+          break;
+        }
         addSystem(msg.content || msg.detail || "未知错误");
         break;
 
@@ -1640,7 +1791,7 @@ if ("serviceWorker" in navigator) {
   function setFormMsg(kind, text) {
     var el = $("formMsg");
     el.className = "form-msg" + (kind ? " " + kind : "");
-    el.textContent = text;
+    el.textContent = redact(text);
   }
 
   function loadByok() {
@@ -1656,7 +1807,7 @@ if ("serviceWorker" in navigator) {
       renderRouteCard();
       fillProviderSelect();
       renderKeyList();
-    }).catch(function (e) { dbg("byok.load", { error: e.message }); });
+    }).catch(function (e) { dbg("byok.load", { error: redact(e.message) }); });
   }
 
   function renderRouteCard() {
@@ -1732,10 +1883,10 @@ if ("serviceWorker" in navigator) {
     var input = $("apiKey");
     var show = input.type === "password";
     input.type = show ? "text" : "password";
-    this.innerHTML = show ? EYE_OFF_SVG : EYE_SVG;
+    setHTML(this, show ? EYE_OFF_SVG : EYE_SVG);
     this.setAttribute("aria-label", show ? "隐藏密钥" : "显示密钥");
   });
-  $("keyToggle").innerHTML = EYE_SVG;
+  setHTML($("keyToggle"), EYE_SVG);
 
   $("probeBtn").addEventListener("click", function () {
     var baseUrl = $("baseUrl").value.trim();
@@ -1757,6 +1908,7 @@ if ("serviceWorker" in navigator) {
       })
       .catch(function (e) { setFormMsg("err", e.message || "测试连接失败"); })
       .then(function () { btn.disabled = false; });
+    key = "";  // #82：请求体已序列化，局部变量不保留 Key
   });
 
   $("byokForm").addEventListener("submit", function (ev) {
@@ -1789,6 +1941,9 @@ if ("serviceWorker" in navigator) {
         body: { label: label, base_url: baseUrl, api_key: key, models: models, probe: true }
       });
     }
+    // #82：请求体在 api() 里已同步序列化，立刻清掉 DOM 与局部变量里的 Key
+    key = "";
+    $("apiKey").value = "";
     promise
       .then(function (r) {
         return r.json().then(function (d) { return { ok: r.ok, d: d }; });
@@ -1860,7 +2015,7 @@ if ("serviceWorker" in navigator) {
       del.type = "button";
       del.className = "icon-btn";
       del.setAttribute("aria-label", "删除 " + p.label);
-      del.innerHTML = TRASH_SVG;
+      setHTML(del, TRASH_SVG);
       del.addEventListener("click", function () { removeProvider(p, del); });
       actions.appendChild(del);
 
@@ -2030,12 +2185,21 @@ if ("serviceWorker" in navigator) {
   /* ── 启动 ── */
   function boot() {
     $("login").hidden = true;
-    $("chat").hidden = false;
-    return loadPersonas()
-      .then(loadHistory)
-      .then(function () {
-        connect();
-        textEl.focus();
+    return loadConsent()
+      .then(function (c) {
+        if (!c.accepted) {
+          // #76：未同意当前版本政策前不进入对话
+          showView("consent");
+          $("consentAgree").focus();
+          return;
+        }
+        showView("chat");
+        return loadPersonas()
+          .then(loadHistory)
+          .then(function () {
+            connect();
+            textEl.focus();
+          });
       })
       .catch(function (e) {
         clearSession();
@@ -2075,6 +2239,9 @@ def build_ui_router():
             "base-uri 'none'; "
             "form-action 'self'; "
             "manifest-src 'self'; "
+            # #82 Trusted Types：所有 HTML/脚本注入点必须经过命名策略
+            "trusted-types alpha-html alpha-sw; "
+            "require-trusted-types-for 'script'; "
             "frame-ancestors 'none'"
         )
         return HTMLResponse(

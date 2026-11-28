@@ -77,9 +77,11 @@ const fetchStub = (url) =>
     ok: true,
     json: () =>
       Promise.resolve(
-        String(url).includes("/v1/models")
-          ? { data: [{ id: "luna" }] }
-          : { messages: [] }
+        String(url).includes("/api/me/consent")
+          ? { accepted: true, required_version: "1.2" }
+          : String(url).includes("/v1/models")
+            ? { data: [{ id: "luna" }] }
+            : { messages: [] }
       ),
   });
 

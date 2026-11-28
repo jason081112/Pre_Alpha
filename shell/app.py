@@ -62,6 +62,7 @@ from shell.auth.scope import (  # noqa: E402
 from shell.auth.service import service_from_env  # noqa: E402
 from shell.auth.store import AuthStore  # noqa: E402
 from shell.content_safety import PromptSiftClient  # noqa: E402
+from shell.consent import build_consent_router, has_consent  # noqa: E402
 from shell.crypto import SecretBox  # noqa: E402
 from shell.custom import CustomProviderStore  # noqa: E402
 from shell.limits import (  # noqa: E402
@@ -200,6 +201,7 @@ async def serve_pwa_static(name: str):
         return JSONResponse(status_code=404, content={"error": "not_found"})
     return FileResponse(ROOT / "site" / "static" / name, media_type="image/png")
 app.include_router(build_auth_router(auth_service))
+app.include_router(build_consent_router(auth_store))
 app.include_router(build_page_router())
 app.include_router(build_limits_admin_router(limits))
 
@@ -404,7 +406,11 @@ app.include_router(
 install_openai_error_handlers(app)
 
 # 真流式 WS（#94）：上游 /ws/chat 拿不到中间内容，这条走 shell 自己的解析器
-app.include_router(build_stream_ws_router(upstream, safety=prompt_sift))
+app.include_router(build_stream_ws_router(
+    upstream,
+    safety=prompt_sift,
+    consent_check=lambda user: has_consent(auth_store, user),
+))
 
 # 聊天页（#46）：单文件 HTML，接 /ws/chat/stream
 app.include_router(build_ui_router())

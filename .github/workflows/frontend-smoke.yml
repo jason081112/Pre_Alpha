@@ -12,6 +12,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - name: Static security baseline (#82)
+        run: python3 scripts/dev/check_frontend_security.py
+      - name: Privacy consent store (#76)
+        run: python3 tests/test_consent.py
       - name: P0 behaviors (persona switch / reconnect resync)
         run: node tests/ui_p0_smoke.mjs
       - name: Debug event log
