@@ -16,6 +16,7 @@ from .outbound import (
     plan_outbound,
 )
 from .providers import Registry, Route, RouteError
+from .routing import route_from_env
 from .store import RoutingStore
 
 MAX_FALLBACK = 4
@@ -143,12 +144,15 @@ def build_router(
     def get_routing(x_alpha_user: str | None = Header(default=None)) -> dict:
         user = user_of(x_alpha_user)
         record = store.get(user)
+        default = route_from_env("ALPHA_DEFAULT_ROUTE")
         if record is None:
             return {
                 "user_id": user,
                 "configured": False,
-                "route": None,
+                "route": default.as_dict() if default is not None else None,
+                "route_key": default.as_str() if default is not None else None,
                 "fallback": [],
+                "source": "default" if default is not None else "none",
             }
         return {
             "user_id": user,
@@ -156,6 +160,7 @@ def build_router(
             "route": record.route.as_dict(),
             "route_key": record.route.as_str(),
             "fallback": [r.as_dict() for r in record.fallback],
+            "source": "user",
             "updated_at": record.updated_at,
         }
 

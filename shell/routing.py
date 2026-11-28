@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+import os
 import time
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -26,6 +27,18 @@ last_usage: ContextVar[dict | None] = ContextVar("alpha_last_usage", default=Non
 fallback_routes: ContextVar[tuple[Route, ...]] = ContextVar("alpha_fallback_routes", default=())
 attempts: ContextVar[tuple[dict, ...]] = ContextVar("alpha_attempts", default=())
 route_used: ContextVar[Route | None] = ContextVar("alpha_route_used", default=None)
+
+
+def route_from_env(var: str) -> Route | None:
+    """从环境变量读取一条路由；无效时打印告警并返回 None。"""
+    raw = os.getenv(var, "").strip()
+    if not raw:
+        return None
+    try:
+        return Route.parse(raw)
+    except RouteError as exc:
+        print(f"⚠️  {var} 无效: {exc}")
+        return None
 
 
 class RouteNotConfigured(RuntimeError):

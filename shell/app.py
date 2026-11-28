@@ -85,6 +85,7 @@ from shell.routing import (  # noqa: E402
     RoutingLLMClient,
     attempts as routing_attempts,
     last_usage,
+    route_from_env,
     route_used,
     routing_context,
 )
@@ -337,7 +338,7 @@ async def _not_configured_handler(request, exc: RouteNotConfigured) -> JSONRespo
         status_code=409,
         content={
             "error": "route_not_configured",
-            "action": "open_model_picker",
+            "action": "open_byok_setup",
             "detail": str(exc),
         },
     )
@@ -362,18 +363,10 @@ async def _rate_limit_handler(request, exc: RateLimitExceeded) -> JSONResponse:
     )
 
 
-def _dev_route() -> Route | None:
-    raw = os.getenv("ALPHA_DEV_ROUTE", "").strip()
-    if not raw:
-        return None
-    try:
-        return Route.parse(raw)
-    except RouteError as exc:
-        print(f"⚠️  ALPHA_DEV_ROUTE 无效: {exc}")
-        return None
-
-
-DEV_ROUTE = _dev_route()
+# 开发兜底：任何用户都能用（仅本地验证，生产不要设）
+DEV_ROUTE = route_from_env("ALPHA_DEV_ROUTE")
+# 平台默认路由：用户没配路由时走这条（平台 Key + 每日免费额度）
+DEFAULT_ROUTE = route_from_env("ALPHA_DEFAULT_ROUTE")
 
 app.include_router(
     build_openai_router(
@@ -411,7 +404,8 @@ def _route_chain(user: str) -> tuple[Route, ...]:
     record = store.get(user)
     if record is not None:
         return (record.route, *record.fallback)
-    return (DEV_ROUTE,) if DEV_ROUTE is not None else ()
+    fallback = DEV_ROUTE or DEFAULT_ROUTE
+    return (fallback,) if fallback is not None else ()
 
 
 # 需要注入路由上下文的 WS 端点（上游 /ws/chat 与 #94 的流式端点）
@@ -429,7 +423,7 @@ class AlphaMiddleware:
         path = scope.get("path", "")
         user = _user_of(scope)
         record = store.get(user)
-        route = record.route if record else DEV_ROUTE
+        route = record.route if record else (DEV_ROUTE or DEFAULT_ROUTE)
         fallback = record.fallback if record else ()
 
         if kind == "websocket":
@@ -461,8 +455,8 @@ class AlphaMiddleware:
             status_code=409,
             content={
                 "error": "route_not_configured",
-                "action": "open_model_picker",
-                "detail": f"用户 {user!r} 尚未选择模型",
+                "action": "open_byok_setup",
+                "detail": f"用户 {user!r} 尚未选择模型，且服务端未配置默认模型",
             },
         )
         await response(scope, receive, send)

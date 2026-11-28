@@ -98,6 +98,40 @@ def test_route_parse() -> None:
         raise AssertionError("缺少 / 应报错")
 
 
+def test_route_from_env() -> None:
+    import os
+    from shell.routing import route_from_env
+
+    os.environ.pop("ALPHA_TEST_ROUTE", None)
+    assert route_from_env("ALPHA_TEST_ROUTE") is None
+
+    os.environ["ALPHA_TEST_ROUTE"] = "dashscope/qwen-plus-latest"
+    route = route_from_env("ALPHA_TEST_ROUTE")
+    assert route == Route("dashscope", "qwen-plus-latest")
+
+    # 无效值：不抛异常，返回 None（启动/请求期都要能兜住）
+    os.environ["ALPHA_TEST_ROUTE"] = "no-slash"
+    assert route_from_env("ALPHA_TEST_ROUTE") is None
+    os.environ.pop("ALPHA_TEST_ROUTE", None)
+
+
+def test_default_route_enables_chat_without_user_record() -> None:
+    """新用户没写路由表时，只要 routing_context 里有默认路由就能聊。
+
+    这覆盖 app.py 中 `record.route if record else (DEV_ROUTE or DEFAULT_ROUTE)`
+    的语义：默认路由不落库，仅注入 contextvar。
+    """
+    calls: list[str] = []
+    client = _client({"a": "ok"}, calls)
+    from shell.providers import Route as _Route
+    from shell.routing import routing_context as _ctx
+
+    with _ctx(_Route("a", "m"), user="newuser"):
+        out = asyncio.run(client.chat("hi"))
+    assert out == "ok:a"
+    assert calls == ["chat:a"]
+
+
 def test_registry_validation() -> None:
     registry = Registry.load()
     route = registry.resolve("ollama-cloud", "gemma4:31b")

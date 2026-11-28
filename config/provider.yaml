@@ -7,10 +7,10 @@
 # vendor/OpenHer/providers/api.yaml（vendor 已 gitignore，不入库）。
 # 换 provider 只改这里，不要再手改 vendor。
 
-provider: openai
-base_url: https://ollama.com/v1
-api_key_env: OPENAI_API_KEY
-default_model: gemma4:31b
+provider: dashscope
+base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+api_key_env: DASHSCOPE_API_KEY
+default_model: qwen-plus-latest
 
 # 可选：回退链（上游 engine 支持时生效，当前仅记录）
 # fallbacks:

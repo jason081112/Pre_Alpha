@@ -30,6 +30,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from .auth.scope import current_auth_user
 from .content_safety import PromptSiftClient, PromptSiftError, refusal_for
+from .routing import RouteNotConfigured
 from .stream_parse import ReplyExtractor, SegmentEvent, Segmenter
 
 __all__ = ["build_stream_ws_router"]
@@ -211,6 +212,17 @@ def build_stream_ws_router(
                         await handle(ev)
                 for ev in segmenter.finish():
                     await handle(ev)
+            except RouteNotConfigured as exc:
+                await send(
+                    {
+                        "type": "error",
+                        "content": "还没有可用模型：请配置自己的 Key，或联系管理员开启默认模型。",
+                        "code": "route_not_configured",
+                        "action": "open_byok_setup",
+                        "detail": str(exc),
+                    }
+                )
+                return
             except Exception as exc:  # noqa: BLE001
                 await send(
                     {

@@ -61,13 +61,16 @@
       "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
       "api_key_env": "DASHSCOPE_API_KEY",
       "models": [
+        "qwen-plus-latest",
         "qwen-max",
-        "qwen-plus"
+        "qwen-plus",
+        "qwen3.8-flash"
       ],
       "caps": [
         "zh",
         "tools"
-      ]
+      ],
+      "max_tokens": 2048
     },
     "gemini": {
       "upstream": "gemini",

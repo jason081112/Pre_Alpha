@@ -770,7 +770,7 @@ footer {
 
       case "error":
         setTyping(false);
-        addSystem("出错了：" + (msg.content || "未知错误"));
+        addSystem(msg.content || msg.detail || "未知错误");
         break;
 
       case "pong":
