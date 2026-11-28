@@ -84,7 +84,7 @@ def render(data: dict) -> str:
 
   <header class="legal-nav">
     <div class="legal-nav-inner">
-      <a class="legal-brand" href="../glass/">
+      <a class="legal-brand" href="../">
         <span class="legal-mark" aria-hidden="true"></span>
         <span>Pre_Alpha</span>
       </a>

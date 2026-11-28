@@ -908,17 +908,17 @@ input:focus, textarea:focus, select:focus {
     <input id="password" type="password" placeholder="密码" autocomplete="current-password" required>
     <button type="submit" id="loginBtn" class="btn-primary">登录</button>
     <div class="err" id="loginErr"></div>
-    <button type="button" class="linkbtn" id="registerOpen">有邀请码？注册</button>
+    <button type="button" class="linkbtn" id="registerOpen">注册新账号</button>
   </form>
 </section>
 
 <dialog id="registerDialog" aria-labelledby="registerTitle">
   <form class="card glass" id="registerForm" autocomplete="on">
     <h1 id="registerTitle">注册</h1>
-    <p>需要有效邀请码</p>
+    <p>新用户可免费聊 30 轮</p>
     <input id="regEmail" type="email" placeholder="邮箱" autocomplete="username" required>
     <input id="regPassword" type="password" placeholder="密码（至少 8 位）" autocomplete="new-password" minlength="8" required>
-    <input id="regInvite" type="text" placeholder="邀请码" autocomplete="one-time-code" required>
+    <input id="regInvite" type="text" placeholder="邀请码（有就填，可留空）" autocomplete="one-time-code">
     <button type="submit" id="registerBtn" class="btn-primary">注册并登录</button>
     <button type="button" class="ghost" id="registerClose">取消</button>
     <div class="err" id="registerErr"></div>
