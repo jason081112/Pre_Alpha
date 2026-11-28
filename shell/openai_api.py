@@ -360,6 +360,8 @@ def build_openai_router(
     safety: PromptSiftClient | None = None,
     banned_check: Any = None,
     guard_log: Any = None,
+    access_check: Any = None,
+    turn_hook: Any = None,
 ) -> APIRouter:
     router = APIRouter(tags=["openai"])
 
@@ -411,6 +413,15 @@ def build_openai_router(
                     "账号已被限制使用；如有异议请发送邮件至 prealpha@163.com 申诉。",
                     code="account_suspended",
                 )
+            # #102 试用/订阅：30 轮用完后不再进入生成
+            if access_check is not None:
+                allowed, reason = access_check(user)
+                if not allowed:
+                    raise _RequestFailure(
+                        402,
+                        "免费试用的 30 轮已经用完了。订阅 BYOK 后可以继续调用。",
+                        code="trial_exhausted",
+                    )
             refused = await _check_prompt_safety(safety, user_text)
             if refused is not None:
                 return refused
@@ -499,6 +510,7 @@ def build_openai_router(
                 created=created,
                 session_id=session_id,
                 guard_log=guard_log,
+                turn_hook=turn_hook,
             )
 
         finish_reason = "stop"
@@ -554,6 +566,11 @@ def build_openai_router(
             reply=reply,
             modality=modality,
         )
+        if turn_hook is not None:
+            try:
+                turn_hook(user)
+            except Exception:  # noqa: BLE001
+                pass
         headers = {"X-Alpha-Session-Id": str(session_id)}
         if used is not None:
             headers["X-Alpha-Route"] = used.as_str()
@@ -587,6 +604,7 @@ def _streaming_response(
     created: int,
     session_id: str,
     guard_log: Any = None,
+    turn_hook: Any = None,
 ) -> StreamingResponse:
     async def event_stream():
         extractor = ReplyStreamExtractor()
@@ -660,6 +678,11 @@ def _streaming_response(
                     modality=str(getattr(agent, "_last_modality", "") or "文字"),
                 )
                 saved = True
+                if turn_hook is not None:
+                    try:
+                        turn_hook(user)
+                    except Exception:  # noqa: BLE001
+                        pass
 
                 yield _sse(
                     stream_chunk_body(
@@ -687,6 +710,11 @@ def _streaming_response(
                 modality=str(getattr(agent, "_last_modality", "") or "文字"),
             )
             completed = saved = True
+            if turn_hook is not None:
+                try:
+                    turn_hook(user)
+                except Exception:  # noqa: BLE001
+                    pass
             yield _sse(
                 stream_chunk_body(
                     request_id=request_id,

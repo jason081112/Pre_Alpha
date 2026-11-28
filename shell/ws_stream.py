@@ -85,6 +85,8 @@ def build_stream_ws_router(
     safety: PromptSiftClient | None = None,
     consent_check: Callable[[str], bool] | None = None,
     banned_check: Callable[[str], bool] | None = None,
+    access_check: Callable[[str], tuple[bool, str]] | None = None,
+    turn_hook: Callable[[str], None] | None = None,
     guard_log: Callable[[str, str, tuple[str, ...]], None] | None = None,
 ) -> APIRouter:
     router = APIRouter(tags=["stream"])
@@ -133,6 +135,20 @@ def build_stream_ws_router(
                     }
                 )
                 return
+
+            # #102 试用/订阅：30 轮用完后不再进入生成
+            if access_check is not None:
+                allowed, reason = access_check(user)
+                if not allowed:
+                    await send(
+                        {
+                            "type": "error",
+                            "code": "trial_exhausted",
+                            "content": "免费试用的 30 轮已经用完了。订阅 BYOK 后可以继续聊。",
+                            "subscribe_url": "/pricing/",
+                        }
+                    )
+                    return
 
             if safety is not None:
                 try:
@@ -320,6 +336,13 @@ def build_stream_ws_router(
             elif guard.action == "soften":
                 pushed = list(pushed) + list(guard.care)
                 reply = "\n\n".join(pushed)
+
+            # 成功回复一条才算一轮（拦截/失败不计数）
+            if turn_hook is not None:
+                try:
+                    turn_hook(user)
+                except Exception:  # noqa: BLE001
+                    pass
 
             payload = {
                 "type": "chat_end",

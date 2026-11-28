@@ -71,6 +71,7 @@ from shell.limits import (  # noqa: E402
     LimitsService,
     RateLimitExceeded,
 )
+from shell.billing import BillingStore, build_billing_router  # noqa: E402
 from shell.limits_api import build_limits_admin_router  # noqa: E402
 from shell.moderation import ModerationStore, build_moderation_router  # noqa: E402
 from shell.persona_repo import PersonaRepository  # noqa: E402
@@ -95,6 +96,7 @@ from shell.routing import (  # noqa: E402
 from shell.store import RoutingStore  # noqa: E402
 from shell.export_api import build_export_router  # noqa: E402
 from shell.ui import build_ui_router  # noqa: E402
+from shell.waffo import from_env as waffo_from_env  # noqa: E402
 from shell.ws_stream import build_stream_ws_router  # noqa: E402
 
 DATA_DIR = Path(os.getenv("ALPHA_DATA_DIR", str(ROOT / ".data")))
@@ -121,6 +123,15 @@ limits = LimitsService(LIMITS_DB_PATH)
 moderation = ModerationStore(
     Path(os.getenv("ALPHA_MODERATION_DB", str(DATA_DIR / "moderation.db")))
 )
+# #102 订阅与试用：SQLite 记试用轮数与订阅状态；Waffo 配置缺失时订阅接口 503
+billing = BillingStore(
+    Path(os.getenv("ALPHA_BILLING_DB", str(DATA_DIR / "billing.db")))
+)
+try:
+    waffo = waffo_from_env()
+except Exception as exc:  # noqa: BLE001
+    raise RuntimeError(f"Waffo 配置错误: {exc}") from exc
+print("[billing] Waffo Pancake: " + ("enabled" if waffo is not None else "off"))
 try:
     prompt_sift = PromptSiftClient.from_env()
 except Exception as exc:  # noqa: BLE001 - 配置错误必须显式失败
@@ -211,6 +222,16 @@ app.include_router(build_consent_router(auth_store))
 app.include_router(build_page_router())
 app.include_router(build_limits_admin_router(limits))
 app.include_router(build_moderation_router(moderation, limits=limits))
+app.include_router(
+    build_billing_router(
+        billing,
+        waffo=waffo,
+        success_url=(
+            os.getenv("ALPHA_PUBLIC_URL", "https://47.239.51.212.sslip.io").rstrip("/")
+            + "/?billing=success"
+        ),
+    )
+)
 
 # ── 人格 CRUD（#83）──────────────────────────────────────────────
 # profile.json 落在 ALPHA_PERSONA_ROOT/<user>/personas/<id>/；
@@ -409,6 +430,8 @@ app.include_router(
         limits=limits,
         safety=prompt_sift,
         banned_check=moderation.is_banned,
+        access_check=billing.can_chat,
+        turn_hook=billing.record_turn,
         guard_log=lambda user, action, cats: moderation.record_action(
             user, f"guard_{action}", reason=",".join(cats)
         ),
@@ -422,6 +445,8 @@ app.include_router(build_stream_ws_router(
     safety=prompt_sift,
     consent_check=lambda user: has_consent(auth_store, user),
     banned_check=moderation.is_banned,
+    access_check=billing.can_chat,
+    turn_hook=billing.record_turn,
     guard_log=lambda user, action, cats: moderation.record_action(
         user, f"guard_{action}", reason=",".join(cats)
     ),
@@ -635,6 +660,7 @@ async def _close_store() -> None:
     custom_store.close()
     auth_store.close()
     limits.close()
+    billing.close()
 
 
 if __name__ == "__main__":

@@ -174,6 +174,66 @@ section { position: relative; z-index: 1; }
   text-underline-offset: 3px;
 }
 
+/* ── #102 订阅 ── */
+#subscribe {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+#subscribe .sub-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 16px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+#subscribe .card { max-width: 420px; }
+#subscribe .card h2 { margin: 0 0 6px; font-size: 18px; font-weight: 650; }
+#subscribe .card > p { margin: 0 0 16px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.price-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.price-toggle .seg {
+  padding: 12px 8px;
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  background: rgba(8, 10, 22, .45);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+.price-toggle .seg.on {
+  border-color: var(--blue);
+  background: rgba(91, 124, 250, .16);
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(91, 124, 250, .35) inset;
+}
+.price-toggle .seg .save {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--cyan);
+}
+.sub-features {
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--fg);
+}
+.sub-features li { display: flex; gap: 8px; line-height: 1.5; }
+.sub-features li::before { content: "✓"; color: var(--cyan); font-weight: 700; }
+#subMsg.err { min-height: 18px; }
+#subscribe .linkbtn { max-width: 420px; }
+
 /* ── #76 隐私同意 ── */
 #consent {
   height: 100%;
@@ -749,6 +809,7 @@ input:focus, textarea:focus, select:focus {
     <button type="button" id="settingsBtn" class="icon-btn" title="模型设置" aria-label="模型设置">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
     </button>
+    <button type="button" id="trialBadge" class="badge" title="免费试用剩余轮数">…</button>
     <button type="button" id="exportBtn" title="导出这段对话">导出</button>
     <button type="button" id="reportBtn" title="举报不当内容">举报</button>
     <button type="button" id="dbgBtn" title="导出事件日志">日志</button>
@@ -847,6 +908,34 @@ input:focus, textarea:focus, select:focus {
     </button>
   </div>
 </section>
+<section id="subscribe" hidden>
+  <div class="page-head">
+    <button type="button" id="subBack" class="icon-btn" aria-label="返回聊天">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <span class="page-title">订阅</span>
+    <span class="icon-btn" aria-hidden="true"></span>
+  </div>
+  <div class="sub-scroll">
+    <div class="glass card">
+      <h2>BYOK 订阅</h2>
+      <p>免费 30 轮试用已经结束。订阅后不限条数，用你自己的 API Key。</p>
+      <div class="price-toggle" role="radiogroup" aria-label="订阅周期">
+        <button type="button" id="subMonthly" class="seg on" data-interval="monthly">$9 / 月</button>
+        <button type="button" id="subYearly" class="seg" data-interval="yearly">$90 / 年<span class="save">省 $18</span></button>
+      </div>
+      <ul class="sub-features" id="subFeatures"></ul>
+      <label class="field">
+        <span class="field-label">促销码（可选）</span>
+        <input id="promoCode" type="text" maxlength="64" autocomplete="off" placeholder="有开发者优惠码就填这里">
+      </label>
+      <button type="button" id="subBuy" class="btn-primary">去支付</button>
+      <p class="hint" id="subMsg" role="status"></p>
+      <p class="hint">支付由 Waffo Pancake 处理，本站不接触卡号。可随时取消，到期前仍可使用。</p>
+    </div>
+    <button type="button" id="subChat" class="linkbtn">先回聊天</button>
+  </div>
+</section>
 <pre id="dbg" hidden></pre>
 
 <script nonce="__CSP_NONCE__">
@@ -895,6 +984,8 @@ input:focus, textarea:focus, select:focus {
     switching: false,
     needResync: false,
     lastMsgKey: "",
+    billing: null,
+    subInterval: "monthly",
     consent: { accepted: false, required_version: "1.2" }
   };
 
@@ -1026,7 +1117,7 @@ input:focus, textarea:focus, select:focus {
   var typingRow = null;
 
   /* ── 视图切换：login / chat / byok / picker ── */
-  var VIEWS = ["login", "consent", "chat", "byok", "picker"];
+  var VIEWS = ["login", "consent", "chat", "byok", "picker", "subscribe"];
   function showView(name) {
     VIEWS.forEach(function (id) { $(id).hidden = id !== name; });
     if (name === "byok") loadByok();
@@ -1112,6 +1203,102 @@ input:focus, textarea:focus, select:focus {
     if (state.ws) { try { state.ws.close(); } catch (e) {} state.ws = null; }
     showView("login");
   }
+
+  /* ── #102 订阅与试用 ── */
+  function loadBilling() {
+    if (!state.token) return Promise.resolve(null);
+    return api("/api/billing/status")
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        state.billing = data;
+        updateTrialBadge();
+        return data;
+      })
+      .catch(function (e) {
+        dbg("billing.load", { error: redact(e.message) });
+        return null;
+      });
+  }
+
+  function updateTrialBadge() {
+    var el = $("trialBadge");
+    var b = state.billing;
+    if (!el) return;
+    if (!b) { el.hidden = true; return; }
+    el.hidden = false;
+    if (b.subscribed) {
+      el.textContent = "BYOK";
+      el.className = "badge on";
+    } else {
+      var left = b.trial ? b.trial.remaining : 0;
+      var limit = b.trial ? b.trial.limit : 30;
+      el.textContent = "试用 " + left + "/" + limit;
+      el.className = "badge" + (b.can_chat ? "" : " off");
+    }
+  }
+
+  function renderSubFeatures() {
+    var list = $("subFeatures");
+    if (!list || list.children.length) return;
+    [
+      "自带 API Key，聊天不消耗平台额度",
+      "网页端与 OpenAI 兼容接口共用一份订阅",
+      "不限消息条数，只受你自己的 Key 额度限制",
+      "可随时取消，到期前仍可使用",
+      "年付按 10 个月计价（省 2 个月）"
+    ].forEach(function (text) {
+      var li = document.createElement("li");
+      li.textContent = text;
+      list.appendChild(li);
+    });
+  }
+
+  function showSubscribe() {
+    renderSubFeatures();
+    showView("subscribe");
+    if (!state.billing) loadBilling();
+  }
+
+  function pickInterval(name) {
+    state.subInterval = name;
+    $("subMonthly").className = "seg" + (name === "monthly" ? " on" : "");
+    $("subYearly").className = "seg" + (name === "yearly" ? " on" : "");
+  }
+
+  $("trialBadge").addEventListener("click", showSubscribe);
+  $("subBack").addEventListener("click", function () { showView("chat"); });
+  $("subChat").addEventListener("click", function () { showView("chat"); });
+  $("subMonthly").addEventListener("click", function () { pickInterval("monthly"); });
+  $("subYearly").addEventListener("click", function () { pickInterval("yearly"); });
+
+  $("subBuy").addEventListener("click", function () {
+    var btn = $("subBuy");
+    var msg = $("subMsg");
+    msg.textContent = "";
+    msg.className = "hint";
+    btn.disabled = true;
+    var promo = ($("promoCode").value || "").trim();
+    api("/api/billing/checkout", {
+      method: "POST",
+      body: { interval: state.subInterval, promo_code: promo }
+    })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          if (!res.ok) throw new Error(data.detail || ("创建支付失败 " + res.status));
+          return data;
+        });
+      })
+      .then(function (data) {
+        dbg("billing.checkout", { interval: state.subInterval, promo: !!promo });
+        if (!data.url) throw new Error("未拿到支付链接");
+        location.href = data.url;
+      })
+      .catch(function (e) {
+        msg.className = "err";
+        msg.textContent = redact(e.message);
+      })
+      .then(function () { btn.disabled = false; });
+  });
 
   /* ── #100 举报 ── */
   var reportDialog = $("reportDialog");
@@ -1728,12 +1915,20 @@ input:focus, textarea:focus, select:focus {
       case "chat_end":
         state.unanswered = Math.max(0, state.unanswered - 1);
         saveMood(msg);
+        loadBilling();
         if (msg.guard) dbg("guard", msg.guard);
         rhythm.pendingEnd = msg;
         if (!rhythm.q.length && !rhythm.running) finishTurn();
         break;
 
       case "error":
+        if (msg.code === "trial_exhausted") {
+          dbg("billing.exhausted");
+          flushRhythm();
+          addSystem(msg.content || "免费试用已结束");
+          showSubscribe();
+          break;
+        }
         flushRhythm();
         setTyping(false);
         if (msg.code === "consent_required") {
@@ -2295,7 +2490,21 @@ input:focus, textarea:focus, select:focus {
           return;
         }
         showView("chat");
-        return loadPersonas()
+        return loadBilling()
+          .then(function () {
+            if (/[?&]subscribe=1/.test(location.search)) showSubscribe();
+            if (/[?&]billing=success/.test(location.search)) {
+              addSystem("支付已完成，正在确认订阅…");
+              [2000, 5000, 9000].forEach(function (ms) {
+                setTimeout(function () {
+                  loadBilling().then(function (b) {
+                    if (b && b.subscribed) addSystem("订阅已生效");
+                  });
+                }, ms);
+              });
+            }
+            return loadPersonas();
+          })
           .then(loadHistory)
           .then(function () {
             connect();
