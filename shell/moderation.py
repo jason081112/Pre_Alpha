@@ -13,7 +13,9 @@
 `ALPHA_ADMIN_TOKEN` 时返回 503，而不是默认放行。
 """
 
-from __future__ import annotations
+# 注意：这里不能用 `from __future__ import annotations`。fastapi/pydantic 在
+# build_moderation_router 内部延迟导入，注解被字符串化后 pydantic 解析不到，
+# 会把请求体误当成 query 参数（POST 直接 422）。consent.py 踩过同一个坑。
 
 import hmac
 import os
@@ -239,7 +241,8 @@ def build_moderation_router(
     @router.post("/api/moderation/report")
     def report(payload: ReportIn) -> dict:
         user = current_auth_user.get()
-        if not user:
+        # ContextVar 默认值是 "local"（认证关闭时的旧语义），生产必须当成匿名
+        if not user or user == "local":
             raise HTTPException(401, "请先登录")
         report_id = store.add_report(
             user,

@@ -48,6 +48,7 @@ else:
 import main as upstream  # noqa: E402  （必须在 chdir 之后）
 
 from fastapi.responses import FileResponse, JSONResponse  # noqa: E402
+from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 from shell.agent_state import AgentExtraStore  # noqa: E402
 from shell.api import build_router  # noqa: E402
@@ -428,6 +429,13 @@ app.include_router(build_stream_ws_router(
 
 # 聊天页（#46）：单文件 HTML，接 /ws/chat/stream
 app.include_router(build_ui_router())
+
+# 静态站点（#76）：隐私政策/AUP/模型披露、定价页、视觉样张。
+# 之前只把文件放进了 site/，没有挂载路由，线上 /legal/* 一直是 404。
+for _sub in ("legal", "pricing", "glass"):
+    _dir = ROOT / "site" / _sub
+    if _dir.is_dir():
+        app.mount(f"/{_sub}", StaticFiles(directory=str(_dir), html=True), name=f"site-{_sub}")
 
 # 对话导出（#50）：Markdown / JSON
 app.include_router(build_export_router(upstream))
