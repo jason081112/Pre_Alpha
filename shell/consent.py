@@ -9,9 +9,11 @@
 
 未同意前对话会被拒绝（WS 返回 `consent_required`），
 同意记录可审计、可追溯到具体版本与时间。
-"""
 
-from __future__ import annotations
+注意：本模块**不能**加 `from __future__ import annotations`。
+fastapi/pydantic 延迟导入在函数作用域内，注解一旦变成字符串就解析不到，
+FastAPI 会把 Request / 请求体误判为 query 参数（422）。
+"""
 
 from .auth.scope import current_auth_user
 from .auth.store import AuthStore
@@ -32,12 +34,7 @@ def has_consent(store: AuthStore, user: str) -> bool:
 
 
 def build_consent_router(store: AuthStore):
-    from fastapi import APIRouter, HTTPException
-    from pydantic import BaseModel
-
-    class ConsentIn(BaseModel):
-        version: str
-        accepted: bool = True
+    from fastapi import APIRouter, HTTPException, Request
 
     router = APIRouter(tags=["consent"])
 
@@ -55,10 +52,19 @@ def build_consent_router(store: AuthStore):
         }
 
     @router.post("/api/me/consent")
-    def post_consent(payload: ConsentIn) -> dict:
-        if not payload.accepted:
+    async def post_consent(request: Request) -> dict:
+        # #76 手写解析：本模块保持零依赖可导入（fastapi/pydantic 延迟导入），
+        # 不在函数作用域里定义 BaseModel（前向注解解析不到会退化成 query 参数）。
+        try:
+            payload = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="请求体不是合法 JSON")
+        if not isinstance(payload, dict):
+            raise HTTPException(status_code=400, detail="请求体必须是 JSON 对象")
+        if payload.get("accepted", True) is not True:
             raise HTTPException(status_code=400, detail="需要同意当前版本的政策")
-        if payload.version != PRIVACY_VERSION:
+        version = payload.get("version")
+        if version != PRIVACY_VERSION:
             raise HTTPException(
                 status_code=409,
                 detail=f"政策版本已更新（当前 {PRIVACY_VERSION}），请重新阅读",
