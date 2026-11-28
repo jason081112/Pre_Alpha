@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 jason081112
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# 域名从 ALPHA_DOMAIN 环境变量取（compose 传入），默认值用于本地 ss lip.io
+{
+	{$ALPHA_DOMAIN:47.239.51.212.sslip.io} {
+		encode zstd gzip
+
+		# 健康检查不应该进日志噪音
+		@health path /healthz /readyz
+		log_skip @health
+
+		reverse_proxy app:8000
+	}
+}

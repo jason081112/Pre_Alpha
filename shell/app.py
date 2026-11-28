@@ -16,10 +16,14 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import socket
+import sqlite3
 import sys
 import threading
 import time
 from pathlib import Path
+from typing import Any
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 VENDOR = ROOT / "vendor" / "OpenHer"
@@ -49,6 +53,7 @@ else:
 
 import main as upstream  # noqa: E402  （必须在 chdir 之后）
 
+from fastapi import Response  # noqa: E402
 from fastapi.responses import FileResponse, JSONResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
@@ -207,6 +212,101 @@ def _strip_upstream_pages(application, paths: tuple[str, ...]) -> list[str]:
 
 
 _STRIPPED_PAGES = _strip_upstream_pages(app, ("/",))
+
+
+# ── #78 健康检查 ────────────────────────────────────────────────
+_STARTED_AT = time.time()
+_ready_cache: dict[str, Any] = {"at": 0.0, "ok": False, "detail": ""}
+
+
+def _probe_db(path: Path) -> dict:
+    if not path.exists():
+        return {"ok": False, "error": "missing"}
+    try:
+        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=2)
+        try:
+            conn.execute("SELECT 1").fetchone()
+        finally:
+            conn.close()
+        return {"ok": True}
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": type(exc).__name__}
+
+
+def _probe_writable(path: Path) -> dict:
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        probe = path / ".readyz"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+        return {"ok": True}
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": type(exc).__name__}
+
+
+def _probe_llm() -> dict:
+    """只做 TCP 可达性，不消耗额度；结果缓存 15 秒。"""
+    if os.getenv("ALPHA_READY_LLM", "1") == "0":
+        return {"ok": True, "skipped": True}
+    now = time.time()
+    if now - _ready_cache["at"] < 15 and _ready_cache["at"]:
+        return {"ok": _ready_cache["ok"], "detail": _ready_cache["detail"], "cached": True}
+    route = os.getenv("ALPHA_DEFAULT_ROUTE", "").strip()
+    host = ""
+    try:
+        providers = json.loads((ROOT / "shell" / "providers.json").read_text("utf-8"))["providers"]
+        name = route.split("/")[0] if route else ""
+        base = (providers.get(name) or {}).get("base_url") or ""
+        if base:
+            host = urlparse(base).hostname or ""
+    except Exception:  # noqa: BLE001
+        host = ""
+    if not host:
+        # 没有可探测的 HTTP 端点（如 claude/gemini 走官方 SDK）：只要路由已配就算通过
+        ok = bool(route)
+        _ready_cache.update({"at": now, "ok": ok, "detail": route})
+        return {"ok": ok, "detail": route or "no default route"}
+    try:
+        with socket.create_connection((host, 443), timeout=2.5):
+            pass
+        ok, detail = True, host
+    except OSError as exc:
+        ok, detail = False, f"{host}: {exc.__class__.__name__}"
+    _ready_cache.update({"at": now, "ok": ok, "detail": detail})
+    return {"ok": ok, "detail": detail}
+
+
+@app.get("/healthz")
+def healthz() -> dict:
+    """进程活着就 200；不碰磁盘和网络，给容器 healthcheck 用。"""
+    return {
+        "status": "ok",
+        "uptime_s": round(time.time() - _STARTED_AT, 1),
+        "version": os.getenv("ALPHA_VERSION", "dev"),
+    }
+
+
+@app.get("/readyz")
+def readyz(response: Response) -> dict:
+    """依赖可用才 200：数据库可读、数据目录可写、默认路由可达。"""
+    checks = {
+        "auth_db": _probe_db(AUTH_DB_PATH),
+        "limits_db": _probe_db(LIMITS_DB_PATH),
+        "routing_db": _probe_db(DB_PATH),
+        "billing_db": _probe_db(Path(os.getenv("ALPHA_BILLING_DB", str(DATA_DIR / "billing.db")))),
+        "data_dir": _probe_writable(DATA_DIR),
+        "engine_dir": _probe_writable(VENDOR / ".data"),
+        "llm": _probe_llm(),
+    }
+    ok = all(v.get("ok") for v in checks.values())
+    if not ok:
+        response.status_code = 503
+    return {
+        "status": "ok" if ok else "degraded",
+        "checks": checks,
+        "version": os.getenv("ALPHA_VERSION", "dev"),
+    }
+
 
 app.include_router(build_router(registry, store, custom_store, limits=limits))
 

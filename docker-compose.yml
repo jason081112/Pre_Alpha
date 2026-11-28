@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: 2026 jason081112
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# 生产形态：app + Caddy（自动 HTTPS）+ 数据卷
+#
+#   cp .env.example .env       # 填真实密钥
+#   docker compose up -d --build
+#   curl -fsS http://127.0.0.1:8000/readyz   # 容器内自检由 HEALTHCHECK 完成
+#
+# 数据卷：
+#   ${ALPHA_DATA_DIR}   → 所有 SQLite（auth/limits/routing/billing/moderation/account）
+#   ${ALPHA_ENGINE_DIR} → 引擎数据（chat.db/openher.db/memory.db/genome）
+#   ${ALPHA_CADDY_DATA} → Let's Encrypt 证书（复用宿主机 Caddy 目录，重建容器不重签）
+
+services:
+  app:
+    image: alpha:${ALPHA_TAG:-latest}
+    build:
+      context: .
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      ALPHA_HOST: 0.0.0.0
+      ALPHA_PORT: "8000"
+      ALPHA_DATA_DIR: /var/lib/prealpha
+    volumes:
+      - ${ALPHA_DATA_DIR:-/var/lib/prealpha}:/var/lib/prealpha
+      - ${ALPHA_ENGINE_DIR:-/opt/prealpha/vendor/OpenHer/.data}:/app/vendor/OpenHer/.data
+      - ${ALPHA_BACKUP_DIR:-/opt/prealpha/backups}:/opt/prealpha/backups
+    expose:
+      - "8000"
+    # 旁路测试时把下面一行取消注释，只在本机 8080 暴露
+    # ports:
+    #   - "127.0.0.1:8080:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ALPHA_DOMAIN: ${ALPHA_DOMAIN:-47.239.51.212.sslip.io}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # 复用宿主机已有证书，切过来不会重新签发
+      - ${ALPHA_CADDY_DATA:-/var/lib/caddy/.local/share/caddy}:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_config:
