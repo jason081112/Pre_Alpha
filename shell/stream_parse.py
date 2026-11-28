@@ -178,6 +178,48 @@ def _tail_keep(buf: str) -> int:
     return 0
 
 
+MIN_SEGMENT_CHARS = 12
+SENTENCE_ENDS = "。！？；…!?;"
+_CLOSERS = "」』”\"）)】》"
+
+
+def _find_sentence_cut(buf: str, current_len: int) -> int | None:
+    """在 buf 里找一个可以安全断开的下标；没有则 None。
+
+    只在句末标点后切，并且要求后面还有一个字符（前瞻），
+    避免把「……」「？！」这类连续标点拆开、把半个标记发出去。
+    同时要求当前段累计长度达到 MIN_SEGMENT_CHARS，
+    避免「在。」这种一两个字的段落单独成泡。
+    """
+    i, n = 0, len(buf)
+    while i < n:
+        if buf[i] not in SENTENCE_ENDS:
+            i += 1
+            continue
+        j = i
+        while j < n and buf[j] in SENTENCE_ENDS:
+            j += 1
+        if j >= n:  # 还要等下一块确认标点已经结束
+            return None
+        k = j
+        while k < n and buf[k] in _CLOSERS:
+            k += 1
+        if k >= n:  # 右引号/右括号可能还没到
+            return None
+        if current_len + k >= MIN_SEGMENT_CHARS:
+            return k
+        i = k
+    return None
+
+
+def _sentence_tail_keep(buf: str) -> int:
+    """尾部是句末标点或右引号时先留着，等下一块确认标点已经结束。"""
+    n = 0
+    while n < len(buf) and buf[-1 - n] in SENTENCE_ENDS + _CLOSERS:
+        n += 1
+    return n
+
+
 @dataclass
 class SegmentEvent:
     kind: str          # "chunk" | "segment_end"
@@ -210,14 +252,26 @@ class Segmenter:
 
         while True:
             hit = _find_break(self.buf)
-            if hit is None:
+            if hit is not None:
+                idx, ln = hit
+                body, self.buf = self.buf[:idx], self.buf[idx + ln :]
+                out.extend(self._emit(body))
+                out.extend(self._close_segment_if_any())
+                continue
+
+            # 没有空行时按句子切。模型经常用「两空格 + 换行」分行而不是空行，
+            # 只靠空行会让整段回复挤成一个气泡。已经发出的 chunk 无法撤回，
+            # 所以边界必须在发送前决定，不能留到 finish() 里重建。
+            current = len("".join(self.parts[self.segment]))
+            cut = _find_sentence_cut(self.buf, current)
+            if cut is None:
                 break
-            idx, ln = hit
-            body, self.buf = self.buf[:idx], self.buf[idx + ln :]
+            body, self.buf = self.buf[:cut], self.buf[cut:]
             out.extend(self._emit(body))
             out.extend(self._close_segment_if_any())
+            continue
 
-        keep = _tail_keep(self.buf)
+        keep = max(_tail_keep(self.buf), _sentence_tail_keep(self.buf))
         if keep:
             body, self.buf = self.buf[:-keep], self.buf[-keep:]
         else:
@@ -235,6 +289,10 @@ class Segmenter:
     def _emit(self, body: str) -> list[SegmentEvent]:
         if not body:
             return []
+        if not self.parts[self.segment]:
+            body = body.lstrip()
+            if not body:
+                return []
         self.parts[self.segment].append(body)
         ev = SegmentEvent(kind="chunk", segment=self.segment, text=body, index=self.index)
         self.index += 1

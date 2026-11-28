@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from shell.stream_parse import ReplyExtractor  # noqa: E402
+from shell.stream_parse import ReplyExtractor, Segmenter  # noqa: E402
 
 
 def run(chunks: list[str]) -> tuple[str, str]:
@@ -94,6 +94,51 @@ def test_tail_flushed_when_still_in_reply():
     b = ex.feed("。慢慢说")
     tail = ex.finish()
     assert (a + b + (tail or "")) == "我在。慢慢说", repr(a + b + (tail or ""))
+
+
+def collect(chunks: list[str]) -> list:
+    seg = Segmenter()
+    events: list = []
+    for c in chunks:
+        events.extend(seg.feed(c))
+    events.extend(seg.finish())
+    return events
+
+
+def texts(events: list) -> list[str]:
+    return [e.text for e in events if e.kind == "segment_end"]
+
+
+def test_blank_line_still_splits():
+    got = texts(collect(["第一段\n\n第二段"]))
+    assert got == ["第一段", "第二段"], got
+
+
+def test_no_blank_line_splits_into_sentences():
+    text = "在。刚把一杯凉透的茶重新热了一遍。你呢，今天怎么样？"
+    got = texts(collect([text]))
+    assert len(got) >= 2, got
+    assert "".join(got) == text, got
+
+
+def test_short_reply_stays_one_segment():
+    got = texts(collect(["嗯。"]))
+    assert got == ["嗯。"], got
+
+
+def test_chunked_and_whole_agree():
+    text = "在。刚把一杯凉透的茶重新热了一遍。你呢，今天怎么样？"
+    whole = texts(collect([text]))
+    by_char = texts(collect(list(text)))
+    assert whole == by_char, (whole, by_char)
+
+
+def test_no_text_lost_or_duplicated():
+    text = "醒啦？我刚把茶热了一遍。\n\n你要是还困，就再躺五分钟。别硬撑。"
+    got = texts(collect(list(text)))
+    joined = "".join(got).replace(" ", "").replace("\n", "")
+    expect = text.replace(" ", "").replace("\n", "")
+    assert joined == expect, (got, joined, expect)
 
 
 if __name__ == "__main__":
