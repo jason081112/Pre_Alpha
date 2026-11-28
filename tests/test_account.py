@@ -266,6 +266,19 @@ check("本人人格目录已消失", not (Path(persona_root) / USER).exists())
 check("他人人格目录保留", (Path(persona_root) / OTHER).exists())
 check("非本人备份保留", (backup_dir / "alpha-other-20261120.tar.gz").exists())
 
+# 删不掉时回执必须如实（不能假装删过）
+from unittest.mock import patch  # noqa: E402
+
+import shell.account as account_mod  # noqa: E402
+
+(Path(persona_root) / USER).mkdir(parents=True, exist_ok=True)
+with patch.object(account_mod.shutil, "rmtree", side_effect=PermissionError("denied")):
+    partial = purge_user(USER, persona_root=persona_root, now=time.time())
+check("目录删不掉时不写进 persona_dirs", partial["persona_dirs"] == [], partial["persona_dirs"])
+check("目录删不掉时回执带 errors",
+      any("persona_dir" in e for e in partial.get("errors", [])), partial.get("errors"))
+(Path(persona_root) / USER).rmdir()
+
 print("\n[4] 到期执行：回执落库 + 逐 scope 审计")
 clock["t"] += 10 * 86400
 store.request(USER, cooling_days=0)

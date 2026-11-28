@@ -243,8 +243,14 @@ def purge_user(
     if persona_root:
         target = Path(persona_root) / user_id
         if target.is_dir():
-            shutil.rmtree(target, ignore_errors=True)
-            receipt["persona_dirs"].append(str(target))
+            try:
+                shutil.rmtree(target)
+                receipt["persona_dirs"].append(str(target))
+            except OSError as exc:
+                # 回执必须如实：删不掉要写清楚，不能假装删过
+                receipt.setdefault("errors", []).append(
+                    f"persona_dir {target}: {exc}"
+                )
 
     backups: dict[str, Any] = {
         "dir": str(backup_dir) if backup_dir else "",
