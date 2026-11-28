@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: 2026 jason081112
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""#46 极简聊天页：单文件 HTML，不依赖框架与构建。
+"""#46 极简聊天页 + #80 BYOK 模型设置：单文件 HTML，不依赖框架与构建。
 
 设计约束：
 - 只接 shell 的端点：认证 /api/auth/*、人格 /v1/models、历史 /api/chat/history、
   对话走 /ws/chat/stream（上游 /ws/chat 没有中间内容）
+- BYOK 走 /api/me/providers*、/api/me/routing、/api/routes/catalog
 - CSP nonce：页面内联样式与脚本都带 nonce，无内联事件属性
 - token 存 localStorage（#82 会换成 HttpOnly cookie + CSRF）
-- 渲染只做「能读」，节奏与动效留给 #95 / #80
+- 视觉：仿 /glass 的深色极光背景 + 毛玻璃卡片 + 紫蓝青渐变
 """
 
 from __future__ import annotations
@@ -24,14 +25,20 @@ APP_HTML = r"""<!doctype html>
 <style nonce="__CSP_NONCE__">
 :root {
   color-scheme: dark;
-  --bg: #0f1115;
-  --panel: #171a21;
-  --line: #262b35;
-  --text: #e8eaf0;
-  --muted: #8b94a3;
-  --accent: #6f8cff;
-  --bubble-them: #232833;
-  font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", sans-serif;
+  --bg: #060711;
+  --bg-2: #0a0c1a;
+  --text: #f3f1ff;
+  --muted: #a7a2c4;
+  --violet: #8b5cf6;
+  --blue: #5b7cfa;
+  --cyan: #22d3ee;
+  --green: #3fd08a;
+  --red: #ff8f8f;
+  --glass: rgba(22, 24, 45, .52);
+  --stroke: rgba(255, 255, 255, .13);
+  --stroke-soft: rgba(255, 255, 255, .07);
+  --grad: linear-gradient(100deg, var(--violet), var(--blue) 55%, var(--cyan));
+  font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -42,19 +49,71 @@ body {
   color: var(--text);
   overflow: hidden;
 }
-button, input, select {
-  font: inherit;
-  color: inherit;
-}
+button, input, select, textarea { font: inherit; color: inherit; }
 button {
-  border: 1px solid var(--line);
-  background: var(--panel);
+  border: 1px solid var(--stroke);
+  background: rgba(255, 255, 255, .05);
   border-radius: 12px;
   padding: 10px 14px;
   cursor: pointer;
 }
 button:active { transform: scale(.98); }
 button:disabled { opacity: .5; cursor: default; }
+svg { display: block; }
+
+/* ── 极光背景 ── */
+.aurora {
+  position: fixed;
+  inset: -20vmax;
+  z-index: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(60% 50% at 50% 0%, rgba(91, 124, 250, .18), transparent 70%),
+    linear-gradient(180deg, var(--bg-2), var(--bg) 60%);
+}
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: .5;
+  will-change: transform;
+}
+.blob-violet {
+  top: 8%; left: 6%;
+  width: 46vmax; height: 46vmax;
+  background: radial-gradient(circle at 40% 40%, rgba(139, 92, 246, .75), transparent 65%);
+  animation: drift-a 22s ease-in-out infinite alternate;
+}
+.blob-blue {
+  top: 40%; right: -6%;
+  width: 42vmax; height: 42vmax;
+  background: radial-gradient(circle at 50% 50%, rgba(91, 124, 250, .65), transparent 65%);
+  animation: drift-b 26s ease-in-out infinite alternate;
+}
+.blob-cyan {
+  bottom: -14%; left: 30%;
+  width: 38vmax; height: 38vmax;
+  background: radial-gradient(circle at 50% 50%, rgba(34, 211, 238, .45), transparent 65%);
+  animation: drift-c 30s ease-in-out infinite alternate;
+}
+@keyframes drift-a { to { transform: translate3d(8vmax, 6vmax, 0) scale(1.12); } }
+@keyframes drift-b { to { transform: translate3d(-10vmax, -6vmax, 0) scale(1.08); } }
+@keyframes drift-c { to { transform: translate3d(6vmax, -8vmax, 0) scale(1.16); } }
+
+/* ── 玻璃 ── */
+.glass {
+  border: 1px solid var(--stroke);
+  border-radius: 18px;
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, .02) 55%),
+    var(--glass);
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, .42),
+    inset 0 1px 0 rgba(255, 255, 255, .18);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+}
+section { position: relative; z-index: 1; }
 
 /* ── 登录 ── */
 #login {
@@ -67,14 +126,15 @@ button:disabled { opacity: .5; cursor: default; }
   width: 100%;
   max-width: 340px;
   padding: 26px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: var(--panel);
 }
 .card h1 {
   margin: 0 0 4px;
   font-size: 20px;
   font-weight: 650;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 .card p {
   margin: 0 0 20px;
@@ -85,13 +145,21 @@ button:disabled { opacity: .5; cursor: default; }
   width: 100%;
   margin-bottom: 10px;
   padding: 12px 14px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--stroke);
   border-radius: 12px;
-  background: #10131a;
+  background: rgba(8, 10, 22, .55);
 }
-.card input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-.card button { width: 100%; margin-top: 6px; background: var(--accent); border-color: transparent; color: #0b1020; font-weight: 650; }
-.err { margin-top: 12px; color: #ff8080; font-size: 13px; min-height: 18px; }
+.card input:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+.btn-primary {
+  width: 100%;
+  margin-top: 6px;
+  background: var(--grad);
+  border: 0;
+  color: #fff;
+  font-weight: 650;
+  box-shadow: 0 8px 24px rgba(91, 124, 250, .35);
+}
+.err { margin-top: 12px; color: var(--red); font-size: 13px; min-height: 18px; }
 .linkbtn {
   width: 100%;
   margin-top: 10px;
@@ -104,7 +172,6 @@ button:disabled { opacity: .5; cursor: default; }
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.card .linkbtn { background: transparent; color: var(--muted); font-weight: 400; }
 
 /* ── 注册弹窗 ── */
 #registerDialog {
@@ -120,7 +187,7 @@ button:disabled { opacity: .5; cursor: default; }
 #registerDialog .card button.ghost {
   margin-top: 8px;
   background: transparent;
-  border-color: var(--line);
+  border-color: var(--stroke);
   color: var(--muted);
   font-weight: 400;
 }
@@ -134,19 +201,41 @@ button:disabled { opacity: .5; cursor: default; }
 header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
-  border-bottom: 1px solid var(--line);
-  background: #171a21;
+  gap: 8px;
+  padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
+  border-bottom: 1px solid var(--stroke-soft);
+  background: rgba(16, 18, 36, .55);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
 }
-header .name { font-weight: 600; flex: 1; }
+header .name {
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 header select {
-  border: 1px solid var(--line);
+  border: 1px solid var(--stroke);
   border-radius: 10px;
-  background: #10131a;
+  background: rgba(8, 10, 22, .6);
   padding: 7px 10px;
+  max-width: 38vw;
 }
 header button { padding: 7px 10px; font-size: 13px; }
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  color: var(--muted);
+}
+.icon-btn:active { border-color: rgba(139, 92, 246, .55); color: var(--text); }
 
 #log {
   flex: 1;
@@ -173,8 +262,19 @@ header button { padding: 7px 10px; font-size: 13px; }
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: none; }
 }
-.me .bubble { background: var(--accent); color: #0b1020; border-bottom-right-radius: 5px; }
-.them .bubble { background: var(--bubble-them); border-bottom-left-radius: 5px; }
+.me .bubble {
+  background: linear-gradient(100deg, #7d5cf0, #5b7cfa);
+  color: #fff;
+  border-bottom-right-radius: 5px;
+  box-shadow: 0 6px 20px rgba(91, 124, 250, .3);
+}
+.them .bubble {
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid var(--stroke-soft);
+  border-bottom-left-radius: 5px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
 .sys { color: var(--muted); font-size: 12px; text-align: center; width: 100%; }
 
 /* 正在输入：做成对话流里的一个空气泡，而不是底部一行小字 */
@@ -202,8 +302,10 @@ footer {
   display: flex;
   gap: 8px;
   padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--line);
-  background: var(--panel);
+  border-top: 1px solid var(--stroke-soft);
+  background: rgba(16, 18, 36, .55);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
 }
 #text {
   flex: 1;
@@ -212,13 +314,19 @@ footer {
   line-height: 1.4;
   max-height: 120px;
   padding: 11px 14px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--stroke);
   border-radius: 14px;
-  background: #10131a;
+  background: rgba(8, 10, 22, .55);
   resize: none;
 }
-#text:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-#send { background: var(--accent); border-color: transparent; color: #0b1020; font-weight: 650; }
+#text:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+#send {
+  background: var(--grad);
+  border: 0;
+  color: #fff;
+  font-weight: 650;
+  box-shadow: 0 8px 24px rgba(91, 124, 250, .35);
+}
 #dbgBtn { font-size: 12px; padding: 6px 9px; }
 #dbg {
   position: fixed;
@@ -235,30 +343,256 @@ footer {
   border-top: 1px solid #2a3a2e;
   z-index: 99;
 }
+
+/* ── 页面头（模型设置 / 选择模型）── */
+.page-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
+  border-bottom: 1px solid var(--stroke-soft);
+  background: rgba(16, 18, 36, .55);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+}
+.page-title { flex: 1; text-align: center; font-weight: 650; font-size: 16px; }
+
+/* ── 模型设置（BYOK）── */
+#byok { height: 100%; display: flex; flex-direction: column; }
+.byok-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 14px calc(24px + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling: touch;
+}
+.sec-title {
+  margin: 18px 4px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: .04em;
+}
+.sec-title:first-child { margin-top: 4px; }
+
+.route-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  text-align: left;
+}
+.route-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(150deg, rgba(139, 92, 246, .35), rgba(34, 211, 238, .18));
+  border: 1px solid var(--stroke);
+  color: #c4b5fd;
+}
+.route-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.route-name { font-weight: 650; font-size: 15px; }
+.route-key {
+  color: var(--muted);
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.badge {
+  flex: 0 0 auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  border: 1px solid var(--stroke);
+}
+.badge.run { color: var(--green); border-color: rgba(63, 208, 138, .4); background: rgba(63, 208, 138, .1); }
+.badge.free { color: var(--cyan); border-color: rgba(34, 211, 238, .4); background: rgba(34, 211, 238, .1); }
+.badge.off { color: var(--muted); }
+.badge.custom { color: #c4b5fd; border-color: rgba(139, 92, 246, .45); background: rgba(139, 92, 246, .12); }
+.badge.platform { color: #a9bcff; border-color: rgba(91, 124, 250, .45); background: rgba(91, 124, 250, .12); }
+.hint { margin: 8px 6px 0; color: var(--muted); font-size: 12px; }
+
+.byok-form { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field-label { font-size: 12px; font-weight: 650; color: var(--muted); }
+.field-label em { font-style: normal; font-weight: 400; opacity: .8; }
+.field input, .field select {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  background: rgba(8, 10, 22, .55);
+}
+.field input:focus, .field select:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+.key-row { display: flex; gap: 8px; }
+.key-row input { flex: 1; }
+.form-actions { display: flex; gap: 10px; }
+.form-actions .btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.btn.ghost { background: transparent; border-color: var(--stroke); color: var(--text); }
+.btn.primary {
+  background: var(--grad);
+  border: 0;
+  color: #fff;
+  font-weight: 650;
+  box-shadow: 0 8px 24px rgba(91, 124, 250, .3);
+}
+.form-msg { min-height: 16px; font-size: 12.5px; }
+.form-msg.ok { color: var(--green); }
+.form-msg.err { color: var(--red); }
+
+.key-list { padding: 6px 16px; }
+.key-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--stroke-soft);
+}
+.key-item:last-child { border-bottom: 0; }
+.key-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.key-label {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.key-mask {
+  color: var(--muted);
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.key-empty { padding: 18px 0; color: var(--muted); font-size: 13px; text-align: center; }
+
+/* ── 选择模型 ── */
+#picker { height: 100%; display: flex; flex-direction: column; }
+.picker-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 14px calc(24px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+.search {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--stroke);
+  border-radius: 14px;
+  background: rgba(8, 10, 22, .55);
+}
+.search:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+.group { padding: 6px 14px 10px; }
+.group-head { display: flex; align-items: center; gap: 8px; padding: 10px 2px 8px; }
+.group-name { font-weight: 700; font-size: 14px; }
+.model-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 10px;
+  margin: 2px 0;
+  border-radius: 12px;
+  text-align: left;
+  background: transparent;
+  border-color: transparent;
+}
+.model-row:active { background: rgba(255, 255, 255, .05); }
+.model-row.active {
+  background: rgba(139, 92, 246, .14);
+  border-color: rgba(139, 92, 246, .5);
+}
+.radio {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 2px solid var(--muted);
+  display: grid;
+  place-items: center;
+}
+.radio::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: transparent; }
+.model-row.active .radio, .default-route.active .radio { border-color: var(--violet); }
+.model-row.active .radio::after, .default-route.active .radio::after {
+  background: var(--violet);
+  box-shadow: 0 0 8px rgba(139, 92, 246, .8);
+}
+.model-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tag { flex: 0 0 auto; font-size: 11px; color: #c4b5fd; }
+.picker-msg { min-height: 16px; margin: 0 4px; font-size: 12.5px; color: var(--red); }
+.default-route {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  text-align: left;
+}
+.default-route.active {
+  border-color: rgba(34, 211, 238, .55);
+  background: rgba(34, 211, 238, .08);
+}
+.dr-main { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.dr-name { font-weight: 650; font-size: 14px; }
+.dr-sub { color: var(--muted); font-size: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .blob { animation: none; }
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
 </style>
 </head>
 <body>
+<div class="aurora" aria-hidden="true">
+  <span class="blob blob-violet"></span>
+  <span class="blob blob-blue"></span>
+  <span class="blob blob-cyan"></span>
+</div>
 
 <section id="login">
-  <form class="card" id="loginForm" autocomplete="on">
+  <form class="card glass" id="loginForm" autocomplete="on">
     <h1>Alpha</h1>
     <p>登录后开始对话</p>
     <input id="email" type="email" placeholder="邮箱" autocomplete="username" required>
     <input id="password" type="password" placeholder="密码" autocomplete="current-password" required>
-    <button type="submit" id="loginBtn">登录</button>
+    <button type="submit" id="loginBtn" class="btn-primary">登录</button>
     <div class="err" id="loginErr"></div>
     <button type="button" class="linkbtn" id="registerOpen">有邀请码？注册</button>
   </form>
 </section>
 
 <dialog id="registerDialog" aria-labelledby="registerTitle">
-  <form class="card" id="registerForm" autocomplete="on">
+  <form class="card glass" id="registerForm" autocomplete="on">
     <h1 id="registerTitle">注册</h1>
     <p>需要有效邀请码</p>
     <input id="regEmail" type="email" placeholder="邮箱" autocomplete="username" required>
     <input id="regPassword" type="password" placeholder="密码（至少 8 位）" autocomplete="new-password" minlength="8" required>
     <input id="regInvite" type="text" placeholder="邀请码" autocomplete="one-time-code" required>
-    <button type="submit" id="registerBtn">注册并登录</button>
+    <button type="submit" id="registerBtn" class="btn-primary">注册并登录</button>
     <button type="button" class="ghost" id="registerClose">取消</button>
     <div class="err" id="registerErr"></div>
   </form>
@@ -268,6 +602,9 @@ footer {
   <header>
     <span class="name" id="personaName">聊天</span>
     <select id="personaSelect" aria-label="选择人格"></select>
+    <button type="button" id="settingsBtn" class="icon-btn" title="模型设置" aria-label="模型设置">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
     <button type="button" id="exportBtn" title="导出这段对话">导出</button>
     <button type="button" id="dbgBtn" title="导出事件日志">日志</button>
     <button type="button" id="logoutBtn">退出</button>
@@ -277,6 +614,93 @@ footer {
     <textarea id="text" rows="1" placeholder="说点什么…" enterkeyhint="send"></textarea>
     <button type="button" id="send">发送</button>
   </footer>
+</section>
+
+<section id="byok" hidden>
+  <div class="page-head">
+    <button type="button" id="byokBack" class="icon-btn" aria-label="返回聊天">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <span class="page-title">模型设置</span>
+    <span class="icon-btn" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+    </span>
+  </div>
+  <div class="byok-scroll">
+    <h2 class="sec-title">当前模型</h2>
+    <button type="button" id="currentRouteCard" class="glass route-card">
+      <span class="route-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></svg>
+      </span>
+      <span class="route-main">
+        <span class="route-name" id="routeName">加载中…</span>
+        <span class="route-key" id="routeKey"></span>
+      </span>
+      <span class="badge off" id="routeBadge">…</span>
+    </button>
+    <p class="hint" id="routeHint"></p>
+
+    <h2 class="sec-title" id="byokFormTitle">添加自己的 Key</h2>
+    <form class="glass byok-form" id="byokForm" autocomplete="off">
+      <label class="field">
+        <span class="field-label">服务商</span>
+        <select id="provSelect"></select>
+      </label>
+      <label class="field">
+        <span class="field-label">API Key</span>
+        <span class="key-row">
+          <input id="apiKey" type="password" placeholder="粘贴你的密钥" autocomplete="new-password">
+          <button type="button" id="keyToggle" class="icon-btn" aria-label="显示或隐藏密钥"></button>
+        </span>
+      </label>
+      <label class="field">
+        <span class="field-label">Base URL <em>（内置服务商已预填）</em></span>
+        <input id="baseUrl" type="url" placeholder="https://api.example.com/v1" autocomplete="url" inputmode="url">
+      </label>
+      <label class="field">
+        <span class="field-label">模型名称 <em>（多个用逗号分隔）</em></span>
+        <input id="modelNames" type="text" placeholder="如 qwen-plus-latest" autocomplete="off">
+      </label>
+      <div class="form-actions">
+        <button type="button" id="probeBtn" class="btn ghost">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          测试连接
+        </button>
+        <button type="submit" id="saveBtn" class="btn primary">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          保存
+        </button>
+      </div>
+      <div class="form-msg" id="formMsg" role="status"></div>
+    </form>
+
+    <h2 class="sec-title">已配置的 Key</h2>
+    <div class="glass key-list" id="keyList"></div>
+  </div>
+</section>
+
+<section id="picker" hidden>
+  <div class="page-head">
+    <button type="button" id="pickerBack" class="icon-btn" aria-label="返回模型设置">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <span class="page-title">选择模型</span>
+    <button type="button" id="pickerClose" class="icon-btn" aria-label="关闭">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </button>
+  </div>
+  <div class="picker-scroll">
+    <input id="pickerSearch" class="search" type="search" placeholder="搜索模型或服务商" autocomplete="off">
+    <div id="pickerGroups"></div>
+    <p class="picker-msg" id="pickerMsg" role="status"></p>
+    <button type="button" id="defaultRouteBtn" class="glass default-route">
+      <span class="radio"></span>
+      <span class="dr-main">
+        <span class="dr-name">使用默认模型（免费）</span>
+        <span class="dr-sub">平台自动为你选择合适的模型</span>
+      </span>
+    </button>
+  </div>
 </section>
 <pre id="dbg" hidden></pre>
 
@@ -373,6 +797,14 @@ footer {
   var textEl = $("text");
   var typingRow = null;
 
+  /* ── 视图切换：login / chat / byok / picker ── */
+  var VIEWS = ["login", "chat", "byok", "picker"];
+  function showView(name) {
+    VIEWS.forEach(function (id) { $(id).hidden = id !== name; });
+    if (name === "byok") loadByok();
+    if (name === "picker") loadPicker();
+  }
+
   /* 正在输入 = 对话流里一个空气泡。放在底部一行字上，用户视线根本扫不到。 */
   function setTyping(on) {
     if (on) {
@@ -444,8 +876,7 @@ footer {
     state.token = "";
     localStorage.removeItem(TOKEN_KEY);
     if (state.ws) { try { state.ws.close(); } catch (e) {} state.ws = null; }
-    $("chat").hidden = true;
-    $("login").hidden = false;
+    showView("login");
   }
 
   /* ── 登录 ── */
@@ -876,6 +1307,405 @@ footer {
     persona: state.personaId || null,
     client_id: state.clientId
   });
+
+  /* ── 模型设置（BYOK）── */
+  var EYE_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+  var EYE_OFF_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c6.5 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3.5 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>';
+  var TRASH_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="m19 6-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
+
+  var byok = {
+    catalog: [],
+    routing: null,
+    providers: [],
+    editingId: ""
+  };
+
+  function prettyProvider(id) {
+    return String(id || "").split("-").map(function (part) {
+      return part.charAt(0).toUpperCase() + part.slice(1);
+    }).join("-");
+  }
+
+  function catalogHit(id) {
+    return byok.catalog.filter(function (p) { return p.id === id; })[0] || null;
+  }
+
+  function setFormMsg(kind, text) {
+    var el = $("formMsg");
+    el.className = "form-msg" + (kind ? " " + kind : "");
+    el.textContent = text;
+  }
+
+  function loadByok() {
+    setFormMsg("", "");
+    return Promise.all([
+      api("/api/routes/catalog").then(function (r) { return r.ok ? r.json() : { providers: [] }; }),
+      api("/api/me/routing").then(function (r) { return r.ok ? r.json() : null; }),
+      api("/api/me/providers").then(function (r) { return r.ok ? r.json() : { providers: [] }; })
+    ]).then(function (results) {
+      byok.catalog = results[0].providers || [];
+      byok.routing = results[1];
+      byok.providers = results[2].providers || [];
+      renderRouteCard();
+      fillProviderSelect();
+      renderKeyList();
+    }).catch(function (e) { dbg("byok.load", { error: e.message }); });
+  }
+
+  function renderRouteCard() {
+    var r = byok.routing;
+    var nameEl = $("routeName");
+    var keyEl = $("routeKey");
+    var badge = $("routeBadge");
+    var hint = $("routeHint");
+    badge.className = "badge";
+    if (!r || !r.route) {
+      nameEl.textContent = "未配置模型";
+      keyEl.textContent = "";
+      badge.classList.add("off");
+      badge.textContent = "未配置";
+      hint.textContent = "添加自己的 Key，或使用平台默认模型";
+      return;
+    }
+    var hit = catalogHit(r.route.provider);
+    var isCustom = !!(hit && hit.custom);
+    nameEl.textContent = isCustom ? (hit.label || hit.id) : prettyProvider(r.route.provider);
+    keyEl.textContent = r.route_key || "";
+    if (r.source === "default") {
+      badge.classList.add("free");
+      badge.textContent = "免费";
+      hint.textContent = "平台默认模型，无需配置";
+    } else {
+      badge.classList.add("run");
+      badge.textContent = "运行中";
+      hint.textContent = isCustom
+        ? "你的 Key 加密存储，只显示末四位"
+        : "当前使用平台 Key";
+    }
+  }
+
+  function fillProviderSelect() {
+    var sel = $("provSelect");
+    sel.textContent = "";
+    byok.catalog.filter(function (p) { return !p.custom; }).forEach(function (p) {
+      var o = document.createElement("option");
+      o.value = p.id;
+      o.textContent = prettyProvider(p.id);
+      sel.appendChild(o);
+    });
+    var custom = document.createElement("option");
+    custom.value = "__custom__";
+    custom.textContent = "自定义（其他 OpenAI 兼容端点）";
+    sel.appendChild(custom);
+    // 默认选中当前路由的 provider（若是内置），否则第一个
+    var def = byok.routing && byok.routing.route ? byok.routing.route.provider : "";
+    var found = null;
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === def) { found = sel.options[i].value; break; }
+    }
+    sel.value = found || (sel.options[0] ? sel.options[0].value : "");
+    onProvChange();
+  }
+
+  function onProvChange() {
+    var sel = $("provSelect");
+    var hit = byok.catalog.filter(function (p) { return p.id === sel.value; })[0];
+    if (hit) {
+      $("baseUrl").value = hit.base_url || "";
+      $("modelNames").value = (hit.models || [])[0] || "";
+    } else {
+      $("baseUrl").value = "";
+      $("modelNames").value = "";
+    }
+  }
+
+  $("provSelect").addEventListener("change", onProvChange);
+
+  $("keyToggle").addEventListener("click", function () {
+    var input = $("apiKey");
+    var show = input.type === "password";
+    input.type = show ? "text" : "password";
+    this.innerHTML = show ? EYE_OFF_SVG : EYE_SVG;
+    this.setAttribute("aria-label", show ? "隐藏密钥" : "显示密钥");
+  });
+  $("keyToggle").innerHTML = EYE_SVG;
+
+  $("probeBtn").addEventListener("click", function () {
+    var baseUrl = $("baseUrl").value.trim();
+    var key = $("apiKey").value.trim();
+    if (!baseUrl || !key) {
+      setFormMsg("err", "先填 Base URL 和 API Key");
+      return;
+    }
+    var btn = $("probeBtn");
+    btn.disabled = true;
+    setFormMsg("", "正在测试连接…");
+    api("/api/me/providers/probe", { method: "POST", body: { base_url: baseUrl, api_key: key } })
+      .then(function (r) {
+        return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+      })
+      .then(function (res) {
+        if (res.ok) setFormMsg("ok", "连接成功：" + res.d.message);
+        else setFormMsg("err", "连接失败：" + (res.d.detail || res.d.message || "未知错误"));
+      })
+      .catch(function (e) { setFormMsg("err", e.message || "测试连接失败"); })
+      .then(function () { btn.disabled = false; });
+  });
+
+  $("byokForm").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var baseUrl = $("baseUrl").value.trim();
+    var key = $("apiKey").value.trim();
+    if (!baseUrl) { setFormMsg("err", "请填写 Base URL"); return; }
+    if (!key) { setFormMsg("err", "请填写 API Key"); return; }
+    var models = $("modelNames").value.split(/[,，\s]+/).filter(Boolean);
+    var btn = $("saveBtn");
+    btn.disabled = true;
+    setFormMsg("", "正在保存…");
+
+    var promise;
+    if (byok.editingId) {
+      promise = api("/api/me/providers/" + encodeURIComponent(byok.editingId), {
+        method: "PATCH",
+        body: { api_key: key, base_url: baseUrl, models: models }
+      });
+    } else {
+      var prov = $("provSelect").value;
+      var label;
+      if (prov === "__custom__") {
+        try { label = new URL(baseUrl).hostname; } catch (e) { label = "自定义"; }
+      } else {
+        label = prettyProvider(prov);
+      }
+      promise = api("/api/me/providers", {
+        method: "POST",
+        body: { label: label, base_url: baseUrl, api_key: key, models: models, probe: true }
+      });
+    }
+    promise
+      .then(function (r) {
+        return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+      })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.d.detail || "保存失败");
+        setFormMsg("ok", byok.editingId ? "Key 已更新" : "已保存");
+        $("apiKey").value = "";
+        stopReconfigure();
+        loadByok();
+      })
+      .catch(function (e) { setFormMsg("err", e.message || "保存失败"); })
+      .then(function () { btn.disabled = false; });
+  });
+
+  function startReconfigure(p) {
+    byok.editingId = p.id;
+    $("byokFormTitle").textContent = "重新配置 Key · " + p.label;
+    $("baseUrl").value = p.base_url;
+    $("modelNames").value = (p.models || []).join(", ");
+    $("apiKey").value = "";
+    setFormMsg("", "");
+    $("byokForm").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function stopReconfigure() {
+    byok.editingId = "";
+    $("byokFormTitle").textContent = "添加自己的 Key";
+  }
+
+  function renderKeyList() {
+    var list = $("keyList");
+    list.textContent = "";
+    if (!byok.providers.length) {
+      var empty = document.createElement("div");
+      empty.className = "key-empty";
+      empty.textContent = "还没有配置 Key";
+      list.appendChild(empty);
+      return;
+    }
+    byok.providers.forEach(function (p) {
+      var item = document.createElement("div");
+      item.className = "key-item";
+
+      var main = document.createElement("div");
+      main.className = "key-main";
+      var label = document.createElement("span");
+      label.className = "key-label";
+      label.textContent = p.label + (p.models && p.models.length ? " · " + p.models[0] : "");
+      var mask = document.createElement("span");
+      mask.className = "key-mask";
+      mask.textContent = p.has_key ? "sk-" + "••••••••••••" + p.key_last4 : "Key 已撤销";
+      main.appendChild(label);
+      main.appendChild(mask);
+
+      var actions = document.createElement("div");
+      actions.style.display = "flex";
+      actions.style.gap = "8px";
+      if (p.revoked) {
+        var re = document.createElement("button");
+        re.type = "button";
+        re.className = "btn ghost";
+        re.style.cssText = "padding: 6px 10px; font-size: 12px;";
+        re.textContent = "重新配置";
+        re.addEventListener("click", function () { startReconfigure(p); });
+        actions.appendChild(re);
+      }
+      var del = document.createElement("button");
+      del.type = "button";
+      del.className = "icon-btn";
+      del.setAttribute("aria-label", "删除 " + p.label);
+      del.innerHTML = TRASH_SVG;
+      del.addEventListener("click", function () { removeProvider(p, del); });
+      actions.appendChild(del);
+
+      item.appendChild(main);
+      item.appendChild(actions);
+      list.appendChild(item);
+    });
+  }
+
+  function removeProvider(p, btn) {
+    if (!confirm("删除 " + p.label + " 的 Key？")) return;
+    btn.disabled = true;
+    api("/api/me/providers/" + encodeURIComponent(p.id), { method: "DELETE" })
+      .then(function (r) {
+        return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+      })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.d.detail || "删除失败");
+        loadByok();
+      })
+      .catch(function (e) {
+        setFormMsg("err", e.message);
+        btn.disabled = false;
+      });
+  }
+
+  /* ── 选择模型 ── */
+  var picker = { catalog: [], routing: null };
+
+  function loadPicker() {
+    $("pickerMsg").textContent = "";
+    $("pickerSearch").value = "";
+    return Promise.all([
+      api("/api/routes/catalog").then(function (r) { return r.ok ? r.json() : { providers: [] }; }),
+      api("/api/me/routing").then(function (r) { return r.ok ? r.json() : null; })
+    ]).then(function (results) {
+      picker.catalog = results[0].providers || [];
+      picker.routing = results[1];
+      renderPicker("");
+    }).catch(function (e) { $("pickerMsg").textContent = e.message || "加载失败"; });
+  }
+
+  function renderPicker(query) {
+    var q = (query || "").trim().toLowerCase();
+    var wrap = $("pickerGroups");
+    wrap.textContent = "";
+    var current = picker.routing && picker.routing.route_key ? picker.routing.route_key : "";
+    var shown = 0;
+
+    picker.catalog.forEach(function (p) {
+      // 平台 provider 看平台 Key 是否可用；自定义 provider 看用户 Key
+      var usable = p.custom ? p.has_key : p.available;
+      if (!usable) return;
+      var name = (p.custom ? p.label : prettyProvider(p.id)) || p.id;
+      var nameHit = name.toLowerCase().indexOf(q) >= 0 || p.id.toLowerCase().indexOf(q) >= 0;
+      var models = (p.models || []).filter(function (m) {
+        return !q || nameHit || m.toLowerCase().indexOf(q) >= 0;
+      });
+      if (!models.length) return;
+      shown += 1;
+
+      var group = document.createElement("section");
+      group.className = "glass group";
+      var head = document.createElement("header");
+      head.className = "group-head";
+      var gname = document.createElement("span");
+      gname.className = "group-name";
+      gname.textContent = name;
+      head.appendChild(gname);
+      var badge = document.createElement("span");
+      badge.className = "badge " + (p.custom ? "custom" : "platform");
+      badge.textContent = p.custom ? "已配置" : "平台";
+      head.appendChild(badge);
+      group.appendChild(head);
+
+      models.forEach(function (m) {
+        var key = p.id + "/" + m;
+        var row = document.createElement("button");
+        row.type = "button";
+        row.className = "model-row" + (key === current ? " active" : "");
+        var radio = document.createElement("span");
+        radio.className = "radio";
+        var mname = document.createElement("span");
+        mname.className = "model-name";
+        mname.textContent = m;
+        row.appendChild(radio);
+        row.appendChild(mname);
+        if (key === current) {
+          var tag = document.createElement("span");
+          tag.className = "tag";
+          tag.textContent = "当前";
+          row.appendChild(tag);
+        }
+        row.addEventListener("click", function () { chooseRoute(p.id, m, row); });
+        group.appendChild(row);
+      });
+      wrap.appendChild(group);
+    });
+
+    if (!shown) {
+      var none = document.createElement("div");
+      none.className = "key-empty";
+      none.textContent = q ? "没有匹配的模型" : "暂无可用模型，先添加自己的 Key";
+      wrap.appendChild(none);
+    }
+
+    var defBtn = $("defaultRouteBtn");
+    defBtn.className = "glass default-route" +
+      (picker.routing && picker.routing.source === "default" ? " active" : "");
+  }
+
+  function chooseRoute(provider, model, row) {
+    $("pickerMsg").textContent = "";
+    row.disabled = true;
+    api("/api/me/routing", {
+      method: "PUT",
+      body: { provider: provider, model: model, fallback: [] }
+    })
+      .then(function (r) {
+        return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+      })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.d.detail || "切换失败");
+        dbg("ui.choose_route", { route: provider + "/" + model });
+        showView("byok");
+      })
+      .catch(function (e) {
+        $("pickerMsg").textContent = e.message || "切换失败";
+        row.disabled = false;
+      });
+  }
+
+  $("defaultRouteBtn").addEventListener("click", function () {
+    $("pickerMsg").textContent = "";
+    api("/api/me/routing", { method: "DELETE" })
+      .then(function (r) {
+        return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+      })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.d.detail || "操作失败");
+        dbg("ui.choose_default_route", {});
+        showView("byok");
+      })
+      .catch(function (e) { $("pickerMsg").textContent = e.message || "操作失败"; });
+  });
+
+  $("pickerSearch").addEventListener("input", function (ev) { renderPicker(ev.target.value); });
+  $("pickerBack").addEventListener("click", function () { showView("byok"); });
+  $("pickerClose").addEventListener("click", function () { showView("byok"); });
+  $("byokBack").addEventListener("click", function () { showView("chat"); });
+  $("settingsBtn").addEventListener("click", function () { showView("byok"); });
+  $("currentRouteCard").addEventListener("click", function () { showView("picker"); });
 
   /* ── 启动 ── */
   function boot() {

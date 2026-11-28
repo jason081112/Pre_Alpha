@@ -9,12 +9,8 @@ from pydantic import BaseModel, Field
 
 from .custom import CustomProviderStore, assert_public_host
 from .limits import LimitsService, client_ip
-from .outbound import (
-    OutboundPolicyError,
-    allow_private_providers,
-    build_async_client,
-    plan_outbound,
-)
+from .outbound import allow_private_providers
+from .probe import probe_provider
 from .providers import Registry, Route, RouteError
 from .routing import route_from_env
 from .store import RoutingStore
@@ -51,29 +47,9 @@ class ProviderUpdate(BaseModel):
     probe: bool = True
 
 
-async def probe_provider(base_url: str, api_key: str, timeout: float = 5.0) -> tuple[bool, str]:
-    """最小连通性检查；/models 不通不阻塞保存，鉴权失败才拒绝。
-
-    探活与真实请求共用 `plan_outbound()`：先解析并固定 IP，再发请求；
-    不跟随重定向，避免 3xx 把探活带到内网。
-    """
-    try:
-        target = plan_outbound(base_url, allow_private=allow_private_providers())
-        async with build_async_client(target, timeout=timeout) as client:
-            response = await client.get(
-                base_url.rstrip("/") + "/models",
-                headers={"Authorization": f"Bearer {api_key}"},
-            )
-    except OutboundPolicyError as exc:
-        return False, str(exc)
-    except Exception as exc:  # noqa: BLE001
-        return False, f"连接失败: {type(exc).__name__}"
-
-    if response.status_code in (301, 302, 303, 307, 308):
-        return False, "provider 返回重定向，已拒绝"
-    if response.status_code in (401, 403):
-        return False, f"鉴权失败 (HTTP {response.status_code})"
-    return True, f"HTTP {response.status_code}"
+class ProbeIn(BaseModel):
+    base_url: str
+    api_key: str
 
 
 def build_router(
@@ -223,6 +199,24 @@ def build_router(
         return {"user_id": user, "removed": store.delete(user)}
 
     # ── 自定义 provider ───────────────────────────────────
+    @router.post("/api/me/providers/probe")
+    async def probe_endpoint(
+        payload: ProbeIn,
+        request: Request,
+        x_alpha_user: str | None = Header(default=None),
+    ) -> dict:
+        """独立「测试连接」：不落库，只验证 Base URL + Key 可达。"""
+        if custom_store is None:
+            raise HTTPException(status_code=501, detail="自定义 provider 未启用")
+        user = user_of(x_alpha_user)
+        allow_private = _allow_private()
+        try:
+            assert_public_host(payload.base_url, allow_private=allow_private)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        ok, message = await run_probe(user, request, payload.base_url, payload.api_key)
+        return {"ok": ok, "message": message}
+
     @router.get("/api/me/providers")
     def list_providers(x_alpha_user: str | None = Header(default=None)) -> dict:
         if custom_store is None:
