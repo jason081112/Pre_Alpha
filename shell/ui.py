@@ -557,14 +557,65 @@ footer {
 .dr-name { font-weight: 650; font-size: 14px; }
 .dr-sub { color: var(--muted); font-size: 12px; }
 
+/* ── 动效系统（#80）：涟漪 / 聚焦 / 视图切换 / 输入 glow ── */
+button, .btn, .linkbtn, .ghost, .icon-btn, .route-card {
+  position: relative;
+  overflow: hidden;
+}
+.ripple {
+  position: absolute;
+  width: 110px; height: 110px;
+  margin: -55px 0 0 -55px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .28);
+  transform: scale(0);
+  animation: ripple .6s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes ripple {
+  to { transform: scale(2.8); opacity: 0; }
+}
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+section:not([hidden]) { animation: view-in .28s ease-out; }
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+input, textarea, select {
+  transition: box-shadow .18s ease, border-color .18s ease;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: rgba(34, 211, 238, .55);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, .18), 0 0 18px rgba(34, 211, 238, .12);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .blob { animation: none; }
+  .ripple { display: none; }
+  section:not([hidden]) { animation: none; }
   *, *::before, *::after {
     animation-duration: .01ms !important;
     transition-duration: .01ms !important;
   }
 }
 </style>
+<!-- PWA（#80）：manifest + 主题色 + 状态栏 -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#060711">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Alpha">
+<script nonce="__CSP_NONCE__">
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("/sw.js").catch(function () {});
+  });
+}
+</script>
 </head>
 <body>
 <div class="aurora" aria-hidden="true">
@@ -1707,17 +1758,17 @@ footer {
   $("settingsBtn").addEventListener("click", function () { showView("byok"); });
   $("currentRouteCard").addEventListener("click", function () { showView("picker"); });
 
-  // Ripple effect for buttons
-  document.querySelectorAll("button, .btn-primary, .ghost, .linkbtn, .icon-btn").forEach(function(el) {
-    el.addEventListener("click", function(e) {
-      var rect = this.getBoundingClientRect();
-      var r = document.createElement("span");
-      r.className = "ripple";
-      r.style.left = (e.clientX - rect.left) + "px";
-      r.style.top = (e.clientY - rect.top) + "px";
-      this.appendChild(r);
-      setTimeout(function() { r.remove(); }, 600);
-    });
+  /* ── 涟漪：事件委托统一绑定（覆盖动态生成的按钮） ── */
+  document.addEventListener("click", function (ev) {
+    var btn = ev.target.closest("button, .btn, .linkbtn, .ghost, .icon-btn, .route-card");
+    if (!btn || btn.disabled) return;
+    var rect = btn.getBoundingClientRect();
+    var r = document.createElement("span");
+    r.className = "ripple";
+    r.style.left = (ev.clientX - rect.left) + "px";
+    r.style.top = (ev.clientY - rect.top) + "px";
+    btn.appendChild(r);
+    setTimeout(function () { r.remove(); }, 600);
   });
 
   /* ── 启动 ── */
@@ -1767,6 +1818,7 @@ def build_ui_router():
             "img-src 'self' data:; "
             "base-uri 'none'; "
             "form-action 'self'; "
+            "manifest-src 'self'; "
             "frame-ancestors 'none'"
         )
         return HTMLResponse(

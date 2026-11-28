@@ -188,10 +188,17 @@ async def serve_manifest():
 
 @app.get("/sw.js")
 async def serve_sw():
+    # SW 必须挂在根路径，否则作用域被限制在子目录
     return FileResponse(
         ROOT / "site" / "static" / "sw.js",
         media_type="text/javascript",
     )
+
+@app.get("/static/{name}")
+async def serve_pwa_static(name: str):
+    if name not in {"icon-192.png", "icon-512.png"}:
+        return JSONResponse(status_code=404, content={"error": "not_found"})
+    return FileResponse(ROOT / "site" / "static" / name, media_type="image/png")
 app.include_router(build_auth_router(auth_service))
 app.include_router(build_page_router())
 app.include_router(build_limits_admin_router(limits))
