@@ -253,19 +253,27 @@ def _probe_llm() -> dict:
         return {"ok": _ready_cache["ok"], "detail": _ready_cache["detail"], "cached": True}
     route = os.getenv("ALPHA_DEFAULT_ROUTE", "").strip()
     host = ""
+    known = False
     try:
         providers = json.loads((ROOT / "shell" / "providers.json").read_text("utf-8"))["providers"]
         name = route.split("/")[0] if route else ""
-        base = (providers.get(name) or {}).get("base_url") or ""
+        entry = providers.get(name)
+        known = entry is not None
+        base = (entry or {}).get("base_url") or ""
         if base:
             host = urlparse(base).hostname or ""
     except Exception:  # noqa: BLE001
         host = ""
+    if not route:
+        _ready_cache.update({"at": now, "ok": False, "detail": "no default route"})
+        return {"ok": False, "detail": "no default route"}
+    if not known:
+        _ready_cache.update({"at": now, "ok": False, "detail": f"unknown provider: {route}"})
+        return {"ok": False, "detail": f"unknown provider: {route}"}
     if not host:
-        # 没有可探测的 HTTP 端点（如 claude/gemini 走官方 SDK）：只要路由已配就算通过
-        ok = bool(route)
-        _ready_cache.update({"at": now, "ok": ok, "detail": route})
-        return {"ok": ok, "detail": route or "no default route"}
+        # 官方 SDK 走内置端点（claude/gemini）：路由已配就算通过
+        _ready_cache.update({"at": now, "ok": True, "detail": route})
+        return {"ok": True, "detail": f"{route} (sdk default)"}
     try:
         with socket.create_connection((host, 443), timeout=2.5):
             pass

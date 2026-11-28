@@ -36,10 +36,15 @@ ENV PATH=/opt/venv/bin:$PATH \
 COPY --from=builder /opt/venv /opt/venv
 
 WORKDIR /app
-COPY . /app
+# 以数据属主（默认 uid 1000 = alpha）持有代码，避免 700 目录在非 root 容器里读不了
+COPY --chown=1000:1000 . /app
 
 # 引擎数据目录必须存在且可写（compose 会挂卷覆盖）
 RUN mkdir -p /app/vendor/OpenHer/.data /var/lib/prealpha
+
+# 版本号放在最后：改 tag 只重建这层，不触发代码层重建
+ARG ALPHA_VERSION=dev
+ENV ALPHA_VERSION=${ALPHA_VERSION}
 
 EXPOSE 8000
 

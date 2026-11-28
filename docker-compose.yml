@@ -19,7 +19,10 @@ services:
       context: .
       args:
         PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
+        ALPHA_VERSION: ${ALPHA_TAG:-dev}
     restart: unless-stopped
+    # 以宿主机数据属主运行，避免卷里出现 root 文件（回退 venv 时读不了）
+    user: "${ALPHA_UID:-1000}:${ALPHA_GID:-1000}"
     env_file:
       - .env
     environment:

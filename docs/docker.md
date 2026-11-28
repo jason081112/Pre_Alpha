@@ -79,8 +79,18 @@ systemctl start alpha.service caddy
 
 全部见 `.env.example`。`.env` 不进镜像（`.dockerignore` 已排除）。
 
+## 权限：容器以 uid 1000 运行
+
+`docker-compose.yml` 用 `user: "${ALPHA_UID:-1000}:${ALPHA_GID:-1000}"`，卷里的文件
+属主与宿主机 `alpha` 一致，切回 venv 部署时不会出现 root 文件的读写失败。
+
+镜像里因此必须 `COPY --chown=1000:1000 . /app`：仓库里的人格目录
+（`vendor/OpenHer/persona/personas/*`）是 700，属主不对时启动会直接
+`PermissionError`。
+
 ## 已知限制
 
 - 镜像内含整个仓库（`site/` 静态页也在内），改文案要重新构建；数据与证书走卷不受影响。
-- `caddy` 用 `sslip.io` 域名走 HTTP-01 签证书，需要 80 端口可达；compose 挂宿主机的 `/var/lib/caddy/.local/share/caddy`，切过来不会重新签发。
+- `caddy` 用 `sslip.io` 域名走 HTTP-01 签证书，需要 80 端口可达；compose 挂宿主机的
+  `/var/lib/caddy/.local/share/caddy`，切过来不会重新签发。
 - 多实例横向扩展未做（SQLite 单写者）。
