@@ -92,6 +92,38 @@ button:disabled { opacity: .5; cursor: default; }
 .card input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .card button { width: 100%; margin-top: 6px; background: var(--accent); border-color: transparent; color: #0b1020; font-weight: 650; }
 .err { margin-top: 12px; color: #ff8080; font-size: 13px; min-height: 18px; }
+.linkbtn {
+  width: 100%;
+  margin-top: 10px;
+  padding: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.card .linkbtn { background: transparent; color: var(--muted); font-weight: 400; }
+
+/* ── 注册弹窗 ── */
+#registerDialog {
+  width: min(92vw, 360px);
+  padding: 0;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: var(--text);
+}
+#registerDialog::backdrop { background: rgba(4, 6, 12, .72); backdrop-filter: blur(4px); }
+#registerDialog form { margin: 0; }
+#registerDialog .card button.ghost {
+  margin-top: 8px;
+  background: transparent;
+  border-color: var(--line);
+  color: var(--muted);
+  font-weight: 400;
+}
 
 /* ── 聊天 ── */
 #chat {
@@ -215,8 +247,22 @@ footer {
     <input id="password" type="password" placeholder="密码" autocomplete="current-password" required>
     <button type="submit" id="loginBtn">登录</button>
     <div class="err" id="loginErr"></div>
+    <button type="button" class="linkbtn" id="registerOpen">有邀请码？注册</button>
   </form>
 </section>
+
+<dialog id="registerDialog" aria-labelledby="registerTitle">
+  <form class="card" id="registerForm" autocomplete="on">
+    <h1 id="registerTitle">注册</h1>
+    <p>需要有效邀请码</p>
+    <input id="regEmail" type="email" placeholder="邮箱" autocomplete="username" required>
+    <input id="regPassword" type="password" placeholder="密码（至少 8 位）" autocomplete="new-password" minlength="8" required>
+    <input id="regInvite" type="text" placeholder="邀请码" autocomplete="one-time-code" required>
+    <button type="submit" id="registerBtn">注册并登录</button>
+    <button type="button" class="ghost" id="registerClose">取消</button>
+    <div class="err" id="registerErr"></div>
+  </form>
+</dialog>
 
 <section id="chat" hidden>
   <header>
@@ -427,6 +473,48 @@ footer {
         return boot();
       })
       .catch(function (e) { err.textContent = e.message || "登录失败"; })
+      .then(function () { btn.disabled = false; });
+  });
+
+  /* ── 注册 ── */
+  var regDialog = $("registerDialog");
+  $("registerOpen").addEventListener("click", function () {
+    $("registerErr").textContent = "";
+    regDialog.showModal();
+    $("regEmail").focus();
+  });
+  $("registerClose").addEventListener("click", function () { regDialog.close(); });
+  $("registerForm").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var btn = $("registerBtn");
+    var err = $("registerErr");
+    err.textContent = "";
+    btn.disabled = true;
+    fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: $("regEmail").value.trim(),
+        password: $("regPassword").value,
+        invite_code: $("regInvite").value.trim()
+      })
+    })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          if (!res.ok) throw new Error(data.detail || ("注册失败 " + res.status));
+          return data;
+        });
+      })
+      .then(function (data) {
+        dbg("auth.register", { ok: true });
+        state.token = data.access_token;
+        localStorage.setItem(TOKEN_KEY, state.token);
+        regDialog.close();
+        $("regPassword").value = "";
+        $("regInvite").value = "";
+        return boot();
+      })
+      .catch(function (e) { err.textContent = e.message || "注册失败"; })
       .then(function () { btn.disabled = false; });
   });
 
