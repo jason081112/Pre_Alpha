@@ -536,6 +536,18 @@ class UsageStore:
             rows = self._conn.execute(sql, args).fetchall()
         return [dict(row) for row in rows]
 
+    def clear(self, user_id: str, *, day: str | None = None) -> int:
+        """#100 违规处置：清掉某用户某天的用量，让免费额度重新计算。"""
+        sql = "DELETE FROM token_usage WHERE user_id = ?"
+        args: list = [str(user_id)]
+        if day is not None:
+            sql += " AND day = ?"
+            args.append(str(day))
+        with self._lock:
+            cur = self._conn.execute(sql, args)
+            self._conn.commit()
+            return int(cur.rowcount or 0)
+
     def close(self) -> None:
         with self._lock:
             self._conn.close()
@@ -841,6 +853,10 @@ class LimitsService:
 
     def record_probe_success(self, user_id: str, target_url: str) -> None:
         self.probes.success(_probe_key(user_id, target_url))
+
+    def reset_user_usage(self, user_id: str) -> int:
+        """#100 违规处置：清空该用户当天用量（返回删除的行数）。"""
+        return self.usage.clear(str(user_id), day=utc_day(self._clock()))
 
     def usage_snapshot(
         self,

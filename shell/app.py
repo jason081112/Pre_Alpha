@@ -71,6 +71,7 @@ from shell.limits import (  # noqa: E402
     RateLimitExceeded,
 )
 from shell.limits_api import build_limits_admin_router  # noqa: E402
+from shell.moderation import ModerationStore, build_moderation_router  # noqa: E402
 from shell.persona_repo import PersonaRepository  # noqa: E402
 from shell.personas_api import build_personas_router  # noqa: E402
 from shell.openai_api import (  # noqa: E402
@@ -115,6 +116,10 @@ agent_extra = AgentExtraStore(
 auth_store = AuthStore(AUTH_DB_PATH)
 auth_service = service_from_env(auth_store)
 limits = LimitsService(LIMITS_DB_PATH)
+# #100 违规处置：举报 / 封禁 / 额度清零 / 审计
+moderation = ModerationStore(
+    Path(os.getenv("ALPHA_MODERATION_DB", str(DATA_DIR / "moderation.db")))
+)
 try:
     prompt_sift = PromptSiftClient.from_env()
 except Exception as exc:  # noqa: BLE001 - 配置错误必须显式失败
@@ -204,6 +209,7 @@ app.include_router(build_auth_router(auth_service))
 app.include_router(build_consent_router(auth_store))
 app.include_router(build_page_router())
 app.include_router(build_limits_admin_router(limits))
+app.include_router(build_moderation_router(moderation, limits=limits))
 
 # ── 人格 CRUD（#83）──────────────────────────────────────────────
 # profile.json 落在 ALPHA_PERSONA_ROOT/<user>/personas/<id>/；
@@ -401,6 +407,10 @@ app.include_router(
         dev_route=DEV_ROUTE,
         limits=limits,
         safety=prompt_sift,
+        banned_check=moderation.is_banned,
+        guard_log=lambda user, action, cats: moderation.record_action(
+            user, f"guard_{action}", reason=",".join(cats)
+        ),
     )
 )
 install_openai_error_handlers(app)
@@ -410,6 +420,10 @@ app.include_router(build_stream_ws_router(
     upstream,
     safety=prompt_sift,
     consent_check=lambda user: has_consent(auth_store, user),
+    banned_check=moderation.is_banned,
+    guard_log=lambda user, action, cats: moderation.record_action(
+        user, f"guard_{action}", reason=",".join(cats)
+    ),
 ))
 
 # 聊天页（#46）：单文件 HTML，接 /ws/chat/stream

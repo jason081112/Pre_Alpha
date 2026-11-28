@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#060711">
+  <meta name="description" content="Pre_Alpha 模型披露：平台默认模型、可绑定的服务商与模型清单、内容审核说明。">
+  <title>模型披露 · Pre_Alpha</title>
+  <link rel="stylesheet" href="legal.css">
+</head>
+<body>
+  <div class="aurora" aria-hidden="true"></div>
+
+  <header class="legal-nav">
+    <div class="legal-nav-inner">
+      <a class="legal-brand" href="../glass/">
+        <span class="legal-mark" aria-hidden="true"></span>
+        <span>Pre_Alpha</span>
+      </a>
+      <nav aria-label="法律页面">
+        <a href="terms.html">服务条款</a>
+        <a href="privacy.html">隐私政策</a>
+        <a href="aup.html">可接受使用</a>
+        <a href="models.html" aria-current="page">模型披露</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="legal-wrap">
+    <p class="eyebrow">LEGAL / MODEL DISCLOSURE</p>
+    <h1>模型披露</h1>
+    <p class="meta">
+      <span>版本 1.0</span> · <span>运营主体：Wang Xinyu</span> · <span>随服务端配置自动生成</span>
+    </p>
+
+    <article class="legal-card">
+      <p>Pre_Alpha 不自己训练基础模型。对话由第三方大模型服务生成，我们负责角色设定、上下文组装、额度与内容审核。本页列出当前实际可用的模型，方便你判断对话内容会发送给谁。</p>
+
+      <section id="platform">
+        <h2>1. 平台默认模型</h2>
+        <p>未绑定自己的 API Key 时，对话走平台额度，使用：</p>
+        <ul>
+          <li>服务商：<code>dashscope</code></li>
+          <li>模型：<code>qwen-plus-latest</code></li>
+        </ul>
+        <p>平台额度有每日上限，用完后需要等到次日，或绑定自己的 Key 继续。平台额度下的对话内容同样会发送给上述服务商，处理方式见《<a href="privacy.html">隐私政策</a>》。</p>
+      </section>
+
+      <section id="byok">
+        <h2>2. 可绑定的服务商与模型</h2>
+        <p>绑定自己的 Key 后，对话直接由你选择的服务商处理，计费也由你的账号承担。以下清单与服务端注册表一致：</p>
+        <div class="legal-table-wrap">
+        <table>
+          <thead>
+            <tr><th>服务商</th><th>接口域名</th><th>可用模型</th></tr>
+          </thead>
+          <tbody>
+        <tr><td><code>claude</code> · Anthropic Claude 官方 API</td><td>由 SDK 决定</td><td><code>claude-haiku-4-5-20251001</code></td></tr>
+        <tr><td><code>dashscope</code> · 阿里云百炼（通义千问）</td><td>dashscope.aliyuncs.com</td><td><code>qwen-plus-latest</code>、<code>qwen-max</code>、<code>qwen-plus</code>、<code>qwen3.8-flash</code></td></tr>
+        <tr><td><code>deepseek</code> · DeepSeek 官方 API</td><td>api.deepseek.com</td><td><code>deepseek-chat</code>、<code>deepseek-reasoner</code></td></tr>
+        <tr><td><code>gemini</code> · Google Gemini 官方 API</td><td>由 SDK 决定</td><td><code>gemini-3.1-flash-lite-preview</code></td></tr>
+        <tr><td><code>moonshot</code> · 月之暗面 Kimi 官方 API</td><td>api.moonshot.cn</td><td><code>moonshot-v1-auto</code></td></tr>
+        <tr><td><code>ollama-cloud</code> · Ollama Cloud 托管模型</td><td>ollama.com</td><td><code>gemma4:31b</code>、<code>glm-5.3</code>、<code>glm-5.3-flash</code>、<code>kimi-k3</code>、<code>deepseek-v4.1-flash</code></td></tr>
+        <tr><td><code>openai</code> · OpenAI 官方 API</td><td>api.openai.com</td><td><code>gpt-4o</code>、<code>gpt-4o-mini</code></td></tr>
+        <tr><td><code>zhipu</code> · 智谱 AI 开放平台</td><td>open.bigmodel.cn</td><td><code>glm-4.7-flash</code>、<code>glm-4-flash</code>、<code>glm-4-plus</code></td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p>不同服务商对数据的保留、训练使用与地域处理各有政策，绑定前请阅读其条款。我们不代你同意任何服务商的训练条款。</p>
+      </section>
+
+      <section id="moderation">
+        <h2>3. 内容审核</h2>
+        <p>输入侧在生成前做一次安全检查；输出侧在返回前做规则审核。命中高风险内容时，回复会被替换为安全提示，或在不改变原意的前提下追加求助信息。处置与申诉规则见《<a href="aup.html">可接受使用政策</a>》。</p>
+        <p>审核是确定性的本地规则加上游内容过滤，不保证覆盖所有语义变体。发现漏审内容可以通过应用内「举报」或邮件反馈。</p>
+      </section>
+
+      <section id="changes">
+        <h2>4. 变更</h2>
+        <p>新增或下线服务商、模型时，本页随服务端配置一起更新。若变更会影响数据处理方式，我们会在《<a href="privacy.html">隐私政策</a>》中同步说明并重新征得同意。</p>
+      </section>
+
+      <p class="legal-foot">本页由 <code>scripts/dev/gen_models_page.py</code> 根据 <code>shell/providers.json</code> 生成，请勿手工编辑。</p>
+    </article>
+  </main>
+</body>
+</html>

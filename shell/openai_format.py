@@ -274,6 +274,7 @@ def completion_body(
     created: int,
     model: str,
     content: str,
+    finish_reason: str = "stop",
 ) -> dict:
     return {
         "id": request_id,
@@ -284,7 +285,7 @@ def completion_body(
             {
                 "index": 0,
                 "message": {"role": "assistant", "content": content},
-                "finish_reason": "stop",
+                "finish_reason": finish_reason,
             }
         ],
     }

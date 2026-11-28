@@ -30,11 +30,21 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from .auth.scope import current_auth_user
 from .content_safety import PromptSiftClient, PromptSiftError, refusal_for
+from .output_guard import SAFE_REPLY, GuardResult, blocking_categories, review_output
 from .persona_scope import allowlist as persona_allowlist, resolve_persona
 from .routing import RouteNotConfigured
 from .stream_parse import ReplyExtractor, SegmentEvent, Segmenter
 
 __all__ = ["build_stream_ws_router"]
+
+
+class _OutputBlocked(Exception):
+    """流式检测命中的硬拦截类别；抛出后中止本轮生成并整段替换。"""
+
+    def __init__(self, categories: tuple[str, ...]) -> None:
+        super().__init__(",".join(categories))
+        self.categories = categories
+
 
 # 段间停顿（毫秒）。上游原本固定 300ms —— 每条间隔一模一样，机械感就是这么来的。
 # 真人连发间隔是浮动的：基础 450ms ± 120ms，长段再多 100ms（「她打了很久才发出来」）。
@@ -74,6 +84,8 @@ def build_stream_ws_router(
     on_turn_done: Callable[[Any, str, str], None] | None = None,
     safety: PromptSiftClient | None = None,
     consent_check: Callable[[str], bool] | None = None,
+    banned_check: Callable[[str], bool] | None = None,
+    guard_log: Callable[[str, str, tuple[str, ...]], None] | None = None,
 ) -> APIRouter:
     router = APIRouter(tags=["stream"])
 
@@ -109,6 +121,17 @@ def build_stream_ws_router(
                 persona_id = resolve_persona(persona_id, persona_allowlist())
             text = "\n".join(str(m.get("content") or "").strip() for m in msgs).strip()
             if not persona_id or not text:
+                return
+
+            # #100 违规处置：封禁用户不进入生成（举报与申诉走 AUP 第 5/7 节）
+            if banned_check is not None and banned_check(user):
+                await send(
+                    {
+                        "type": "error",
+                        "code": "account_suspended",
+                        "content": "账号已被限制使用；如有异议请发送邮件至 prealpha@163.com 申诉。",
+                    }
+                )
                 return
 
             if safety is not None:
@@ -159,11 +182,17 @@ def build_stream_ws_router(
             total_chunks = 0
             # 每段单独算，见 segment_pause()
             pending_restart = False
+            # #100 输出侧：保留上一块尾巴，防止危险短语被切在两个 chunk 里
+            guard_tail = ""
+            guard_hit: tuple[str, ...] = ()
 
             async def handle(ev) -> None:
                 """chunk → 直接推；segment_end → 停一下并挂起「重开打字」。"""
-                nonlocal first_chunk_ms, total_chunks, pending_restart
+                nonlocal first_chunk_ms, total_chunks, pending_restart, guard_tail
                 if ev.kind == "chunk":
+                    hit = blocking_categories(guard_tail + ev.text)
+                    if hit:
+                        raise _OutputBlocked(hit)
                     if pending_restart:
                         # 上一段刚结束，这一段开始 —— 重新拉起点「对方正在输入」
                         await send({"type": "chat_start", "session_id": session_id})
@@ -179,6 +208,7 @@ def build_stream_ws_router(
                             "segment": ev.segment,
                         }
                     )
+                    guard_tail = (guard_tail + ev.text)[-80:]
                 else:
                     pause_ms = segment_pause(ev.text)
                     await send(
@@ -217,6 +247,9 @@ def build_stream_ws_router(
                         await handle(ev)
                 for ev in segmenter.finish():
                     await handle(ev)
+            except _OutputBlocked as exc:
+                # 已发出的碎片不再撤回：chat_end 带权威替换文本，前端整段覆盖
+                guard_hit = exc.categories
             except RouteNotConfigured as exc:
                 await send(
                     {
@@ -247,12 +280,31 @@ def build_stream_ws_router(
             # 模型没守协议（整段无标记）时，流式一个字都没发 → 兜底整段补发
             if total_chunks == 0 and reply:
                 pending_restart = False
-                await handle(
-                    SegmentEvent(kind="chunk", segment=0, text=reply, index=0)
-                )
-                await handle(
-                    SegmentEvent(kind="segment_end", segment=0, text=reply, index=1)
-                )
+                try:
+                    await handle(
+                        SegmentEvent(kind="chunk", segment=0, text=reply, index=0)
+                    )
+                    await handle(
+                        SegmentEvent(kind="segment_end", segment=0, text=reply, index=1)
+                    )
+                except _OutputBlocked as exc:
+                    guard_hit = exc.categories
+
+            # #100 / #58 输出侧护栏：硬拦截整段替换，软提示补在末尾
+            if guard_hit:
+                guard = GuardResult(action="block", reply=SAFE_REPLY, categories=guard_hit)
+                reply = SAFE_REPLY
+                blocked_categories = guard_hit
+            else:
+                guard = review_output(reply, user_text=text)
+                blocked_categories = guard.categories
+                if guard.action != "allow":
+                    reply = guard.reply
+            if guard.action != "allow" and guard_log is not None:
+                try:
+                    guard_log(user, guard.action, tuple(blocked_categories))
+                except Exception:  # noqa: BLE001
+                    pass
 
             status: dict = {}
             try:
@@ -263,21 +315,30 @@ def build_stream_ws_router(
             status.pop("image_path", None)
             status.pop("audio_path", None)
             pushed = segmenter.segments or ([reply] if reply else [])
+            if guard.action == "block":
+                pushed = [reply]
+            elif guard.action == "soften":
+                pushed = list(pushed) + list(guard.care)
+                reply = "\n\n".join(pushed)
 
-            await send(
-                {
-                    "type": "chat_end",
-                    "session_id": session_id,
-                    "reply": reply,
-                    "modality": modality,
-                    "segments": pushed,
-                    "engine_segments": engine_segments,
-                    "chunks": total_chunks,
-                    "first_chunk_ms": first_chunk_ms,
-                    "elapsed_ms": int((time.monotonic() - started) * 1000),
-                    **status,
+            payload = {
+                "type": "chat_end",
+                "session_id": session_id,
+                "reply": reply,
+                "modality": modality,
+                "segments": pushed,
+                "engine_segments": engine_segments,
+                "chunks": total_chunks,
+                "first_chunk_ms": first_chunk_ms,
+                "elapsed_ms": int((time.monotonic() - started) * 1000),
+                **status,
+            }
+            if guard.action != "allow":
+                payload["guard"] = {
+                    "action": guard.action,
+                    "categories": list(blocked_categories),
                 }
-            )
+            await send(payload)
 
             try:
                 upstream._persist_agent(agent)

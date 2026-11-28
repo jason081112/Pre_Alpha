@@ -18,6 +18,16 @@ jobs:
         run: python3 tests/test_consent.py
       - name: Persona scope (#99)
         run: python3 tests/test_persona_scope.py
+      - name: Output guard (#58 / #100)
+        run: python3 tests/test_output_guard.py
+      - name: Moderation store (#100)
+        run: python3 tests/test_moderation.py
+      - name: Repo hygiene — no secrets or chat dumps (#59)
+        run: python3 scripts/dev/check_repo_hygiene.py
+      - name: Model disclosure page in sync (#100)
+        run: python3 scripts/dev/gen_models_page.py --check
+      - name: Provider training policy coverage (#77)
+        run: python3 scripts/dev/check_provider_policy.py
       - name: P0 behaviors (persona switch / reconnect resync)
         run: node tests/ui_p0_smoke.mjs
       - name: Debug event log

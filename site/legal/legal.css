@@ -144,6 +144,27 @@ code { padding: 1px 6px; border: 1px solid var(--line); border-radius: 6px; back
   font-size: 14px;
 }
 .note strong { color: var(--cyan); }
+/* 模型披露页（#100）的 provider × models 表 */
+.legal-table-wrap {
+  margin: 14px 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow-x: auto;
+}
+table { width: 100%; min-width: 520px; border-collapse: collapse; font-size: 14px; }
+thead th {
+  padding: 10px 14px;
+  text-align: left;
+  background: rgba(255, 255, 255, .04);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+tbody td { padding: 10px 14px; border-top: 1px solid var(--line-soft); color: #d8d4eb; vertical-align: top; }
+tbody td code { white-space: nowrap; }
+
 .legal-foot {
   display: flex;
   align-items: center;

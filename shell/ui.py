@@ -141,7 +141,7 @@ section { position: relative; z-index: 1; }
   color: var(--muted);
   font-size: 13px;
 }
-.card input {
+.card input, .card select, .card textarea {
   width: 100%;
   margin-bottom: 10px;
   padding: 12px 14px;
@@ -149,7 +149,8 @@ section { position: relative; z-index: 1; }
   border-radius: 12px;
   background: rgba(8, 10, 22, .55);
 }
-.card input:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+.card input:focus, .card select:focus, .card textarea:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+.card textarea { resize: vertical; }
 .btn-primary {
   width: 100%;
   margin-top: 6px;
@@ -698,6 +699,28 @@ input:focus, textarea:focus, select:focus {
   </form>
 </dialog>
 
+<dialog id="reportDialog" aria-labelledby="reportTitle">
+  <form class="card glass" id="reportForm">
+    <h1 id="reportTitle">举报不当内容</h1>
+    <p>举报会关联你的账号，便于我们核查与回复。恶意举报可能导致限权。</p>
+    <select id="reportCategory" aria-label="问题类型">
+      <option value="sexual">色情或露骨性内容</option>
+      <option value="violence">暴力、血腥或煽动伤害</option>
+      <option value="hate">仇恨与骚扰</option>
+      <option value="csam">涉及未成年人</option>
+      <option value="impersonation">冒充真人或虚假信息</option>
+      <option value="copyright">侵犯知识产权</option>
+      <option value="self_harm">自伤或自杀相关内容</option>
+      <option value="other">其他</option>
+    </select>
+    <textarea id="reportDetail" rows="3" placeholder="发生了什么（可选）" maxlength="2000"></textarea>
+    <button type="submit" id="reportSubmit" class="btn-primary">提交举报</button>
+    <button type="button" class="ghost" id="reportClose">取消</button>
+    <div class="err" id="reportErr"></div>
+    <p class="sys">紧急情况请直接联系当地急救（120 / 110），不要等待举报处理。</p>
+  </form>
+</dialog>
+
 <section id="consent" hidden>
   <div class="card glass consent-card">
     <h1>隐私说明</h1>
@@ -727,6 +750,7 @@ input:focus, textarea:focus, select:focus {
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
     </button>
     <button type="button" id="exportBtn" title="导出这段对话">导出</button>
+    <button type="button" id="reportBtn" title="举报不当内容">举报</button>
     <button type="button" id="dbgBtn" title="导出事件日志">日志</button>
     <button type="button" id="logoutBtn">退出</button>
   </header>
@@ -1088,6 +1112,45 @@ input:focus, textarea:focus, select:focus {
     if (state.ws) { try { state.ws.close(); } catch (e) {} state.ws = null; }
     showView("login");
   }
+
+  /* ── #100 举报 ── */
+  var reportDialog = $("reportDialog");
+  $("reportBtn").addEventListener("click", function () {
+    $("reportErr").textContent = "";
+    $("reportDetail").value = "";
+    reportDialog.showModal();
+    $("reportDetail").focus();
+  });
+  $("reportClose").addEventListener("click", function () { reportDialog.close(); });
+  $("reportForm").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var err = $("reportErr");
+    var btn = $("reportSubmit");
+    var category = $("reportCategory").value;
+    err.textContent = "";
+    btn.disabled = true;
+    api("/api/moderation/report", {
+      method: "POST",
+      body: {
+        category: category,
+        detail: $("reportDetail").value.trim(),
+        target: state.personaId || ""
+      }
+    })
+      .then(function (res) {
+        return res.json().then(function (d) {
+          if (!res.ok) throw new Error(d.detail || ("提交失败 " + res.status));
+          return d;
+        });
+      })
+      .then(function (d) {
+        dbg("report.submitted", { id: d.id, category: category });
+        reportDialog.close();
+        addSystem("举报已提交（编号 " + d.id + "），我们会尽快核查。");
+      })
+      .catch(function (e) { err.textContent = redact(e.message); })
+      .then(function () { btn.disabled = false; });
+  });
 
   /* ── #76 隐私同意 ── */
   function loadConsent() {
@@ -1538,6 +1601,21 @@ input:focus, textarea:focus, select:focus {
 
   /* 队列排空 + chat_end 已到 → 权威对账：DOM 文本归一化后必须 == reply。
      Segmenter 切段会丢弃分隔空行，所以比较前去掉全部空白。 */
+  /* 后端可能在末尾追加软提示（#58）：渲染文本是 reply 的前缀，只补差额。
+     norm() 去掉了全部空白，所以按「跳过空白比较字符」求剩余原文。 */
+  function tailAfter(renderedNorm, reply) {
+    var i = 0;
+    var j = 0;
+    while (i < renderedNorm.length && j < reply.length) {
+      var ch = reply.charAt(j);
+      if (/\s/.test(ch)) { j += 1; continue; }
+      if (ch !== renderedNorm.charAt(i)) return null;
+      i += 1;
+      j += 1;
+    }
+    return i === renderedNorm.length ? reply.slice(j) : null;
+  }
+
   function finishTurn() {
     var msg = rhythm.pendingEnd;
     rhythm.pendingEnd = null;
@@ -1550,16 +1628,27 @@ input:focus, textarea:focus, select:focus {
     var renderedText = rhythm.bubbles.map(function (b) { return b.el.textContent; }).join("\n\n");
     var matched = norm(renderedText) === norm(reply);
     if (!matched && reply) {
-      if (rhythm.rendered) {
+      var tail = tailAfter(norm(renderedText), reply);
+      if (rhythm.rendered && tail !== null) {
+        // 后端在末尾追加了软提示（#58）或补齐段尾 → 只补差额，整段重绘会闪
+        tail.split(/\n{2,}/).forEach(function (part) {
+          var clean = part.trim();
+          if (clean) addBubble("them", clean);
+        });
+        dbg("rhythm.append_tail", { rendered: renderedText.length, added: tail.length });
+        matched = true;
+      } else if (rhythm.rendered) {
         // 渲染过但对不上 → 异常，撤掉本轮气泡整段替换
         rhythm.bubbles.forEach(function (b) {
           var row = b.el.parentNode;
           if (row && row.parentNode) row.parentNode.removeChild(row);
         });
         dbg("rhythm.mismatch", { rendered: renderedText.length, reply: reply.length });
+        addBubble("them", reply);
+      } else {
+        // 一个 chunk 都没收到 → 整段兜底
+        addBubble("them", reply);
       }
-      // rendered=0 是正常兜底（模型没守协议，后端整段补发前的保险）
-      addBubble("them", reply);
     }
     var avg = rhythm.gaps.length
       ? Math.round(rhythm.gaps.reduce(function (a, b) { return a + b; }, 0) / rhythm.gaps.length)
@@ -1639,6 +1728,7 @@ input:focus, textarea:focus, select:focus {
       case "chat_end":
         state.unanswered = Math.max(0, state.unanswered - 1);
         saveMood(msg);
+        if (msg.guard) dbg("guard", msg.guard);
         rhythm.pendingEnd = msg;
         if (!rhythm.q.length && !rhythm.running) finishTurn();
         break;
@@ -1651,6 +1741,14 @@ input:focus, textarea:focus, select:focus {
           loadConsent().then(function (c) {
             if (!c.accepted) showView("consent");
           });
+          break;
+        }
+        if (msg.code === "account_suspended") {
+          // #100：账号被暂停 → 停掉输入，保留历史可读
+          dbg("ws.suspended", {});
+          addSystem(msg.content || "账号已被暂停，可通过 prealpha@163.com 申诉。");
+          $("send").disabled = true;
+          textEl.disabled = true;
           break;
         }
         addSystem(msg.content || msg.detail || "未知错误");

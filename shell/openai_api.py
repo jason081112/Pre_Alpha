@@ -41,6 +41,7 @@ from .openai_format import (
     resolve_model_alias,
     stream_chunk_body,
 )
+from .output_guard import SAFE_REPLY, blocking_categories, review_output
 from .persona_scope import DEFAULT_PERSONA, allowlist as allowed_personas, filter_personas
 from .providers import Registry, Route, RouteError
 from .routing import (
@@ -52,6 +53,14 @@ from .routing import (
 from .store import RoutingStore
 
 _SSE_DONE = "data: [DONE]\n\n"
+
+
+class _StreamBlocked(Exception):
+    """SSE 流式输出命中硬拦截；立即停止继续产出并标记 content_filter。"""
+
+    def __init__(self, categories: tuple[str, ...]) -> None:
+        super().__init__(",".join(categories))
+        self.categories = categories
 
 
 class ChatMessageIn(BaseModel):
@@ -349,6 +358,8 @@ def build_openai_router(
     dev_route: Route | None,
     limits: LimitsService | None = None,
     safety: PromptSiftClient | None = None,
+    banned_check: Any = None,
+    guard_log: Any = None,
 ) -> APIRouter:
     router = APIRouter(tags=["openai"])
 
@@ -393,6 +404,12 @@ def build_openai_router(
                     500,
                     "服务端尚未加载任何人格",
                     code="personas_unavailable",
+                )
+            if banned_check is not None and banned_check(user):
+                raise _RequestFailure(
+                    403,
+                    "账号已被限制使用；如有异议请发送邮件至 prealpha@163.com 申诉。",
+                    code="account_suspended",
                 )
             refused = await _check_prompt_safety(safety, user_text)
             if refused is not None:
@@ -481,8 +498,10 @@ def build_openai_router(
                 request_id=request_id,
                 created=created,
                 session_id=session_id,
+                guard_log=guard_log,
             )
 
+        finish_reason = "stop"
         try:
             with routing_context(route, fallback, user=user):
                 result = await agent.chat(user_text)
@@ -493,6 +512,16 @@ def build_openai_router(
                     if isinstance(result, dict)
                     else "文字"
                 )
+                # #100 输出侧审核：命中硬拦截则整段替换，软提示追加在末尾
+                guard = review_output(reply, user_text=user_text)
+                if guard.action != "allow":
+                    if guard_log is not None:
+                        try:
+                            guard_log(user, guard.action, guard.categories)
+                        except Exception:  # noqa: BLE001
+                            pass
+                    reply = guard.reply
+                finish_reason = "content_filter" if guard.blocked else "stop"
                 _persist_agent(upstream, agent)
         except RateLimitExceeded as exc:
             return _rate_limit_response(exc)
@@ -535,6 +564,7 @@ def build_openai_router(
                 created=created,
                 model=model_name,
                 content=reply,
+                finish_reason=finish_reason,
             ),
             headers=headers,
         )
@@ -556,11 +586,14 @@ def _streaming_response(
     request_id: str,
     created: int,
     session_id: str,
+    guard_log: Any = None,
 ) -> StreamingResponse:
     async def event_stream():
         extractor = ReplyStreamExtractor()
         completed = False
         saved = False
+        final_reply = ""
+        guard_tail = ""
         try:
             with routing_context(route, fallback, user=user):
                 yield _sse(
@@ -573,6 +606,10 @@ def _streaming_response(
                 )
                 async for raw in agent.chat_stream(user_text):
                     for piece in extractor.feed(raw):
+                        hit = blocking_categories(guard_tail + piece)
+                        if hit:
+                            raise _StreamBlocked(hit)
+                        guard_tail = (guard_tail + piece)[-80:]
                         yield _sse(
                             stream_chunk_body(
                                 request_id=request_id,
@@ -582,6 +619,10 @@ def _streaming_response(
                             )
                         )
                 for piece in extractor.finish():
+                    hit = blocking_categories(guard_tail + piece)
+                    if hit:
+                        raise _StreamBlocked(hit)
+                    guard_tail = (guard_tail + piece)[-80:]
                     yield _sse(
                         stream_chunk_body(
                             request_id=request_id,
@@ -591,6 +632,23 @@ def _streaming_response(
                         )
                     )
 
+                # 软提示（#58）：完整回复里出现排他性依赖 / 用户表达自伤念头
+                guard = review_output(extractor.reply_text, user_text=user_text)
+                if guard.action != "allow" and guard_log is not None:
+                    try:
+                        guard_log(user, guard.action, guard.categories)
+                    except Exception:  # noqa: BLE001
+                        pass
+                if guard.action == "soften":
+                    yield _sse(
+                        stream_chunk_body(
+                            request_id=request_id,
+                            created=created,
+                            model=model_name,
+                            delta={"content": "\n\n" + "\n\n".join(guard.care)},
+                        )
+                    )
+                final_reply = guard.reply
                 completed = True
                 _persist_agent(upstream, agent)
                 _save_turn(
@@ -598,7 +656,7 @@ def _streaming_response(
                     client_id=client_id,
                     persona_id=persona_id,
                     user_text=user_text,
-                    reply=extractor.reply_text,
+                    reply=final_reply,
                     modality=str(getattr(agent, "_last_modality", "") or "文字"),
                 )
                 saved = True
@@ -608,10 +666,36 @@ def _streaming_response(
                         request_id=request_id,
                         created=created,
                         model=model_name,
-                        finish_reason="stop",
+                        finish_reason=("content_filter" if guard.blocked else "stop"),
                     )
                 )
                 yield _SSE_DONE
+        except _StreamBlocked as exc:
+            final_reply = SAFE_REPLY
+            if guard_log is not None:
+                try:
+                    guard_log(user, "block", exc.categories)
+                except Exception:  # noqa: BLE001
+                    pass
+            _persist_agent(upstream, agent)
+            _save_turn(
+                upstream,
+                client_id=client_id,
+                persona_id=persona_id,
+                user_text=user_text,
+                reply=SAFE_REPLY,
+                modality=str(getattr(agent, "_last_modality", "") or "文字"),
+            )
+            completed = saved = True
+            yield _sse(
+                stream_chunk_body(
+                    request_id=request_id,
+                    created=created,
+                    model=model_name,
+                    finish_reason="content_filter",
+                )
+            )
+            yield _SSE_DONE
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - 已开始 SSE 后只能发错误事件
@@ -625,7 +709,7 @@ def _streaming_response(
                     client_id=client_id,
                     persona_id=persona_id,
                     user_text=user_text,
-                    reply=extractor.reply_text,
+                    reply=final_reply or extractor.reply_text,
                     modality=str(getattr(agent, "_last_modality", "") or "文字"),
                 )
 

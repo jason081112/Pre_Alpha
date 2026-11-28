@@ -282,6 +282,20 @@ bs = env.themBubbles(since);
 check("T8 对账不符 → 替换为权威 reply", bs.length === 1 && bs[0].textContent === "权威文本",
   bs.map((b) => b.textContent).join("|"));
 
+// T9 后端在末尾追加软提示（#58）→ 只补差额气泡，不重绘本轮
+since = env.made.length;
+const baseReply = "我在听，你慢慢说。";
+const careReply = "如果你现在很难受，可以先停下来，打 400-161-9995。";
+env.send({ type: "chat_start", session_id: "s" });
+env.send({ type: "chunk", content: baseReply, index: 0, segment: 0 });
+env.send({ type: "chat_end", reply: baseReply + "\n\n" + careReply,
+  segments: [baseReply, careReply], chunks: 1, guard: { action: "soften", categories: ["self_harm"] } });
+env.pump(6000);
+bs = env.themBubbles(since);
+check("T9 追加软提示 → 两个气泡且原文未被重绘",
+  bs.length === 2 && bs[0].textContent === baseReply && bs[1].textContent === careReply,
+  bs.map((b) => b.textContent).join("|"));
+
 // dbg 统计落盘（800ms 防抖，用真实时钟）
 await sleep(1000);
 const dbgLog = JSON.parse(env.store.get("alpha.debug") || "[]");
