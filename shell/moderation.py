@@ -232,6 +232,7 @@ def build_moderation_router(
     store: ModerationStore,
     *,
     limits: Any = None,
+    notify: Callable[[dict], None] | None = None,
 ):
     """举报给用户、处置给管理员；延迟导入 fastapi/pydantic 便于零依赖测试。"""
     from fastapi import APIRouter, Header, HTTPException
@@ -263,6 +264,20 @@ def build_moderation_router(
             target=payload.target,
             detail=payload.detail,
         )
+        if notify is not None:
+            try:
+                notify(
+                    {
+                        "id": report_id,
+                        "user_id": user,
+                        "category": payload.category,
+                        "target": payload.target,
+                        "detail": payload.detail,
+                        "created_at": time.time(),
+                    }
+                )
+            except Exception:  # noqa: BLE001 - 通知失败不能影响举报本身
+                pass
         return {"id": report_id, "status": "open"}
 
     @router.get("/api/admin/moderation/reports")

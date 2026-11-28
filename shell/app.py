@@ -17,6 +17,7 @@ import asyncio
 import json
 import os
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -234,7 +235,54 @@ app.include_router(build_auth_router(auth_service))
 app.include_router(build_consent_router(auth_store))
 app.include_router(build_page_router())
 app.include_router(build_limits_admin_router(limits))
-app.include_router(build_moderation_router(moderation, limits=limits))
+# #100 举报通知：写本地日志 + 可选 webhook（省得只能靠轮询管理端）
+def _notify_report(report: dict) -> None:
+    stamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(report.get("created_at") or time.time()))
+    line = (
+        f"{stamp} 新举报 #{report.get('id')} "
+        f"[{report.get('category')}] 用户 {report.get('user_id')} "
+        f"对象 {report.get('target') or '-'}：{report.get('detail') or ''}"
+    )
+    print(line, flush=True)
+    log_path = Path(os.getenv("ALPHA_REPORT_LOG", str(DATA_DIR / "reports.log")))
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps({**report, "at": stamp}, ensure_ascii=False) + "\n")
+    except OSError as exc:
+        print(f"[report] 写日志失败: {exc}", flush=True)
+    hook = os.getenv("ALPHA_REPORT_WEBHOOK", "").strip()
+    if not hook:
+        return
+
+    def post() -> None:
+        import urllib.request
+
+        body = json.dumps(
+            {
+                "text": line,
+                "content": line,
+                "report": report,
+            },
+            ensure_ascii=False,
+        ).encode("utf-8")
+        req = urllib.request.Request(
+            hook,
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            urllib.request.urlopen(req, timeout=6).read()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[report] webhook 失败: {exc}", flush=True)
+
+    threading.Thread(target=post, daemon=True).start()
+
+
+app.include_router(
+    build_moderation_router(moderation, limits=limits, notify=_notify_report)
+)
 app.include_router(
     build_billing_router(
         billing,
