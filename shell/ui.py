@@ -234,6 +234,78 @@ section { position: relative; z-index: 1; }
 #subMsg.err { min-height: 18px; }
 #subscribe .linkbtn { max-width: 420px; }
 
+/* ── #102 支付完成：全屏确认 ── */
+#payDone {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(900px 600px at 50% 20%, rgba(91, 124, 250, .3), transparent 62%),
+    radial-gradient(700px 520px at 80% 82%, rgba(34, 211, 238, .16), transparent 60%),
+    rgba(5, 7, 17, .84);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  animation: payFade .28s ease-out;
+}
+#payDone[hidden] { display: none; }
+@keyframes payFade { from { opacity: 0; } to { opacity: 1; } }
+.pay-card {
+  width: min(100%, 380px);
+  padding: 36px 26px 26px;
+  text-align: center;
+  border-radius: 24px;
+  border: 1px solid var(--stroke);
+  background: linear-gradient(180deg, rgba(26, 30, 56, .9), rgba(10, 13, 28, .94));
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .52), 0 0 0 1px rgba(255, 255, 255, .03) inset;
+  animation: payPop .42s cubic-bezier(.2, .9, .25, 1.1);
+}
+@keyframes payPop {
+  from { opacity: 0; transform: translateY(14px) scale(.96); }
+  to { opacity: 1; transform: none; }
+}
+.pay-ring {
+  width: 84px;
+  height: 84px;
+  margin: 0 auto;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(91, 124, 250, .35), transparent 68%),
+    rgba(255, 255, 255, .04);
+  border: 1px solid rgba(120, 150, 255, .38);
+  box-shadow: 0 0 34px rgba(91, 124, 250, .35), 0 0 0 6px rgba(91, 124, 250, .08);
+}
+.pay-ring svg { stroke: var(--cyan); stroke-dasharray: 30; stroke-dashoffset: 30; }
+.pay-ring.ok svg { animation: payCheck .5s .12s ease-out forwards; }
+@keyframes payCheck { to { stroke-dashoffset: 0; } }
+.pay-ring.busy svg { display: none; }
+.pay-card h2 { margin: 18px 0 8px; font-size: 19px; font-weight: 650; }
+.pay-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+.pay-meta {
+  margin-top: 14px !important;
+  padding-top: 14px;
+  border-top: 1px solid var(--stroke-soft);
+  color: var(--fg) !important;
+  font-size: 13px;
+}
+.pay-spin {
+  width: 22px;
+  height: 22px;
+  margin: 20px auto 0;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, .16);
+  border-top-color: var(--cyan);
+  animation: paySpin .8s linear infinite;
+}
+.pay-spin[hidden] { display: none; }
+@keyframes paySpin { to { transform: rotate(360deg); } }
+.pay-card .btn-primary { width: 100%; margin-top: 20px; }
+.pay-card .linkbtn { margin-top: 10px; }
+
 /* ── #76 隐私同意 ── */
 #consent {
   height: 100%;
@@ -936,6 +1008,19 @@ input:focus, textarea:focus, select:focus {
     <button type="button" id="subChat" class="linkbtn">先回聊天</button>
   </div>
 </section>
+<div id="payDone" hidden role="dialog" aria-modal="true" aria-labelledby="payTitle">
+  <div class="pay-card">
+    <div class="pay-ring" id="payRing">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 12.5 5 5 10-11"/></svg>
+    </div>
+    <h2 id="payTitle">正在确认订阅…</h2>
+    <p id="payText">支付已完成，正在和支付服务核对，通常几秒内完成。</p>
+    <p class="pay-meta" id="payMeta" hidden></p>
+    <div class="pay-spin" id="paySpin"></div>
+    <button type="button" id="payContinue" class="btn-primary" hidden>开始聊天</button>
+    <button type="button" id="payRetry" class="linkbtn" hidden>还没生效？再查一次</button>
+  </div>
+</div>
 <pre id="dbg" hidden></pre>
 
 <script nonce="__CSP_NONCE__">
@@ -1220,6 +1305,22 @@ input:focus, textarea:focus, select:focus {
       });
   }
 
+  /* 支付回跳：本地没生效就请后端去支付服务对账（回调可能丢） */
+  function syncBilling() {
+    if (!state.token) return Promise.resolve(null);
+    return api("/api/billing/sync", { method: "POST" })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        state.billing = data;
+        updateTrialBadge();
+        return data;
+      })
+      .catch(function (e) {
+        dbg("billing.sync", { error: redact(e.message) });
+        return state.billing;
+      });
+  }
+
   function updateTrialBadge() {
     var el = $("trialBadge");
     var b = state.billing;
@@ -1264,6 +1365,95 @@ input:focus, textarea:focus, select:focus {
     $("subMonthly").className = "seg" + (name === "monthly" ? " on" : "");
     $("subYearly").className = "seg" + (name === "yearly" ? " on" : "");
   }
+
+  /* ── 支付完成：全屏确认 ──
+     回调可能比跳转晚几秒，所以不给静态「成功页」，而是轮询到订阅真正生效。
+     30 秒还没等到就说清楚，而不是假装成功。 */
+  var payTimer = null;
+  var payTries = 0;
+
+  function payReset() {
+    if (payTimer) { clearTimeout(payTimer); payTimer = null; }
+    payTries = 0;
+  }
+
+  function payMetaText(b) {
+    var sub = b && b.subscription;
+    if (!sub) return "";
+    var bits = [];
+    if (sub.interval) bits.push(sub.interval === "yearly" ? "年付" : "月付");
+    if (sub.current_period_end) {
+      var d = new Date(sub.current_period_end);
+      if (!isNaN(d.getTime())) bits.push("有效期至 " + d.toLocaleDateString("zh-CN"));
+    }
+    if (sub.email) bits.push(sub.email);
+    return bits.join(" · ");
+  }
+
+  function payWaitState() {
+    $("payRing").className = "pay-ring";
+    $("payTitle").textContent = "正在确认订阅…";
+    $("payText").textContent = "支付已完成，正在和支付服务核对，通常几秒内完成。";
+    $("payMeta").hidden = true;
+    $("paySpin").hidden = false;
+    $("payRetry").hidden = true;
+    $("payContinue").hidden = true;
+  }
+
+  function payDoneState(b) {
+    payReset();
+    $("payRing").className = "pay-ring ok";
+    $("payTitle").textContent = "订阅已生效";
+    $("payText").textContent = "BYOK 已开通，不限条数，可以继续聊天了。";
+    var meta = payMetaText(b);
+    $("payMeta").textContent = meta;
+    $("payMeta").hidden = !meta;
+    $("paySpin").hidden = true;
+    $("payRetry").hidden = true;
+    $("payContinue").hidden = false;
+    updateTrialBadge();
+    dbg("billing.confirmed");
+  }
+
+  function payTimeoutState() {
+    $("payRing").className = "pay-ring";
+    $("payTitle").textContent = "还没收到支付确认";
+    $("payText").textContent = "支付可能还在处理中，生效后聊天会自动放开。也可以点下面再查一次。";
+    $("paySpin").hidden = true;
+    $("payRetry").hidden = false;
+    $("payContinue").hidden = false;
+  }
+
+  function pollBillingForPay() {
+    payReset();
+    payWaitState();
+    (function tick() {
+      payTimer = null;
+      syncBilling().then(function (b) {
+        if (b && b.subscribed) { payDoneState(b); return; }
+        payTries += 1;
+        if (payTries >= 20) { payTimeoutState(); return; }
+        payTimer = setTimeout(tick, 1500);
+      });
+    })();
+  }
+
+  function showPayConfirm() {
+    showView("chat");
+    $("payDone").hidden = false;
+    pollBillingForPay();
+  }
+
+  function closePayConfirm() {
+    payReset();
+    $("payDone").hidden = true;
+    if (window.history && history.replaceState) {
+      history.replaceState(null, "", location.pathname);
+    }
+  }
+
+  $("payContinue").addEventListener("click", closePayConfirm);
+  $("payRetry").addEventListener("click", pollBillingForPay);
 
   $("trialBadge").addEventListener("click", showSubscribe);
   $("subBack").addEventListener("click", function () { showView("chat"); });
@@ -2493,16 +2683,7 @@ input:focus, textarea:focus, select:focus {
         return loadBilling()
           .then(function () {
             if (/[?&]subscribe=1/.test(location.search)) showSubscribe();
-            if (/[?&]billing=success/.test(location.search)) {
-              addSystem("支付已完成，正在确认订阅…");
-              [2000, 5000, 9000].forEach(function (ms) {
-                setTimeout(function () {
-                  loadBilling().then(function (b) {
-                    if (b && b.subscribed) addSystem("订阅已生效");
-                  });
-                }, ms);
-              });
-            }
+            if (/[?&]billing=success/.test(location.search)) showPayConfirm();
             return loadPersonas();
           })
           .then(loadHistory)

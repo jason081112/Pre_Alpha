@@ -174,6 +174,35 @@ class WaffoClient:
             {"storeId": self.store_id, "productId": product_id},
         )
 
+    # ── 订阅查询（回调丢失时对账） ──────────────────────────
+    def find_subscription(self, user_id: str) -> dict | None:
+        """按 orderMerchantExternalId 查这个用户的订阅；没有返回 None。
+
+        回调可能因签名/网络失败而丢失，前端确认页用这个兜底：
+        支付服务那边已激活，就把本地状态补上。
+        """
+        user_id = (user_id or "").strip()
+        if not user_id:
+            return None
+        data = self.graphql(
+            "query($storeId: String!, $ref: String!) {"
+            " subscriptionOrders(storeId: $storeId,"
+            " filter: { orderMerchantExternalId: { eq: $ref } }) {"
+            " id buyerEmail status billingPeriod orderMerchantExternalId"
+            " currentPeriodEnd createdAt } }",
+            {"storeId": self.store_id, "ref": user_id},
+        )
+        rows = list((data.get("data") or {}).get("subscriptionOrders") or [])
+        live = [
+            r for r in rows
+            if str(r.get("status") or "") in ("active", "canceling", "past_due")
+        ]
+        pick = live or rows
+        if not pick:
+            return None
+        pick.sort(key=lambda r: str(r.get("createdAt") or ""), reverse=True)
+        return pick[0]
+
     # ── 结账 ────────────────────────────────────────────────
     @property
     def default_success_url(self) -> str:

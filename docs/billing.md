@@ -56,6 +56,13 @@ curl -s https://47.239.51.212.sslip.io/api/billing/status   # 需登录 token
 测试订单完成后，`billing.db` 的 `billing_subscription.status` 应为 `active`，
 `billing_event` 里能看到 `subscription.activated` 等事件；重复投递只留一条。
 
+## 回调丢失时的对账
+
+`POST /api/billing/sync`：本地没有有效订阅时，用 `orderMerchantExternalId = user_id`
+向 Waffo 查一次订阅（`subscriptionOrders`），查到 active/canceling/past_due 就写回
+`billing.db`。支付成功回跳页（`/?billing=success`）每 1.5 秒调它，最多 20 次；
+支付已完成但回调 401/超时也不会丢权益。
+
 ## 已知限制
 
 - 自助取消/客户门户还没接入（`issue-session-token` + portal），目前走邮件人工取消。

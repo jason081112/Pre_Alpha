@@ -401,6 +401,38 @@ def build_billing_router(store: BillingStore, *, waffo: Any = None, success_url:
     def billing_status() -> dict:
         return store.status(_user())
 
+    @router.post("/api/billing/sync")
+    def billing_sync() -> dict:
+        """支付回跳后的对账：本地没生效就去支付服务查一次。
+
+        回调可能丢（签名失败/超时），但钱已经付了；这里按
+        orderMerchantExternalId 反查订阅，查到就补上本地状态。
+        """
+        user = _user()
+        current = store.status(user)
+        if current["subscribed"]:
+            return current
+        if waffo is None:
+            raise HTTPException(503, "支付尚未配置")
+        try:
+            sub = waffo.find_subscription(user)
+        except Exception:  # noqa: BLE001 - 对外不暴露上游细节
+            raise HTTPException(502, "暂时无法向支付服务确认，请稍后重试") from None
+        if not sub:
+            return current
+        status = str(sub.get("status") or "")
+        if status in ("active", "canceling", "past_due"):
+            store.set_subscription(
+                user,
+                status=status,
+                order_id=str(sub.get("id") or ""),
+                interval=str(sub.get("billingPeriod") or ""),
+                current_period_end=str(sub.get("currentPeriodEnd") or ""),
+                mode="sync",
+                email=str(sub.get("buyerEmail") or ""),
+            )
+        return store.status(user)
+
     @router.post("/api/billing/checkout")
     def checkout(payload: CheckoutIn) -> dict:
         user = _user()
