@@ -56,6 +56,7 @@ const document = {
   },
   createElement() { return el("tmp"); },
   body: { appendChild() {}, removeChild() {} },
+  addEventListener() {},
 };
 
 const sockets = [];

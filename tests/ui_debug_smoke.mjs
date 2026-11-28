@@ -55,6 +55,7 @@ const document = {
   createElement() { return el("tmp"); },
   createTextNode() { return {}; },
   body: { appendChild() {}, removeChild() {} },
+  addEventListener() {},
 };
 
 let wsInstance = null;
