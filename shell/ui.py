@@ -1707,6 +1707,19 @@ footer {
   $("settingsBtn").addEventListener("click", function () { showView("byok"); });
   $("currentRouteCard").addEventListener("click", function () { showView("picker"); });
 
+  // Ripple effect for buttons
+  document.querySelectorAll("button, .btn-primary, .ghost, .linkbtn, .icon-btn").forEach(function(el) {
+    el.addEventListener("click", function(e) {
+      var rect = this.getBoundingClientRect();
+      var r = document.createElement("span");
+      r.className = "ripple";
+      r.style.left = (e.clientX - rect.left) + "px";
+      r.style.top = (e.clientY - rect.top) + "px";
+      this.appendChild(r);
+      setTimeout(function() { r.remove(); }, 600);
+    });
+  });
+
   /* ── 启动 ── */
   function boot() {
     $("login").hidden = true;

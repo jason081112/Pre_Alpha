@@ -47,7 +47,7 @@ else:
 
 import main as upstream  # noqa: E402  （必须在 chdir 之后）
 
-from fastapi.responses import JSONResponse  # noqa: E402
+from fastapi.responses import FileResponse, JSONResponse  # noqa: E402
 
 from shell.agent_state import AgentExtraStore  # noqa: E402
 from shell.api import build_router  # noqa: E402
@@ -177,6 +177,21 @@ def _strip_upstream_pages(application, paths: tuple[str, ...]) -> list[str]:
 _STRIPPED_PAGES = _strip_upstream_pages(app, ("/",))
 
 app.include_router(build_router(registry, store, custom_store, limits=limits))
+
+# PWA: serve manifest.json and sw.js
+@app.get("/manifest.json")
+async def serve_manifest():
+    return FileResponse(
+        ROOT / "site" / "static" / "manifest.json",
+        media_type="application/json",
+    )
+
+@app.get("/sw.js")
+async def serve_sw():
+    return FileResponse(
+        ROOT / "site" / "static" / "sw.js",
+        media_type="text/javascript",
+    )
 app.include_router(build_auth_router(auth_service))
 app.include_router(build_page_router())
 app.include_router(build_limits_admin_router(limits))
