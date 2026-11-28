@@ -414,12 +414,19 @@ def build_billing_router(store: BillingStore, *, waffo: Any = None, success_url:
         promo = (payload.promo_code or "").strip()
         if promo and not (3 <= len(promo) <= 64):
             raise HTTPException(422, "促销码格式不正确")
-        result = waffo.create_checkout(
-            user_id=user,
-            interval=interval,
-            promo_code=promo,
-            success_url=success_url or waffo.default_success_url,
-        )
+        try:
+            result = waffo.create_checkout(
+                user_id=user,
+                interval=interval,
+                promo_code=promo,
+                success_url=success_url or waffo.default_success_url,
+            )
+        except Exception as exc:  # noqa: BLE001 - 上游错误不能变成 500
+            status = getattr(exc, "status", 0) or 502
+            detail = str(getattr(exc, "body", "") or exc)
+            if status == 409:
+                raise HTTPException(409, "促销码无效或该订单已存在，请检查后重试") from None
+            raise HTTPException(502, f"支付服务暂时不可用（{status}）：{detail[:120]}") from None
         session_id = str(result.get("sessionId") or "")
         if session_id:
             store.save_checkout(user, session_id, interval, promo)

@@ -209,7 +209,9 @@ class WaffoClient:
             # 与 allowPromotionCodes 互斥：显式传码时关掉自动码框
             payload["promotionCode"] = promo_code
             payload.pop("allowPromotionCodes", None)
-        return self.post("/v1/actions/checkout/create-session", payload)
+        resp = self.post("/v1/actions/checkout/create-session", payload)
+        # Waffo 统一把结果放在 data 下
+        return resp.get("data") or resp
 
     # ── Webhook ─────────────────────────────────────────────
     def verify_webhook(self, raw_body: bytes, signature_header: str, *, now_ms: int = 0) -> bool:
