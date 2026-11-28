@@ -448,6 +448,73 @@ header button { padding: 7px 10px; font-size: 13px; }
 }
 .sys { color: var(--muted); font-size: 12px; text-align: center; width: 100%; }
 
+
+/* 页眉收纳：手机上只留名字 + 试用徽章 + 更多，其余进底部菜单 */
+header .icon-btn { flex: 0 0 auto; }
+#menuSheet {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+#menuSheet[hidden] { display: none; }
+.sheet-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 6, 16, .58);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: fadeIn .18s ease-out;
+}
+.sheet-card {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 8px calc(8px + env(safe-area-inset-bottom));
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 18px;
+  border: 1px solid var(--stroke);
+  background: rgba(18, 20, 38, .94);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .5);
+  animation: sheetUp .22s cubic-bezier(.2, .9, .25, 1);
+}
+.sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font-size: 14.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.sheet-item:hover, .sheet-item:active { background: rgba(255, 255, 255, .07); }
+.sheet-item.danger { color: #ff8a9a; }
+.sheet-item svg { flex: 0 0 auto; opacity: .72; }
+.sheet-item + .sheet-item { border-top: 1px solid rgba(255, 255, 255, .045); }
+@keyframes sheetUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet-card, .sheet-mask { animation: none; }
+}
+
 /* 正在输入：做成对话流里的一个空气泡，而不是底部一行小字 */
 .bubble.typing {
   display: inline-flex;
@@ -498,7 +565,6 @@ footer {
   font-weight: 650;
   box-shadow: 0 8px 24px rgba(91, 124, 250, .35);
 }
-#dbgBtn { font-size: 12px; padding: 6px 9px; }
 #dbg {
   position: fixed;
   left: 0; right: 0; bottom: 0;
@@ -878,15 +944,38 @@ input:focus, textarea:focus, select:focus {
   <header>
     <span class="name" id="personaName">聊天</span>
     <select id="personaSelect" aria-label="选择人格"></select>
-    <button type="button" id="settingsBtn" class="icon-btn" title="模型设置" aria-label="模型设置">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-    </button>
     <button type="button" id="trialBadge" class="badge" title="免费试用剩余轮数">…</button>
-    <button type="button" id="exportBtn" title="导出这段对话">导出</button>
-    <button type="button" id="reportBtn" title="举报不当内容">举报</button>
-    <button type="button" id="dbgBtn" title="导出事件日志">日志</button>
-    <button type="button" id="logoutBtn">退出</button>
+    <button type="button" id="menuBtn" class="icon-btn" title="更多" aria-label="更多" aria-haspopup="menu">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>
+    </button>
   </header>
+
+  <div id="menuSheet" hidden>
+    <div class="sheet-mask" data-menu-close></div>
+    <div class="sheet-card" role="dialog" aria-label="更多操作">
+      <button type="button" id="settingsBtn" class="sheet-item" data-menu-close>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+        <span>模型设置</span>
+      </button>
+      <button type="button" id="reportBtn" class="sheet-item" data-menu-close>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4a1 1 0 0 1 1-1h9l-1 3h6a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-7l-1 3H5"/></svg>
+        <span>举报不当内容</span>
+      </button>
+      <button type="button" id="exportBtn" class="sheet-item" data-menu-close>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+        <span>导出这段对话</span>
+      </button>
+      <button type="button" id="dbgBtn" class="sheet-item" data-menu-close>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>
+        <span>事件日志</span>
+      </button>
+      <button type="button" id="logoutBtn" class="sheet-item danger" data-menu-close>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+        <span>退出登录</span>
+      </button>
+      <button type="button" id="menuCancel" class="sheet-item" data-menu-close>取消</button>
+    </div>
+  </div>
   <div id="log"></div>
   <footer>
     <textarea id="text" rows="1" placeholder="说点什么…" enterkeyhint="send"></textarea>
@@ -1054,6 +1143,12 @@ input:focus, textarea:focus, select:focus {
   var TOKEN_KEY = "alpha.token";
   var CLIENT_KEY = "alpha.client_id";
   var PERSONA_KEY = "alpha.persona_id";
+  // 界面上显示名字，不显示内部 id（#99 收窄后只剩小兰）
+  var PERSONA_LABELS = { xiaolan: "小兰", luna: "露娜", linzhou: "林舟" };
+  function personaLabel(id) {
+    if (!id) return "聊天";
+    return PERSONA_LABELS[id] || id;
+  }
 
   var state = {
     token: localStorage.getItem(TOKEN_KEY) || "",
@@ -1333,7 +1428,8 @@ input:focus, textarea:focus, select:focus {
     } else {
       var left = b.trial ? b.trial.remaining : 0;
       var limit = b.trial ? b.trial.limit : 30;
-      el.textContent = "试用 " + left + "/" + limit;
+      el.textContent = "试用 " + left;
+      el.title = "免费试用剩余 " + left + "/" + limit + " 轮";
       el.className = "badge" + (b.can_chat ? "" : " off");
     }
   }
@@ -1456,6 +1552,18 @@ input:focus, textarea:focus, select:focus {
   $("payRetry").addEventListener("click", pollBillingForPay);
 
   $("trialBadge").addEventListener("click", showSubscribe);
+
+  /* 页眉「更多」：底部菜单。手机上页眉只留 名字 + 试用徽章 + 更多。 */
+  function openMenu() { $("menuSheet").hidden = false; dbg("ui.menu_open"); }
+  function closeMenu() { $("menuSheet").hidden = true; }
+  $("menuBtn").addEventListener("click", openMenu);
+  $("menuSheet").addEventListener("click", function (ev) {
+    var t = ev.target;
+    if (t && t.closest && t.closest("[data-menu-close]")) closeMenu();
+  });
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key === "Escape") closeMenu();
+  });
   $("subBack").addEventListener("click", function () { showView("chat"); });
   $("subChat").addEventListener("click", function () { showView("chat"); });
   $("subMonthly").addEventListener("click", function () { pickInterval("monthly"); });
@@ -1667,7 +1775,7 @@ input:focus, textarea:focus, select:focus {
         state.personas.forEach(function (id) {
           var o = document.createElement("option");
           o.value = id;
-          o.textContent = id;
+          o.textContent = personaLabel(id);
           sel.appendChild(o);
         });
         if (!state.personaId || state.personas.indexOf(state.personaId) < 0) {
@@ -1677,7 +1785,7 @@ input:focus, textarea:focus, select:focus {
         // #99 单人格收窄：只有一个可选人格时不显示切换入口
         sel.hidden = state.personas.length <= 1;
         sel.value = state.personaId;
-        $("personaName").textContent = state.personaId || "聊天";
+        $("personaName").textContent = personaLabel(state.personaId);
       });
   }
 
@@ -1695,7 +1803,7 @@ input:focus, textarea:focus, select:focus {
 
     state.personaId = nextId;
     localStorage.setItem(PERSONA_KEY, nextId);
-    $("personaName").textContent = nextId;
+    $("personaName").textContent = personaLabel(nextId);
 
     state.switching = true;
     state.needResync = false;
