@@ -130,7 +130,8 @@ function makeEnv(search) {
 
   const send = (obj) => sockets.at(-1).onmessage({ data: JSON.stringify(obj) });
   const themBubbles = (since) => made.slice(since).filter((n) =>
-    n.className === "bubble" && n.parentNode && n.parentNode.className === "row them");
+    n.className === "bubble" && n.parentNode && n.parentNode.className === "row them" &&
+    n.parentNode.parentNode);  // row 仍挂在 logEl 上（被对账撤下的不算）
   const isTyping = () => made.some((n) =>
     n.className === "bubble typing" && n.parentNode && n.parentNode.parentNode);
 
@@ -163,9 +164,10 @@ check("首字渲染后打字气泡消失", !env.isTyping());
 check("T1 单气泡逐字渲染", bs.length === 1 && bs[0].textContent === "我在。好",
   bs.map((b) => b.textContent).join("|"));
 let g = gaps(bs[0]);
-check("T1 普通字间隔 20–60ms", g[0] >= 20 && g[0] <= 60 && g[2] >= 20 && g[2] <= 60,
+// "我在。好"：g0=我→在 g1=在→。 g2=。→好（句号后的停顿体现在下一个字）
+check("T1 普通字间隔 20–60ms", g[0] >= 20 && g[0] <= 60 && g[1] >= 20 && g[1] <= 60,
   `gaps=${g.join(",")}`);
-check("T1 句号后停顿 ≥390ms", g[1] >= 390, `句号后 gap=${g[1]}`);
+check("T1 句号后停顿 ≥390ms", g[2] >= 390, `句号后 gap=${g[2]}`);
 env.send({ type: "segment_end", segment: 0, reply: "我在。好", pause_ms: 300 });
 env.send({ type: "chat_end", reply: "我在。好", segments: ["我在。好"], chunks: 4 });
 env.pump(100);
