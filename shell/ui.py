@@ -269,8 +269,9 @@ header button { padding: 7px 10px; font-size: 13px; }
   box-shadow: 0 6px 20px rgba(91, 124, 250, .3);
 }
 .them .bubble {
-  background: rgba(255, 255, 255, .06);
+  background: var(--mood-tint, rgba(255, 255, 255, .06));
   border: 1px solid var(--stroke-soft);
+  border-radius: var(--mood-radius, 16px);
   border-bottom-left-radius: 5px;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -786,6 +787,64 @@ if ("serviceWorker" in navigator) {
     localStorage.setItem(CLIENT_KEY, state.clientId);
   }
 
+  /* ── #95 节奏调度器 ──
+     WS chunk 的边界是 LLM token 边界，不是说话节奏。
+     chunk → 字符队列 → rAF 单循环按标点延迟消费 → 每帧一次 DOM 写入。
+     不用每字符 setTimeout（中端安卓会掉帧）。 */
+  var nowMs = (window.performance && performance.now)
+    ? function () { return performance.now(); }
+    : function () { return Date.now(); };
+  var raf = window.requestAnimationFrame
+    ? function (fn) { return window.requestAnimationFrame(fn); }
+    : function (fn) { return setTimeout(function () { fn(nowMs()); }, 16); };
+  var caf = window.cancelAnimationFrame
+    ? function (id) { window.cancelAnimationFrame(id); }
+    : function (id) { clearTimeout(id); };
+  var REDUCE_MOTION = !!(window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  var FAST_RENDER = /[?&]fast=1/.test(location.search);  // 调试：关掉节奏直出
+
+  var rhythm = {
+    q: [],             // 字符队列 [{ch, seg}]
+    due: 0,            // 下一个字符应出现的时刻
+    rafId: 0,
+    running: false,
+    bubbles: [],       // 本轮气泡 [{seg, el}]
+    rendered: 0,       // 本轮已渲染字符数
+    pendingEnd: null,  // 等队列排空后对账的 chat_end
+    typingPending: false,
+    sentences: [],     // 最近两个已完成句子的长度（hurry 检测）
+    sentenceLen: 0,
+    mood: { frustration: 0, temperature: 0 },  // 上一轮状态，滞后一轮
+    autoScroll: true,
+    lastCh: "",
+    t0: 0,
+    lastAt: 0,
+    gaps: []           // 字符间隔采样（dbg 统计）
+  };
+
+  function clamp01(v) { return Math.max(0, Math.min(1, v || 0)); }
+
+  /* 延迟是「这个字出现之后」的呼吸。数值先拍脑袋，后调（#95 §2）。 */
+  function charDelay(ch, prevCh) {
+    if (FAST_RENDER || REDUCE_MOTION) return 0;
+    if (ch === "\n") return prevCh === "\n" ? 800 : 600;
+    if ("。！？!?…".indexOf(ch) >= 0) return 400;
+    if ("，、,;；:：".indexOf(ch) >= 0) return 120;
+    return 26 + (ch.charCodeAt(0) % 15);  // 26–40ms，确定性抖动（测试可复现）
+  }
+
+  /* 情绪驱动（#95 §4）：frustration 高 → 更快、停顿更短。
+     引擎的 frustration 是各 drive 之和（无上界，5 已算高），temperature ≈ 0–0.3。 */
+  function moodF() { return clamp01(rhythm.mood.frustration / 5); }
+  function speedFactor() {
+    var s = 1 + moodF() * 0.4;
+    var hurry = rhythm.sentences.length >= 2 &&
+      rhythm.sentences.every(function (n) { return n < 10; });
+    if (hurry) s *= 1.5;  // 连续短句 → 「急着说」
+    return s;
+  }
+
   /* ── 事件日志（#98）：把发生过的事记下来，出问题能回看 ── */
   var DBG_KEY = "alpha.debug";
   var DBG_MAX = 800;
@@ -864,7 +923,12 @@ if ("serviceWorker" in navigator) {
       typingRow.className = "row them";
       var b = document.createElement("div");
       b.className = "bubble typing";
-      for (var i = 0; i < 3; i++) b.appendChild(document.createElement("i"));
+      var dur = (1.1 - moodF() * 0.5).toFixed(2) + "s";  // 烦躁 → 呼吸更急
+      for (var i = 0; i < 3; i++) {
+        var dot = document.createElement("i");
+        dot.style.animationDuration = dur;
+        b.appendChild(dot);
+      }
       typingRow.appendChild(b);
       logEl.appendChild(typingRow);
       scrollDown();
@@ -876,8 +940,9 @@ if ("serviceWorker" in navigator) {
     }
   }
 
-  function scrollDown() {
-    logEl.scrollTop = logEl.scrollHeight;
+  /* 用户上滑看历史时不抢滚动条；回到底部附近才恢复自动跟随。 */
+  function scrollDown(force) {
+    if (force || rhythm.autoScroll) logEl.scrollTop = logEl.scrollHeight;
   }
 
   function addBubble(who, text) {
@@ -888,7 +953,7 @@ if ("serviceWorker" in navigator) {
     b.textContent = text;
     row.appendChild(b);
     logEl.appendChild(row);
-    scrollDown();
+    scrollDown(true);
     return b;
   }
 
@@ -1066,9 +1131,7 @@ if ("serviceWorker" in navigator) {
 
   function resetConversation() {
     logEl.textContent = "";
-    state.currentBubble = null;
-    state.currentSegment = -1;
-    state.seenChunks = 0;
+    resetRhythm();
   }
 
   /* ── 历史 ── */
@@ -1202,6 +1265,197 @@ if ("serviceWorker" in navigator) {
     return b;
   }
 
+  function bubbleFor(seg) {
+    var last = rhythm.bubbles[rhythm.bubbles.length - 1];
+    if (last && last.seg === seg) return last.el;
+    var b = newBubble();
+    rhythm.bubbles.push({ seg: seg, el: b });
+    return b;
+  }
+
+  function renderBatch(items) {
+    var groups = [];
+    items.forEach(function (it) {
+      var last = groups[groups.length - 1];
+      if (last && last.seg === it.seg) last.text += it.ch;
+      else groups.push({ seg: it.seg, text: it.ch });
+    });
+    groups.forEach(function (g) {
+      bubbleFor(g.seg).textContent += g.text;
+    });
+    rhythm.rendered += items.length;
+  }
+
+  function enqueue(text, seg) {
+    if (!text) return;
+    if (FAST_RENDER || REDUCE_MOTION) {
+      if (!rhythm.rendered) { setTyping(false); rhythm.typingPending = false; }
+      bubbleFor(seg).textContent += text;
+      rhythm.rendered += text.length;
+      scrollDown();
+      return;
+    }
+    for (var i = 0; i < text.length; i++) {
+      rhythm.q.push({ ch: text.charAt(i), seg: seg });
+    }
+    if (!rhythm.running) {
+      rhythm.running = true;
+      rhythm.due = 0;  // 首字符前不额外加延迟（#95 §2）
+      rhythm.rafId = raf(pump);
+    }
+  }
+
+  /* rAF 单循环：每帧消费「到点」的字符，一次 DOM 写入。
+     due = max(due, now) + delay —— 不追赶积压，LLM 一口气吐 30 字也按节奏出。 */
+  function pump(ts) {
+    rhythm.rafId = 0;
+    var now = typeof ts === "number" ? ts : nowMs();
+    var out = [];
+    var prevCh = rhythm.lastCh || "";
+    while (rhythm.q.length && now >= rhythm.due && out.length < 500) {
+      var item = rhythm.q.shift();
+      out.push(item);
+      var d = charDelay(item.ch, prevCh);
+      prevCh = item.ch;
+      rhythm.due = Math.max(rhythm.due, now) + d / speedFactor();
+      rhythm.sentenceLen += 1;
+      if ("。！？!?\n".indexOf(item.ch) >= 0) {
+        rhythm.sentences.push(rhythm.sentenceLen);
+        if (rhythm.sentences.length > 2) rhythm.sentences.shift();
+        rhythm.sentenceLen = 0;
+      }
+      if (rhythm.lastAt) {
+        rhythm.gaps.push(Math.round(now - rhythm.lastAt));
+        if (rhythm.gaps.length > 200) rhythm.gaps.shift();
+      } else {
+        rhythm.t0 = now;
+      }
+      rhythm.lastAt = now;
+    }
+    rhythm.lastCh = prevCh;
+    if (out.length) {
+      if (!rhythm.rendered) { setTyping(false); rhythm.typingPending = false; }
+      renderBatch(out);
+      scrollDown();
+    }
+    if (rhythm.q.length) {
+      rhythm.rafId = raf(pump);
+    } else {
+      rhythm.running = false;
+      if (rhythm.typingPending) { rhythm.typingPending = false; setTyping(true); }
+      if (rhythm.pendingEnd) finishTurn();
+    }
+  }
+
+  /* 中断①：发新消息 → 旧轮剩余字符立即补完（不丢字、不串轮），再开新轮。 */
+  function flushRhythm() {
+    if (rhythm.rafId) { caf(rhythm.rafId); rhythm.rafId = 0; }
+    rhythm.running = false;
+    rhythm.typingPending = false;
+    var rest = {};
+    var order = [];
+    rhythm.q.forEach(function (it) {
+      if (!(it.seg in rest)) { rest[it.seg] = ""; order.push(it.seg); }
+      rest[it.seg] += it.ch;
+    });
+    rhythm.q = [];
+    order.forEach(function (seg) {
+      var text = rest[seg];
+      bubbleFor(seg).textContent += text;
+      rhythm.rendered += text.length;
+    });
+    if (rhythm.pendingEnd) finishTurn();
+    else { setTyping(false); state.currentBubble = null; state.currentSegment = -1; }
+  }
+
+  /* 中断②：清屏/切人格 → 队列直接丢弃（历史会重绘，不需要补完）。 */
+  function resetRhythm() {
+    if (rhythm.rafId) { caf(rhythm.rafId); rhythm.rafId = 0; }
+    rhythm.q = [];
+    rhythm.running = false;
+    rhythm.bubbles = [];
+    rhythm.rendered = 0;
+    rhythm.pendingEnd = null;
+    rhythm.typingPending = false;
+    rhythm.sentences = [];
+    rhythm.sentenceLen = 0;
+    rhythm.lastCh = "";
+    rhythm.t0 = 0;
+    rhythm.lastAt = 0;
+    rhythm.gaps = [];
+    rhythm.autoScroll = true;
+    state.currentBubble = null;
+    state.currentSegment = -1;
+    state.seenChunks = 0;
+  }
+
+  /* 队列排空 + chat_end 已到 → 权威对账：DOM 文本归一化后必须 == reply。
+     Segmenter 切段会丢弃分隔空行，所以比较前去掉全部空白。 */
+  function finishTurn() {
+    var msg = rhythm.pendingEnd;
+    rhythm.pendingEnd = null;
+    setTyping(false);
+    state.currentBubble = null;
+    state.currentSegment = -1;
+    if (!msg) return;
+    var reply = msg.reply || "";
+    var norm = function (s) { return String(s).replace(/\s+/g, ""); };
+    var renderedText = rhythm.bubbles.map(function (b) { return b.el.textContent; }).join("\n\n");
+    var matched = norm(renderedText) === norm(reply);
+    if (!matched && reply) {
+      if (rhythm.rendered) {
+        // 渲染过但对不上 → 异常，撤掉本轮气泡整段替换
+        rhythm.bubbles.forEach(function (b) {
+          var row = b.el.parentNode;
+          if (row && row.parentNode) row.parentNode.removeChild(row);
+        });
+        dbg("rhythm.mismatch", { rendered: renderedText.length, reply: reply.length });
+      }
+      // rendered=0 是正常兜底（模型没守协议，后端整段补发前的保险）
+      addBubble("them", reply);
+    }
+    var avg = rhythm.gaps.length
+      ? Math.round(rhythm.gaps.reduce(function (a, b) { return a + b; }, 0) / rhythm.gaps.length)
+      : 0;
+    dbg("rhythm.stats", {
+      chars: rhythm.rendered,
+      segs: rhythm.bubbles.length || (reply ? 1 : 0),
+      ms: Math.round(rhythm.lastAt - rhythm.t0),
+      avg_gap_ms: avg,
+      verify: matched || !reply
+    });
+    state.seenChunks = 0;
+    rhythm.bubbles = [];
+    rhythm.rendered = 0;
+    rhythm.sentences = [];
+    rhythm.sentenceLen = 0;
+    rhythm.lastCh = "";
+    rhythm.t0 = 0;
+    rhythm.lastAt = 0;
+    rhythm.gaps = [];
+  }
+
+  /* 情绪驱动（#95 §4）：用上一轮 chat_end 的状态影响下一轮。 */
+  function saveMood(msg) {
+    var f = Number(msg.frustration);
+    var t = Number(msg.temperature);
+    rhythm.mood = {
+      frustration: isFinite(f) ? f : 0,
+      temperature: isFinite(t) ? t : 0
+    };
+    applyMood();
+  }
+
+  function applyMood() {
+    var root = document.documentElement;
+    if (!root || !root.style || !root.style.setProperty) return;
+    var f = moodF();
+    var t = clamp01(rhythm.mood.temperature / 0.3);
+    root.style.setProperty("--mood-radius", (16 - f * 5).toFixed(1) + "px");
+    root.style.setProperty("--mood-tint",
+      "rgba(255," + Math.round(255 - t * 40) + "," + Math.round(255 - t * 70) + ",.06)");
+  }
+
   function handle(msg) {
     if (msg.type === "chunk") {
       dbg("recv.chunk", { s: msg.segment, i: msg.index, n: (msg.content || "").length, c: msg.content });
@@ -1218,39 +1472,32 @@ if ("serviceWorker" in navigator) {
     }
     switch (msg.type) {
       case "chat_start":
-        setTyping(true);
+        // 队列里还有上一段的字在渲染 → 等排空再挂「正在输入」，避免插错位置
+        if (rhythm.running || rhythm.q.length) rhythm.typingPending = true;
+        else setTyping(true);
         break;
 
       case "chunk": {
-        setTyping(false);
         var seg = typeof msg.segment === "number" ? msg.segment : 0;
-        if (!state.currentBubble || seg !== state.currentSegment) {
-          state.currentSegment = seg;
-          newBubble();
-        }
-        state.currentBubble.textContent += (msg.content || "");
+        enqueue(msg.content || "", seg);
         state.seenChunks += 1;
-        scrollDown();
         break;
       }
 
       case "segment_end":
-        state.currentBubble = null;
-        state.currentSegment = -1;
+        // 不立即清气泡：队列里可能还有字没渲染完。
+        // 调度器消费到新段字符时自然开新气泡，上一条不消失（微信式堆叠）。
         break;
 
       case "chat_end":
         state.unanswered = Math.max(0, state.unanswered - 1);
-        setTyping(false);
-        state.currentBubble = null;
-        state.currentSegment = -1;
-        if (!state.seenChunks && msg.reply) {
-          addBubble("them", msg.reply);
-        }
-        state.seenChunks = 0;
+        saveMood(msg);
+        rhythm.pendingEnd = msg;
+        if (!rhythm.q.length && !rhythm.running) finishTurn();
         break;
 
       case "error":
+        flushRhythm();
         setTyping(false);
         addSystem(msg.content || msg.detail || "未知错误");
         break;
@@ -1269,6 +1516,9 @@ if ("serviceWorker" in navigator) {
       connect();
       return;
     }
+    // 上一轮还在渲染 → 立即补完剩余字符，不丢字、不串轮
+    flushRhythm();
+    rhythm.autoScroll = true;
     addBubble("me", text);
     textEl.value = "";
     textEl.style.height = "auto";
@@ -1297,6 +1547,12 @@ if ("serviceWorker" in navigator) {
       send();
     }
   });
+  // 上滑看历史 → 暂停自动跟随；回到底部 40px 内 → 恢复
+  logEl.addEventListener("scroll", function () {
+    var gap = logEl.scrollHeight - logEl.scrollTop - (logEl.clientHeight || 0);
+    rhythm.autoScroll = gap < 40;
+  });
+
   // 每次输入都读 scrollHeight 会强制同步布局，手机上就是那种「卡一下」。
   // 折到 rAF 里，且高度没变就不写 style。
   var heightPending = false;
@@ -1304,7 +1560,7 @@ if ("serviceWorker" in navigator) {
   textEl.addEventListener("input", function () {
     if (heightPending) return;
     heightPending = true;
-    requestAnimationFrame(function () {
+    raf(function () {
       heightPending = false;
       textEl.style.height = "auto";
       var h = Math.min(textEl.scrollHeight, 120);

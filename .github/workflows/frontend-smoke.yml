@@ -1,0 +1,20 @@
+name: frontend-smoke
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: P0 behaviors (persona switch / reconnect resync)
+        run: node tests/ui_p0_smoke.mjs
+      - name: Debug event log
+        run: node tests/ui_debug_smoke.mjs
+      - name: Rhythm scheduler (#95)
+        run: node tests/ui_rhythm_smoke.mjs

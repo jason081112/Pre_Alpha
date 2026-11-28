@@ -14,12 +14,13 @@ import vm from "node:vm";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const src = readFileSync(join(root, "shell/ui.py"), "utf8");
-const m = src.match(/<script nonce="[^"]+">([\s\S]*?)<\/script>/);
-if (!m) {
+// #80 之后页面有两个 nonce script（SW 注册 + 主逻辑），取最长的才是主脚本
+const blocks = [...src.matchAll(/<script nonce="[^"]+">([\s\S]*?)<\/script>/g)].map((x) => x[1]);
+if (!blocks.length) {
   console.error("✗ 找不到页面脚本");
   process.exit(1);
 }
-const code = m[1];
+const code = blocks.sort((a, b) => b.length - a.length)[0];
 
 // ── 最小 DOM / BOM stub ──────────────────────────────────────────
 const store = new Map();
