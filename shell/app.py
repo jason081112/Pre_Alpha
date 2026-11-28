@@ -81,6 +81,7 @@ from shell.limits import (  # noqa: E402
 from shell.billing import BillingStore, build_billing_router  # noqa: E402
 from shell.limits_api import build_limits_admin_router  # noqa: E402
 from shell.moderation import ModerationStore, build_moderation_router  # noqa: E402
+from shell.notify import from_env as notify_from_env  # noqa: E402
 from shell.account import (  # noqa: E402
     DeletionStore,
     build_account_router,
@@ -344,6 +345,9 @@ app.include_router(build_consent_router(auth_store))
 app.include_router(build_page_router())
 app.include_router(build_limits_admin_router(limits))
 # #100 举报通知：写本地日志 + 可选 webhook（省得只能靠轮询管理端）
+_notifier = notify_from_env()
+
+
 def _notify_report(report: dict) -> None:
     stamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(report.get("created_at") or time.time()))
     line = (
@@ -360,32 +364,39 @@ def _notify_report(report: dict) -> None:
     except OSError as exc:
         print(f"[report] 写日志失败: {exc}", flush=True)
     hook = os.getenv("ALPHA_REPORT_WEBHOOK", "").strip()
-    if not hook:
+    if not hook and _notifier is None:
         return
 
-    def post() -> None:
-        import urllib.request
+    def push() -> None:
+        if hook:
+            import urllib.request
 
-        body = json.dumps(
-            {
-                "text": line,
-                "content": line,
-                "report": report,
-            },
-            ensure_ascii=False,
-        ).encode("utf-8")
-        req = urllib.request.Request(
-            hook,
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        try:
-            urllib.request.urlopen(req, timeout=6).read()
-        except Exception as exc:  # noqa: BLE001
-            print(f"[report] webhook 失败: {exc}", flush=True)
+            body = json.dumps(
+                {
+                    "text": line,
+                    "content": line,
+                    "report": report,
+                },
+                ensure_ascii=False,
+            ).encode("utf-8")
+            req = urllib.request.Request(
+                hook,
+                data=body,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            try:
+                urllib.request.urlopen(req, timeout=6).read()
+            except Exception as exc:  # noqa: BLE001
+                print(f"[report] webhook 失败: {exc}", flush=True)
+        if _notifier is not None:
+            try:
+                _notifier.send_report(report)
+                print(f"[report] 邮件已发送 #{report.get('id')}", flush=True)
+            except Exception as exc:  # noqa: BLE001
+                print(f"[report] 邮件失败: {exc}", flush=True)
 
-    threading.Thread(target=post, daemon=True).start()
+    threading.Thread(target=push, daemon=True).start()
 
 
 app.include_router(

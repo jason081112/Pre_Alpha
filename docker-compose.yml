@@ -35,9 +35,9 @@ services:
       - ${ALPHA_BACKUP_DIR:-/opt/prealpha/backups}:/opt/prealpha/backups
     expose:
       - "8000"
-    # 旁路测试时把下面一行取消注释，只在本机 8080 暴露
-    # ports:
-    #   - "127.0.0.1:8080:8000"
+    # 只在本机 8080 暴露：部署脚本/回滚脚本/监控直接 curl，公网仍只走 caddy
+    ports:
+      - "127.0.0.1:8080:8000"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/healthz"]
       interval: 30s

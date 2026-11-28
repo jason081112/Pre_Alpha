@@ -52,14 +52,14 @@ PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple ./scripts/dev/docker_depl
 
 ## 旁路验证（不抢 80/443）
 
-新机器或首次切换时，先在 8080 验证，再切正式端口：
+app 固定只在本机 `127.0.0.1:8080` 暴露（公网只走 caddy）：
 
 ```bash
-docker compose up -d app          # 只起 app
-docker run --rm --network host curlimages/curl -fsS http://127.0.0.1:8000/healthz
+curl -fsS http://127.0.0.1:8080/healthz
+curl -fsS http://127.0.0.1:8080/readyz
 ```
 
-或临时打开 `docker-compose.yml` 里 `ports: 127.0.0.1:8080:8000`。
+部署/回滚脚本也用这个地址判断就绪，不依赖公网。
 
 ## 从 venv 部署切换过来
 

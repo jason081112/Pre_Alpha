@@ -39,7 +39,7 @@ docker compose up -d
 
 echo "▸ 等待 /healthz（最多 120s）"
 for i in $(seq 1 60); do
-  if curl -fsS "http://127.0.0.1:8000/healthz" >/dev/null 2>&1; then
+  if curl -fsS "http://127.0.0.1:8080/healthz" >/dev/null 2>&1; then
     break
   fi
   if [[ $i -eq 60 ]]; then
@@ -51,8 +51,8 @@ for i in $(seq 1 60); do
 done
 
 echo "▸ smoke"
-curl -fsS http://127.0.0.1:8000/healthz; echo
-if curl -fsS http://127.0.0.1:8000/readyz >/tmp/alpha-readyz.json 2>/dev/null; then
+curl -fsS http://127.0.0.1:8080/healthz; echo
+if curl -fsS http://127.0.0.1:8080/readyz >/tmp/alpha-readyz.json 2>/dev/null; then
   echo "✓ /readyz ok"
 else
   echo "✗ /readyz 未通过：" >&2

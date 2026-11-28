@@ -32,7 +32,7 @@ echo "▸ 回滚到 alpha:$TAG"
 ALPHA_TAG="$TAG" docker compose up -d --no-build
 
 for i in $(seq 1 45); do
-  if curl -fsS http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
+  if curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1; then
     echo "✓ 回滚完成：alpha:$TAG"
     [[ -f .deploy/previous_tag ]] && echo "$TAG" > .deploy/current_tag
     exit 0
