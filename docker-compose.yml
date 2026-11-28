@@ -14,7 +14,9 @@
 
 services:
   app:
-    image: alpha:${ALPHA_TAG:-latest}
+    # 默认用本机构建的 alpha:<tag>；设 ALPHA_IMAGE 即可直接从镜像仓库拉取
+    #   ALPHA_IMAGE=crpi-xxx.cn-hongkong.personal.cr.aliyuncs.com/prealpha/app:latest
+    image: ${ALPHA_IMAGE:-alpha:${ALPHA_TAG:-latest}}
     build:
       context: .
       args:

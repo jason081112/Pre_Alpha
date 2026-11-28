@@ -79,6 +79,19 @@ systemctl start alpha.service caddy
 
 全部见 `.env.example`。`.env` 不进镜像（`.dockerignore` 已排除）。
 
+### 从镜像仓库拉取（阿里云 ACR）
+
+```bash
+docker login --username=<用户名> crpi-<实例>.cn-hongkong.personal.cr.aliyuncs.com
+# .env 里设：
+#   ALPHA_IMAGE=crpi-<实例>.cn-hongkong.personal.cr.aliyuncs.com/prealpha/app:latest
+docker compose pull app
+docker compose up -d app
+```
+
+`ALPHA_IMAGE` 未设时仍用本机构建的 `alpha:${ALPHA_TAG}`，构建/拉取两种方式
+互不影响。推镜像见 `scripts/dev/docker_deploy.sh` 与 `alpha-cloud/deploy/README.md`。
+
 ## 权限：容器以 uid 1000 运行
 
 `docker-compose.yml` 用 `user: "${ALPHA_UID:-1000}:${ALPHA_GID:-1000}"`，卷里的文件
